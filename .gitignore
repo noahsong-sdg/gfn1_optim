@@ -1,0 +1,9 @@
+
+# pixi environments
+**pixi**
+*.egg-info
+data/
+archive/
+
+**/__pycache__/
+
