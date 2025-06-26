@@ -660,11 +660,11 @@ def main():
     
     # Configuration
     config = GAConfig(
-        population_size=30,
+        population_size=56,  # 2x max_workers for better load balancing
         generations=50,
         mutation_rate=0.15,
         crossover_rate=0.8,
-        max_workers=4
+        max_workers=28  # Use most cores, leave 4 for system overhead
     )
     
     # Initialize GA
