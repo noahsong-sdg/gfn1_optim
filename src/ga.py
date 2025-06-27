@@ -14,7 +14,9 @@ import time
 import logging
 from scipy.interpolate import interp1d
 
-from h2_v2 import MolecularCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
+from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
+from data_extraction import GFN1ParameterExtractor
+from system_config import get_system_config, SystemConfig, get_calculation_distances
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -28,13 +30,6 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 # Configuration files
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-
-# Reference data files
-CCSD_REFERENCE_500 = RESULTS_DIR / "curves" / "h2_ccsd_500.csv"
-
-# Output files
-GA_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "ga_optimized_params.toml"
-GA_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "ga_fitness_history.csv"
 
 @dataclass
 class GAConfig:
@@ -73,10 +68,11 @@ class Individual:
     def __repr__(self):
         return f"Individual(fitness={self.fitness:.6f}, age={self.age})"
 
-class TBLiteParameterGA:
-    """Genetic Algorithm for optimizing TBLite parameters for H2"""
+class GeneralParameterGA:
+    """General Genetic Algorithm for optimizing TBLite parameters for any molecular system"""
     
     def __init__(self, 
+                 system_name: str,
                  base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
                  config: GAConfig = GAConfig(),
@@ -84,28 +80,36 @@ class TBLiteParameterGA:
         """Initialize the genetic algorithm for TBLite parameter optimization
         
         Args:
+            system_name: Name of the system to optimize (e.g., 'H2', 'Si2', 'CdS')
             base_param_file: Path to base parameter TOML file
-            reference_data: Optional reference data (if None, loads from CSV)
+            reference_data: Optional reference data (if None, generates with method)
             config: GA configuration
             train_fraction: Fraction of data to use for training (rest for testing)
         """
+        
+        # System configuration
+        self.system_name = system_name
+        self.system_config = get_system_config(system_name)
         
         # Load base parameters
         with open(base_param_file, 'r') as f:
             self.base_params = toml.load(f)
         
+        # Store base parameter file path for parameter extraction
+        self.base_param_file = Path(base_param_file)
+        
         # Configuration
         self.config = config
         self.train_fraction = train_fraction
         
-        # Define parameter bounds for H2 optimization
-        self.parameter_bounds = self._define_h2_parameter_bounds()
+        # Define parameter bounds using parameter extraction
+        self.parameter_bounds = self._define_parameter_bounds()
         
-        # Load reference data
+        # Load or generate reference data
         if reference_data is not None:
             self.full_reference_data = reference_data
         else:
-            self.full_reference_data = self._load_reference_data()
+            self.full_reference_data = self._load_or_generate_reference_data()
         
         # Split data into train/test sets
         self._split_train_test_data()
@@ -116,60 +120,102 @@ class TBLiteParameterGA:
         self.generation = 0
         self.convergence_counter = 0
         self.fitness_history = []
-        self.failed_evaluations = 0  # Track failed fitness evaluations
+        self.failed_evaluations = 0
         
-    def _define_h2_parameter_bounds(self) -> List[ParameterBounds]:
-        """Define parameter bounds for H2-relevant parameters"""
+    def _define_parameter_bounds(self) -> List[ParameterBounds]:
+        """Define parameter bounds for system-relevant parameters using extracted defaults"""
         bounds = []
         
-        # Hamiltonian parameters
-        bounds.extend([
-            ParameterBounds("hamiltonian.xtb.kpol", 1.0, 5.0, 2.85),
-            ParameterBounds("hamiltonian.xtb.enscale", -0.02, 0.02, -0.007),
-        ])
+        # Extract default parameters from base parameter file
+        extractor = GFN1ParameterExtractor(self.base_param_file)
+        system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
         
-        # Shell parameters
-        bounds.extend([
-            ParameterBounds("hamiltonian.xtb.shell.ss", 1.0, 3.0, 1.85),
-            ParameterBounds("hamiltonian.xtb.shell.pp", 1.5, 3.5, 2.25),
-            ParameterBounds("hamiltonian.xtb.shell.sp", 1.5, 3.0, 2.08),
-        ])
+        # Define bounds based on parameter type and extracted defaults
+        for param_name, default_val in system_defaults.items():
+            min_val, max_val = self._get_parameter_bounds(param_name, default_val)
+            bounds.append(ParameterBounds(param_name, min_val, max_val, default_val))
         
-        # H-H pair interaction
-        bounds.append(ParameterBounds("hamiltonian.xtb.kpair.H-H", 0.5, 1.5, 0.96))
-        
-        # Hydrogen element parameters
-        h_element_bounds = [
-            ("element.H.levels[0]", -15.0, -8.0, -10.92),  # 1s level
-            ("element.H.levels[1]", -4.0, -1.0, -2.17),   # 2s level
-            ("element.H.slater[0]", 0.8, 2.0, 1.21),      # 1s slater
-            ("element.H.slater[1]", 1.0, 3.0, 1.99),      # 2s slater
-            ("element.H.kcn[0]", 0.01, 0.15, 0.0655),     # coordination number dependence
-            ("element.H.kcn[1]", 0.001, 0.05, 0.0130),
-            ("element.H.gam", 0.2, 0.8, 0.47),           # gamma parameter
-            ("element.H.zeff", 0.8, 1.5, 1.12),          # effective nuclear charge
-            ("element.H.arep", 1.5, 3.0, 2.21),          # repulsion parameter
-            ("element.H.en", 1.5, 3.0, 2.2),             # electronegativity
-        ]
-        
-        for param_path, min_val, max_val, default in h_element_bounds:
-            bounds.append(ParameterBounds(param_path, min_val, max_val, default))
-            
+        logger.info(f"Generated {len(bounds)} parameter bounds for {self.system_name} from extracted defaults")
         return bounds
     
-    def _load_reference_data(self) -> pd.DataFrame:
-        """Load or generate reference CCSD data for H2"""
-        if CCSD_REFERENCE_500.exists():
-            logger.info(f"Loading reference data from {CCSD_REFERENCE_500}")
-            return pd.read_csv(CCSD_REFERENCE_500)
+    def _get_parameter_bounds(self, param_name: str, default_val: float) -> tuple:
+        """Get appropriate bounds for a parameter based on its name and default value"""
+        
+        # System-specific parameter bounds (can be extended for different systems)
+        system_specific_bounds = {
+            'H2': {
+                'hamiltonian.xtb.kpair.H-H': (0.5, 1.5),
+            },
+            'Si2': {
+                'hamiltonian.xtb.kpair.Si-Si': (0.5, 1.5),
+            },
+            'C2': {
+                'hamiltonian.xtb.kpair.C-C': (0.5, 1.5),
+            },
+            'N2': {
+                'hamiltonian.xtb.kpair.N-N': (0.5, 1.5),
+            },
+            'O2': {
+                'hamiltonian.xtb.kpair.O-O': (0.5, 1.5),
+            },
+        }
+        
+        # Check for system-specific bounds first
+        if self.system_name in system_specific_bounds:
+            if param_name in system_specific_bounds[self.system_name]:
+                return system_specific_bounds[self.system_name][param_name]
+        
+        # General parameter bounds
+        general_bounds = {
+            'hamiltonian.xtb.kpol': (1.0, 5.0),
+            'hamiltonian.xtb.enscale': (-0.02, 0.02),
+            'hamiltonian.xtb.shell.ss': (1.0, 3.0),
+            'hamiltonian.xtb.shell.pp': (1.5, 3.5),
+            'hamiltonian.xtb.shell.sp': (1.5, 3.0),
+        }
+        
+        if param_name in general_bounds:
+            return general_bounds[param_name]
+        
+        # Type-based bounds
+        if 'levels' in param_name:
+            # Energy levels - allow ±30% variation
+            return (default_val - abs(default_val) * 0.3, default_val + abs(default_val) * 0.3)
+        elif 'slater' in param_name:
+            # Slater exponents - keep positive, allow wide range
+            return (max(0.1, default_val * 0.5), default_val * 2.0)
+        elif 'kcn' in param_name:
+            # Coordination number parameters - keep positive, allow wide range
+            return (max(0.001, default_val * 0.1), default_val * 5.0)
+        elif param_name.endswith('.gam'):
+            return (0.2, 0.8)
+        elif param_name.endswith('.zeff'):
+            return (0.8, 1.5)
+        elif param_name.endswith('.arep'):
+            return (1.5, 3.0)
+        elif param_name.endswith('.en'):
+            return (1.5, 3.0)
         else:
-            logger.info("Generating reference CCSD data...")
-            ccsd_config = CalcConfig(method=CalcMethod.CCSD, basis="cc-pVTZ")
-            calculator = MolecularCalculator(ccsd_config)
+            # Default: ±50% around default
+            margin = abs(default_val) * 0.5
+            return (default_val - margin, default_val + margin)
+    
+    def _load_or_generate_reference_data(self) -> pd.DataFrame:
+        """Load or generate reference data for the system"""
+        # Try to load existing reference data
+        ref_file = Path(self.system_config.reference_data_file)
+        if ref_file.exists():
+            logger.info(f"Loading reference data from {ref_file}")
+            return pd.read_csv(ref_file)
+        else:
+            logger.info(f"Generating reference data for {self.system_name}...")
+            # Generate with GFN1-xTB as reference
+            calc_config = CalcConfig(method=CalcMethod.GFN1_XTB)
+            calculator = GeneralCalculator(calc_config, self.system_config)
             generator = DissociationCurveGenerator(calculator)
             
-            ref_data = generator.generate_h2_curve(
-                self.test_distances, save=True, filename=str(CCSD_REFERENCE_500)
+            ref_data = generator.generate_curve(
+                save=True, filename=str(ref_file)
             )
             return ref_data
     
@@ -210,34 +256,6 @@ class TBLiteParameterGA:
                 current[key] = {}
             current = current[key]
         current[keys[-1]] = value
-    
-    def _get_parameter_from_dict(self, param_dict: dict, path: str) -> float:
-        """Get a parameter value using path like 'element.H.levels[0]' or 'hamiltonian.xtb.kpol'"""
-        import re
-        
-        # Check if this is an array access
-        if '[' in path and ']' in path:
-            # Split into path and array index: 'element.H.levels[0]' -> 'element.H.levels', '0'
-            match = re.match(r'(.+)\[(\d+)\]$', path)
-            if match:
-                array_path, index_str = match.groups()
-                index = int(index_str)
-                
-                # Navigate to the array
-                keys = array_path.split('.')
-                current = param_dict
-                for key in keys:
-                    current = current[key]
-                
-                return current[index]
-        
-        # Regular path access
-        keys = path.split('.')
-        current = param_dict
-        for key in keys:
-            current = current[key]
-        
-        return current
     
     def create_individual(self, parameters: Optional[Dict[str, float]] = None) -> Individual:
         """Create a new individual with given or random parameters"""
@@ -283,21 +301,20 @@ class TBLiteParameterGA:
             return f.name
     
     def evaluate_fitness(self, individual: Individual) -> float:
-        """Evaluate fitness of an individual by calculating H2 curve error on training data"""
+        """Evaluate fitness of an individual by calculating curve error on training data"""
         try:
             param_file = self.create_param_file(individual)
             
             # Create calculator with custom parameters
-            config = CalcConfig(
+            calc_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
-                param_file=param_file,
-                spin=1
+                param_file=param_file
             )
-            calculator = MolecularCalculator(config)
+            calculator = GeneralCalculator(calc_config, self.system_config)
             generator = DissociationCurveGenerator(calculator)
             
-            # Calculate H2 curve on TRAINING distances only
-            calc_data = generator.generate_h2_curve(self.train_distances)
+            # Calculate curve on TRAINING distances only
+            calc_data = generator.generate_curve(self.train_distances)
             
             # Clean up temp file
             os.unlink(param_file)
@@ -333,16 +350,15 @@ class TBLiteParameterGA:
             param_file = self.create_param_file(individual)
             
             # Create calculator with custom parameters
-            config = CalcConfig(
+            calc_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
-                param_file=param_file,
-                spin=1
+                param_file=param_file
             )
-            calculator = MolecularCalculator(config)
+            calculator = GeneralCalculator(calc_config, self.system_config)
             generator = DissociationCurveGenerator(calculator)
             
-            # Calculate H2 curve on TEST distances
-            calc_data = generator.generate_h2_curve(self.test_reference_data['Distance'].values)
+            # Calculate curve on TEST distances
+            calc_data = generator.generate_curve(self.test_reference_data['Distance'].values)
             
             # Clean up temp file
             os.unlink(param_file)
@@ -514,7 +530,7 @@ class TBLiteParameterGA:
     
     def optimize(self) -> Individual:
         """Run the genetic algorithm optimization"""
-        logger.info("Starting genetic algorithm optimization")
+        logger.info(f"Starting genetic algorithm optimization for {self.system_name}")
         logger.info(f"Using {len(self.train_distances)} training points for optimization")
         start_time = time.time()
         
@@ -637,38 +653,35 @@ class TBLiteParameterGA:
             'Energy': self.test_energies
         })
         
-        # Keep test distances separate from train distances
-        
         logger.info(f"Data split: {n_train} training points, {len(test_indices)} test points")
         logger.info(f"Training distance range: {self.train_distances.min():.2f} - {self.train_distances.max():.2f} Å")
         logger.info(f"Test distance range: {self.test_distances.min():.2f} - {self.test_distances.max():.2f} Å")
-        
-        # Sort indices for visualization
-        train_sorted = np.sort(train_indices)
-        test_sorted = np.sort(test_indices)
-        logger.info(f"Training indices (first 10): {train_sorted[:10]}")
-        logger.info(f"Test indices (first 10): {test_sorted[:10]}")
-        logger.info(f"Random split ensures proper statistical validation")
-
-    def _align_reference_data(self):
-        """This method is no longer needed since we use the split data directly"""
-        pass
 
 
 def main():
-    """Example usage of the genetic algorithm"""
+    """Example usage with different systems"""
+    import sys
     
-    # Configuration
+    # Allow system selection from command line
+    if len(sys.argv) > 1:
+        system_name = sys.argv[1]
+    else:
+        system_name = "H2"  # Default
+    
+    print(f"Running GA optimization for {system_name}")
+    
+    # System-optimized configuration
     config = GAConfig(
-        population_size=56,  # 2x max_workers for better load balancing
-        generations=50,
-        mutation_rate=0.15,
+        population_size=20,
+        generations=30,
+        mutation_rate=0.1,
         crossover_rate=0.8,
-        max_workers=28  # Use most cores, leave 4 for system overhead
+        max_workers=8  # Better utilize available CPUs
     )
     
     # Initialize GA
-    ga = TBLiteParameterGA(
+    ga = GeneralParameterGA(
+        system_name=system_name,
         base_param_file=str(BASE_PARAM_FILE),
         config=config
     )
@@ -677,11 +690,11 @@ def main():
     best_individual = ga.optimize()
     
     # Save results
-    ga.save_best_parameters(str(GA_OPTIMIZED_PARAMS))
-    ga.save_fitness_history(str(GA_FITNESS_HISTORY))
+    ga.save_best_parameters(ga.system_config.optimized_params_file)
+    ga.save_fitness_history(ga.system_config.fitness_history_file)
     
     # Print best parameters
-    print("\nBest Parameters:")
+    print(f"\nBest Parameters for {system_name}:")
     for param_name, value in best_individual.parameters.items():
         print(f"  {param_name}: {value:.6f}")
     

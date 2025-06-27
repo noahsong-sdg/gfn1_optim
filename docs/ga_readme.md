@@ -1,5 +1,5 @@
 # things to add
-- fn to extract params rather than manually getting them
+- fn to extract params rather than manually typing them
 - 
 
 

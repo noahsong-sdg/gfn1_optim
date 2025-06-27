@@ -365,32 +365,26 @@ class TBLiteParameterPSO:
         logger.info("Swarm initialization complete")
     
     def evaluate_swarm_parallel(self):
-        """Evaluate fitness of all particles in parallel"""
+        """Evaluate fitness of all particles (serial evaluation to avoid multiprocessing issues)"""
         logger.info("Evaluating swarm fitness...")
         
-        def evaluate_particle(particle):
-            fitness = self.evaluate_fitness(particle.parameters)
-            return particle, fitness
-        
-        # Parallel evaluation
-        with ProcessPoolExecutor(max_workers=self.config.max_workers) as executor:
-            futures = [executor.submit(evaluate_particle, particle) for particle in self.swarm]
-            
-            for future in as_completed(futures):
-                try:
-                    particle, fitness = future.result()
-                    particle.current_fitness = fitness
-                    
-                    # Update personal best
-                    if particle.update_best():
-                        # Update global best
-                        if fitness < self.global_best_fitness:
-                            self.global_best_fitness = fitness
-                            self.global_best_params = particle.parameters.copy()
-                            logger.info(f"New global best fitness: {fitness:.6f}")
-                            
-                except Exception as e:
-                    logger.error(f"Particle evaluation failed: {e}")
+        # Note: Using serial evaluation for simplicity and debugging
+        for particle in self.swarm:
+            try:
+                fitness = self.evaluate_fitness(particle.parameters)
+                particle.current_fitness = fitness
+                
+                # Update personal best
+                if particle.update_best():
+                    # Update global best
+                    if fitness < self.global_best_fitness:
+                        self.global_best_fitness = fitness
+                        self.global_best_params = particle.parameters.copy()
+                        logger.info(f"New global best fitness: {fitness:.6f}")
+                        
+            except Exception as e:
+                logger.error(f"Particle evaluation failed: {e}")
+                particle.current_fitness = float('inf')
     
     def update_swarm(self):
         """Update particle velocities and positions"""
@@ -496,12 +490,12 @@ class TBLiteParameterPSO:
         logger.info(f"Fitness history saved to {filename}")
 
 def main():
-    """Example usage of PSO optimizer"""
-    # Configuration
+    """H2-optimized PSO configuration"""
+    # Scaled down for H2 - simple 2-atom system doesn't need massive exploration
     pso_config = PSOConfig(
-        n_particles=20,
-        max_iterations=50,
-        max_workers=4
+        n_particles=12,      # Enough to explore parameter space efficiently  
+        max_iterations=25,   # H2 should converge relatively quickly
+        max_workers=4        # Keep parallel workers for speed
     )
     
     # Initialize optimizer

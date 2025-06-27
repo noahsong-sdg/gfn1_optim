@@ -9,8 +9,8 @@ from pathlib import Path
 import time
 import pandas as pd
 import numpy as np
-from ga import GeneralParameterGA, GAConfig
-from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
+from ga_general import GeneralParameterGA, GAConfig
+from general_calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor
 from system_config import get_system_config, list_available_systems, print_all_systems, print_system_info
 

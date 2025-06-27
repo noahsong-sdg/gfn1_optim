@@ -9,24 +9,24 @@ from pathlib import Path
 import time
 
 from h2_v2 import H2StudyManager, CalcMethod, CalcConfig
-from pso import TBLiteParameterPSO, PSOConfig
+from pso import TBLiteParameterPSO, PSOConfig, BASE_PARAM_FILE, CCSD_REFERENCE_DATA
 
 def quick_pso_test():
     """Quick PSO test with small configuration"""
     print("=== Quick PSO Test ===")
     
-    # Small configuration for testing
+    # Very small configuration for quick testing
     pso_config = PSOConfig(
-        n_particles=10,
-        max_iterations=20,
-        max_workers=2,
-        patience=5
+        n_particles=4,
+        max_iterations=5,
+        max_workers=1,
+        patience=3
     )
     
     # Initialize optimizer
     try:
         optimizer = TBLiteParameterPSO(
-            base_param_file="gfn1-base.toml",
+            base_param_file=str(BASE_PARAM_FILE),
             config=pso_config
         )
         
@@ -68,7 +68,7 @@ def full_pso_optimization():
     )
     
     optimizer = TBLiteParameterPSO(
-        base_param_file="gfn1-base.toml",
+        base_param_file=str(BASE_PARAM_FILE),
         config=pso_config
     )
     
@@ -159,16 +159,16 @@ def main():
     print("=====================================")
     
     # Check if required files exist
-    if not Path("gfn1-base.toml").exists():
-        print("Error: gfn1-base.toml not found. Please ensure base parameter file exists.")
+    if not BASE_PARAM_FILE.exists():
+        print(f"Error: {BASE_PARAM_FILE} not found. Please ensure base parameter file exists.")
         return
     
-    if not Path("h2_ccsd_data.csv").exists():
-        print("Warning: h2_ccsd_data.csv not found. Generating reference data first...")
-        distances = np.linspace(0.4, 4.0, 500)
+    if not CCSD_REFERENCE_DATA.exists():
+        print(f"Warning: {CCSD_REFERENCE_DATA} not found. Generating reference data first...")
+        distances = np.linspace(0.4, 4.0, 50)  # Much smaller for quick testing
         study = H2StudyManager(distances)
         ccsd_config = CalcConfig(method=CalcMethod.CCSD, basis="cc-pVTZ")
-        study.add_method("CCSD/cc-pVTZ", ccsd_config, "h2_ccsd_data.csv")
+        study.add_method("CCSD/cc-pVTZ", ccsd_config, str(CCSD_REFERENCE_DATA))
         print("Reference data generated.")
     
     print("\nChoose test to run:")
