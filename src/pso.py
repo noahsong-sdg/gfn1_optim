@@ -259,7 +259,8 @@ class TBLiteParameterPSO:
             param_file = self.create_param_file(parameters)
             
             # Import here to avoid circular imports
-            from h2_v2 import CalcMethod, CalcConfig, MolecularCalculator, DissociationCurveGenerator
+            from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
+            from system_config import get_system_config
             
             # Create calculator with custom parameters
             custom_config = CalcConfig(
@@ -268,11 +269,12 @@ class TBLiteParameterPSO:
                 spin=1
             )
             
-            calculator = MolecularCalculator(custom_config)
+            system_config = get_system_config("H2")
+            calculator = GeneralCalculator(custom_config, system_config)
             generator = DissociationCurveGenerator(calculator)
             
             # Generate H2 curve for training points
-            calc_data = generator.generate_h2_curve(self.train_distances, save=False)
+            calc_data = generator.generate_curve(distances=self.train_distances, save=False)
             
             # Calculate RMSE against reference
             ref_energies = self.train_data['Energy'].values
@@ -299,7 +301,8 @@ class TBLiteParameterPSO:
         try:
             param_file = self.create_param_file(parameters)
             
-            from h2_v2 import CalcMethod, CalcConfig, MolecularCalculator, DissociationCurveGenerator
+            from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
+            from system_config import get_system_config
             
             custom_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
@@ -307,11 +310,12 @@ class TBLiteParameterPSO:
                 spin=1
             )
             
-            calculator = MolecularCalculator(custom_config)
+            system_config = get_system_config("H2")
+            calculator = GeneralCalculator(custom_config, system_config)
             generator = DissociationCurveGenerator(calculator)
             
             # Generate test curve
-            calc_data = generator.generate_h2_curve(self.test_distances, save=False)
+            calc_data = generator.generate_curve(distances=self.test_distances, save=False)
             
             # Calculate metrics
             ref_energies = self.test_data['Energy'].values
