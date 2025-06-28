@@ -139,18 +139,18 @@ class TBLiteParameterBayesian:
         # H-H pair interaction
         bounds.append(ParameterBounds("hamiltonian.xtb.kpair.H-H", 0.5, 1.5, 0.96))
         
-        # Hydrogen element parameters - Conservative bounds to avoid TBLite failures
+        # Hydrogen element parameters
         h_element_bounds = [
-            ("element.H.levels[0]", -13.0, -9.0, -10.92),  # 1s level - tighter bounds
-            ("element.H.levels[1]", -3.0, -1.5, -2.17),   # 2s level - tighter bounds
-            ("element.H.slater[0]", 1.0, 1.6, 1.21),      # 1s slater - much tighter to avoid invalid exponents
-            ("element.H.slater[1]", 1.5, 2.5, 1.99),      # 2s slater - much tighter to avoid invalid exponents
-            ("element.H.kcn[0]", 0.03, 0.10, 0.0655),     # coordination number dependence - tighter
-            ("element.H.kcn[1]", 0.005, 0.03, 0.0130),    # tighter bounds
-            ("element.H.gam", 0.3, 0.6, 0.47),           # gamma parameter - tighter
-            ("element.H.zeff", 0.9, 1.3, 1.12),          # effective nuclear charge - tighter
-            ("element.H.arep", 1.8, 2.6, 2.21),          # repulsion parameter - tighter
-            ("element.H.en", 1.8, 2.6, 2.2),             # electronegativity - tighter
+            ("element.H.levels[0]", -15.0, -8.0, -10.92),  # 1s level
+            ("element.H.levels[1]", -4.0, -1.0, -2.17),   # 2s level
+            ("element.H.slater[0]", 0.8, 2.0, 1.21),      # 1s slater
+            ("element.H.slater[1]", 1.0, 3.0, 1.99),      # 2s slater
+            ("element.H.kcn[0]", 0.01, 0.15, 0.0655),     # coordination number dependence
+            ("element.H.kcn[1]", 0.001, 0.05, 0.0130),
+            ("element.H.gam", 0.2, 0.8, 0.47),           # gamma parameter
+            ("element.H.zeff", 0.8, 1.5, 1.12),          # effective nuclear charge
+            ("element.H.arep", 1.5, 3.0, 2.21),          # repulsion parameter
+            ("element.H.en", 1.5, 3.0, 2.2),             # electronegativity
         ]
         
         for param_path, min_val, max_val, default in h_element_bounds:
@@ -325,7 +325,7 @@ class TBLiteParameterBayesian:
                 custom_config = CalcConfig(
                     method=CalcMethod.XTB_CUSTOM,
                     param_file=param_file,
-                    spin=1
+                    spin=0
                 )
                 
                 calculator = GeneralCalculator(custom_config, self.system_config)
@@ -371,7 +371,7 @@ class TBLiteParameterBayesian:
                 custom_config = CalcConfig(
                     method=CalcMethod.XTB_CUSTOM,
                     param_file=param_file,
-                    spin=1
+                    spin=0
                 )
                 
                 calculator = GeneralCalculator(custom_config, self.system_config)
