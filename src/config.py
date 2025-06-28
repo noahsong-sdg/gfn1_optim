@@ -24,9 +24,7 @@ class SystemType(Enum):
 class CalculationType(Enum):
     """Types of calculations to perform"""
     DISSOCIATION_CURVE = "dissociation"
-    LATTICE_CONSTANTS = "lattice"
-    FORMATION_ENERGY = "formation"
-    BAND_STRUCTURE = "bands"
+    BULK = "bulk"
 
 @dataclass
 class SystemConfig:

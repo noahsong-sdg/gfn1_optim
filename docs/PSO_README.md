@@ -45,38 +45,6 @@ optimizer.save_best_parameters("pso_optimized_params.toml")
 optimizer.save_fitness_history("pso_fitness_history.csv")
 ```
 
-### 2. Integration with h2_v2.py
-
-The PSO-optimized parameters automatically integrate with your existing comparison framework:
-
-```python
-# Run h2_v2.py - it will automatically include PSO results if available
-python src/h2_v2.py
-```
-
-This will generate comparison plots including:
-- CCSD reference
-- GFN1-xTB default
-- Custom TBLite (if fitpar.toml exists)
-- **PSO Optimized** (if pso_optimized_params.toml exists)
-- GA Optimized (if ga_optimized_params.toml exists)
-
-### 3. Testing the Implementation
-
-```bash
-# Quick test (10 particles, 20 iterations)
-python src/pso_test.py
-
-# Choose option 1 for quick test
-# Choose option 2 for full optimization
-# Choose option 3 for method comparison
-# Choose option 4 for convergence analysis
-```
-
-## Configuration Options
-
-### PSOConfig Parameters
-
 ```python
 @dataclass
 class PSOConfig:
@@ -199,22 +167,6 @@ def evaluate_fitness(self, parameters):
 ```
 
 ## Troubleshooting
-
-### Common Issues
-
-**"Reference file h2_ccsd_data.csv not found"**
-- Run `h2_v2.py` first to generate CCSD reference data
-- Or ensure the file exists in your working directory
-
-**"Too many failed evaluations"**
-- Check that `gfn1-base.toml` exists and is valid
-- Verify TBLite installation: `pixi run tblite --help`
-- Check parameter bounds are reasonable
-
-**Slow convergence**
-- Increase `n_particles` for better exploration
-- Adjust `c1`/`c2` balance
-- Check if fitness landscape is particularly challenging
 
 ### Performance Optimization
 

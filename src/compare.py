@@ -14,7 +14,7 @@ import argparse
 import logging
 
 from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-from system_config import get_system_config
+from config import get_system_config
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -84,6 +84,8 @@ class MethodComparisonAnalyzer:
             distances = np.linspace(0.4, 4.0, 100)
         
         logger.info(f"Calculating curve for {name}...")
+        logger.info(f"  Method: {config.method}")
+        logger.info(f"  Distance range: {distances[0]:.2f} - {distances[-1]:.2f} Å ({len(distances)} points)")
         
         calculator = GeneralCalculator(config, self.system_config)
         generator = DissociationCurveGenerator(calculator)
@@ -91,7 +93,11 @@ class MethodComparisonAnalyzer:
         curve_data = generator.generate_curve(distances=distances, save=False)
         self.results[name] = curve_data
         
+        # Debug info
+        energies = curve_data['Energy'].values
         logger.info(f"Completed calculation for {name}")
+        logger.info(f"  Energy range: {energies.min():.6f} to {energies.max():.6f} Hartree")
+        logger.info(f"  Min energy at distance: {distances[np.argmin(energies)]:.3f} Å")
     
     def calculate_metrics(self, reference_method: str) -> Dict[str, Dict[str, float]]:
         """Calculate RMSE, MAE, and Max Error vs reference method"""
@@ -150,21 +156,67 @@ class MethodComparisonAnalyzer:
         
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
         
-        # Define colors and styles
-        colors = ['black', 'red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink']
-        markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p']
-        linestyles = ['-', '--', '-', '-', '--', ':', '-.', '-']
+        # Define colors and styles - ensuring distinct appearance for each method
+        colors = ['black', 'red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive']
+        markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p', '*', 'h']
+        linestyles = ['-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--']
         
         method_styles = {}
         for i, method_name in enumerate(self.results.keys()):
-            method_styles[method_name] = {
-                'color': colors[i % len(colors)],
-                'linestyle': linestyles[i % len(linestyles)],
-                'linewidth': 3 if 'CCSD' in method_name else 2,
-                'marker': markers[i % len(markers)],
-                'markersize': 4 if 'CCSD' in method_name else 3,
-                'alpha': 0.8
-            }
+            # Special styling for key methods to avoid overlap
+            if 'CCSD' in method_name:
+                style = {
+                    'color': 'black',
+                    'linestyle': '-',
+                    'linewidth': 3,
+                    'marker': 'o',
+                    'markersize': 5,
+                    'alpha': 1.0,
+                    'markevery': 5  # Show markers every 5 points
+                }
+            elif 'Pure' in method_name or 'pure' in method_name or 'GFN1-xTB (Pure)' in method_name:
+                style = {
+                    'color': 'red',
+                    'linestyle': '--',
+                    'linewidth': 2.5,
+                    'marker': 's',
+                    'markersize': 4,
+                    'alpha': 0.9,
+                    'markevery': 7
+                }
+            elif 'PSO' in method_name:
+                style = {
+                    'color': 'blue',
+                    'linestyle': '-.',
+                    'linewidth': 2,
+                    'marker': '^',
+                    'markersize': 4,
+                    'alpha': 0.9,
+                    'markevery': 6
+                }
+            elif 'GA' in method_name:
+                style = {
+                    'color': 'green',
+                    'linestyle': ':',
+                    'linewidth': 2,
+                    'marker': 'D',
+                    'markersize': 4,
+                    'alpha': 0.9,
+                    'markevery': 8
+                }
+            else:
+                # Fallback for other methods
+                style = {
+                    'color': colors[i % len(colors)],
+                    'linestyle': linestyles[i % len(linestyles)],
+                    'linewidth': 2,
+                    'marker': markers[i % len(markers)],
+                    'markersize': 3,
+                    'alpha': 0.8,
+                    'markevery': 9
+                }
+            
+            method_styles[method_name] = style
         
         # Plot 1: Full dissociation curves
         for method_name, data in self.results.items():
@@ -216,6 +268,14 @@ class MethodComparisonAnalyzer:
                     transform=ax1.transAxes, fontsize=9,
                     verticalalignment='top', 
                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+        
+        # Add hyperparameter information
+        hyperparams_text = self._get_hyperparameter_info()
+        if hyperparams_text:
+            ax2.text(0.98, 0.02, hyperparams_text,
+                    transform=ax2.transAxes, fontsize=8,
+                    verticalalignment='bottom', horizontalalignment='right',
+                    bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
         
         plt.tight_layout()
         
@@ -290,6 +350,32 @@ class MethodComparisonAnalyzer:
         
         return report_text
 
+    def _get_hyperparameter_info(self) -> str:
+        """Get hyperparameter information for optimization methods"""
+        hyperparams = []
+        
+        # Check for PSO results
+        if any("PSO" in name for name in self.results.keys()):
+            hyperparams.append("PSO Hyperparameters:")
+            hyperparams.append("• Particles: 12")
+            hyperparams.append("• Iterations: 25") 
+            hyperparams.append("• Inertia: 0.5-0.9 (adaptive)")
+            hyperparams.append("• Cognitive: 1.5")
+            hyperparams.append("• Social: 1.5")
+            hyperparams.append("")
+        
+        # Check for GA results
+        if any("GA" in name for name in self.results.keys()):
+            hyperparams.append("GA Hyperparameters:")
+            hyperparams.append("• Population: 20")
+            hyperparams.append("• Generations: 30")
+            hyperparams.append("• Mutation Rate: 0.1")
+            hyperparams.append("• Crossover Rate: 0.8")
+            hyperparams.append("• Workers: 8")
+            hyperparams.append("")
+        
+        return "\n".join(hyperparams).strip()
+
 
 def main():
     """Command line interface for method comparison"""
@@ -340,7 +426,7 @@ def main():
         # Look for optimization results
         param_files = {
             'PSO-Optimized': RESULTS_DIR / "parameters" / "pso_optimized_params.toml",
-            'GA-Optimized': RESULTS_DIR / f"{args.system}" / "ga_optimized_params.toml",
+            'GA-Optimized': RESULTS_DIR / f"{args.system}" / "ga_optimized.toml",
         }
         
         for name, param_file in param_files.items():

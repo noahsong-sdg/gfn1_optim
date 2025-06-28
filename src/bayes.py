@@ -13,15 +13,14 @@ from dataclasses import dataclass
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-try:
-    from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import Matern, RBF, WhiteKernel
-    from scipy.stats import norm
-    from scipy.optimize import minimize
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
-    print("Warning: sklearn not available. Please install with: pip install scikit-learn")
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern, RBF, WhiteKernel
+from scipy.stats import norm
+from scipy.optimize import minimize
+SKLEARN_AVAILABLE = True
+
+from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
+from config import get_system_config
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -86,6 +85,9 @@ class TBLiteParameterBayesian:
         
         self.config = config
         self.train_fraction = train_fraction
+        
+        # System configuration for H2
+        self.system_config = get_system_config("H2")
         
         # Define H2-relevant parameter bounds
         self.parameter_bounds = self._define_h2_parameter_bounds()
@@ -247,8 +249,6 @@ class TBLiteParameterBayesian:
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
         """Evaluate fitness of parameter set using H2 RMSE"""
         try:
-            from h2_v2 import MolecularCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
-            
             param_file = self.create_param_file(parameters)
             
             try:
@@ -259,12 +259,12 @@ class TBLiteParameterBayesian:
                     spin=1
                 )
                 
-                calculator = MolecularCalculator(custom_config)
+                calculator = GeneralCalculator(custom_config, self.system_config)
                 generator = DissociationCurveGenerator(calculator)
                 
                 # Calculate H2 curve on training distances
-                calc_data = generator.generate_h2_curve(
-                    self.train_distances, save=False
+                calc_data = generator.generate_curve(
+                    distances=self.train_distances, save=False
                 )
                 
                 # Calculate RMSE vs reference
@@ -291,8 +291,6 @@ class TBLiteParameterBayesian:
     def evaluate_test_performance(self, parameters: Dict[str, float]) -> Dict[str, float]:
         """Evaluate performance on test set"""
         try:
-            from h2_v2 import MolecularCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
-            
             param_file = self.create_param_file(parameters)
             
             try:
@@ -302,12 +300,12 @@ class TBLiteParameterBayesian:
                     spin=1
                 )
                 
-                calculator = MolecularCalculator(custom_config)
+                calculator = GeneralCalculator(custom_config, self.system_config)
                 generator = DissociationCurveGenerator(calculator)
                 
                 # Calculate on test distances
-                calc_data = generator.generate_h2_curve(
-                    self.test_distances, save=False
+                calc_data = generator.generate_curve(
+                    distances=self.test_distances, save=False
                 )
                 
                 # Calculate metrics

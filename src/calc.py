@@ -20,8 +20,8 @@ from typing import Optional, Union, List, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
-from system_config import SystemConfig, SystemType, CalculationType, get_system_config
-from system_config import get_calculation_distances, create_molecule_geometry, get_isolated_atom_symbol
+from config import SystemConfig, SystemType, CalculationType, get_system_config
+from config import get_calculation_distances, create_molecule_geometry, get_isolated_atom_symbol
 
 # Portable paths
 PROJECT_ROOT = Path.cwd()
