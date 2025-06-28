@@ -241,11 +241,46 @@ class TBLiteParameterBayesian:
         """Create a parameter file with the given parameters"""
         param_dict = self.base_params.copy()
         
+        # Debug: Check what's in the base H parameters first
+        if 'element' in param_dict and 'H' in param_dict['element']:
+            h_params = param_dict['element']['H']
+            logger.info("Base H element parameters:")
+            for key, value in h_params.items():
+                logger.info(f"  element.H.{key}: {value}")
+        else:
+            logger.error("No H element found in base parameters!")
+        
+        # Debug: Log parameter values being set
+        logger.info("Setting parameters:")
         for param_name, value in parameters.items():
+            logger.info(f"  {param_name}: {value}")
+            # Validate the value before setting
+            if not np.isfinite(value):
+                logger.error(f"Invalid parameter value: {param_name} = {value}")
+                continue
+            if 'slater' in param_name and value <= 0:
+                logger.error(f"Invalid Slater exponent: {param_name} = {value}")
+                continue
             self._set_parameter_in_dict(param_dict, param_name, value)
+        
+        # Debug: Check the resulting H parameters after modification
+        if 'element' in param_dict and 'H' in param_dict['element']:
+            h_params = param_dict['element']['H']
+            logger.info("Final H element parameters:")
+            for key, value in h_params.items():
+                logger.info(f"  element.H.{key}: {value}")
+                # Specifically check slater parameters
+                if key == 'slater' and isinstance(value, list):
+                    for i, slater_val in enumerate(value):
+                        if slater_val <= 0:
+                            logger.error(f"Invalid slater[{i}] = {slater_val}")
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
             toml.dump(param_dict, f)
+            
+            # Debug: Log the parameter file path and content sample
+            logger.info(f"Created parameter file: {f.name}")
+            
             return f.name
 
     def _validate_parameters(self, parameters: Dict[str, float]) -> bool:
@@ -280,6 +315,12 @@ class TBLiteParameterBayesian:
             param_file = self.create_param_file(parameters)
             
             try:
+                # Debug: Save a copy of the parameter file for inspection
+                import shutil
+                debug_file = f"/tmp/debug_params_{self.failed_evaluations}.toml"
+                shutil.copy2(param_file, debug_file)
+                logger.info(f"Debug: Saved parameter file copy to {debug_file}")
+                
                 # Create calculator with custom parameters
                 custom_config = CalcConfig(
                     method=CalcMethod.XTB_CUSTOM,
@@ -305,6 +346,7 @@ class TBLiteParameterBayesian:
                 
                 rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
                 
+                logger.info(f"Successful evaluation: RMSE = {rmse:.6f}")
                 return rmse
                 
             finally:
@@ -313,6 +355,9 @@ class TBLiteParameterBayesian:
                 
         except Exception as e:
             logger.error(f"Failed to evaluate fitness: {e}")
+            logger.error(f"Parameter values that failed:")
+            for param_name, value in parameters.items():
+                logger.error(f"  {param_name}: {value}")
             self.failed_evaluations += 1
             # Return large finite penalty instead of infinity to avoid sklearn issues
             return 1000.0  # Large penalty for failed evaluations
@@ -464,6 +509,16 @@ class TBLiteParameterBayesian:
         """Run Bayesian optimization"""
         logger.info(f"Starting Bayesian optimization with {self.config.n_iterations} iterations")
         start_time = time.time()
+        
+        # Test: Try default parameters first to see if the base configuration works
+        logger.info("Testing base configuration with default parameters...")
+        default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
+        try:
+            test_fitness = self.evaluate_fitness(default_params)
+            logger.info(f"Default parameters test: fitness = {test_fitness}")
+        except Exception as e:
+            logger.error(f"Default parameters failed: {e}")
+            logger.error("This suggests an issue with the base parameter file or TBLite setup")
         
         # Phase 1: Initial exploration
         logger.info(f"Phase 1: Exploring with {self.config.n_initial_points} initial points")
