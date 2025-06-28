@@ -2,6 +2,11 @@
 """
 General Method Comparison Script
 Compare multiple parameter sets (TOML files) against CCSD reference data
+
+pixi run python src/compare.py --ccsd --pure \
+    --params results/parameters/ga_optimized.toml \
+        results/parameters/pso_optimized_params.toml \
+            --names ga pso --output results/comparison
 """
 
 import numpy as np

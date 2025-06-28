@@ -202,14 +202,25 @@ class GeneralParameterGA:
     
     def _load_or_generate_reference_data(self) -> pd.DataFrame:
         """Load or generate reference data for the system"""
-        # Try to load existing reference data
+        # For H2, always use CCSD reference data
+        if self.system_name == "H2":
+            ccsd_file = RESULTS_DIR / "curves" / "h2_ccsd_data.csv"
+            if ccsd_file.exists():
+                logger.info(f"Loading CCSD reference data from {ccsd_file}")
+                return pd.read_csv(ccsd_file)
+            else:
+                raise FileNotFoundError(f"CCSD reference file {ccsd_file} not found. "
+                                      "GA requires CCSD data for meaningful optimization.")
+        
+        # For other systems, try system-specific reference file
         ref_file = Path(self.system_config.reference_data_file)
         if ref_file.exists():
             logger.info(f"Loading reference data from {ref_file}")
             return pd.read_csv(ref_file)
         else:
-            logger.info(f"Generating reference data for {self.system_name}...")
-            # Generate with GFN1-xTB as reference
+            logger.warning(f"No reference data found for {self.system_name}. "
+                          f"Generating with GFN1-xTB (not recommended for optimization).")
+            # Generate with GFN1-xTB as fallback
             calc_config = CalcConfig(method=CalcMethod.GFN1_XTB)
             calculator = GeneralCalculator(calc_config, self.system_config)
             generator = DissociationCurveGenerator(calculator)
