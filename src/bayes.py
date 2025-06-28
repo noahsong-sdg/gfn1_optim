@@ -15,7 +15,6 @@ import time
 # Bayesian optimization imports
 from skopt import gp_minimize
 from skopt.space import Real
-from skopt.utils import use_named_args
 from skopt.acquisition import gaussian_ei, gaussian_pi, gaussian_lcb
 from skopt import dump, load
 
@@ -216,12 +215,9 @@ class TBLiteParameterBayesian:
             toml.dump(params, f)
             return f.name
     
-    @use_named_args(dimensions=None)  # Will be set in optimize()
-    def objective_function(self, **params) -> float:
+    def objective_function(self, parameter_values) -> float:
         """Objective function for Bayesian optimization"""
         try:
-            # Convert named parameters to list in correct order
-            parameter_values = [params[name] for name in self.param_names]
             
             self.iteration += 1
             
@@ -328,9 +324,6 @@ class TBLiteParameterBayesian:
         
         start_time = time.time()
         
-        # Set dimensions for objective function
-        self.objective_function.__wrapped__.dimensions = self.dimensions
-        
         # Choose acquisition function
         acq_func = self.config.acquisition_func.upper()
         if acq_func == "EI":
@@ -350,15 +343,19 @@ class TBLiteParameterBayesian:
         # Add default parameters as starting point
         default_values = [param.default_val for param in self.parameter_space]
         print("Evaluating default parameters...")
-        default_fitness = self.objective_function(**dict(zip(self.param_names, default_values)))
+        default_fitness = self.objective_function(default_values)
         x0.append(default_values)
         y0.append(default_fitness)
         
         # Run Bayesian optimization
         print(f"Running GP optimization with {acquisition_function} acquisition...")
         
+        # Create wrapper function for gp_minimize (it expects a function that takes a list)
+        def objective_wrapper(params):
+            return self.objective_function(params)
+        
         result = gp_minimize(
-            func=self.objective_function,
+            func=objective_wrapper,
             dimensions=self.dimensions,
             n_calls=self.config.n_calls,
             n_initial_points=self.config.n_initial_points - 1,  # -1 because we added default
