@@ -393,23 +393,38 @@ class GeneralStudyManager:
         print(f"Comparison plot saved as {output_file}")
 
 def main():
-    """Example usage with different systems"""
+    """Generate reference data for any system with command line arguments"""
+    import argparse
     
-    # Test with Si2
-    print("Testing Si2 system:")
-    print("=" * 30)
-
-    study = GeneralStudyManager("Si2")
-
-    # Add CCSD calculation
-    study.add_method("CCSD", CalcConfig(method=CalcMethod.CCSD), "results/curves/si_ccsd_500.csv")
-
-    # Add GFN1-xTB calculation
-    xtb_config = CalcConfig(method=CalcMethod.GFN1_XTB)
-    study.add_method("GFN1-xTB", xtb_config, "results/curves/si_pure_500.csv")
+    parser = argparse.ArgumentParser(description="Generate reference data for molecular systems")
+    parser.add_argument("--system", default="Si2", choices=["H2", "Si2"], 
+                       help="System to calculate (default: Si2)")
+    parser.add_argument("--method", default="CCSD", choices=["CCSD", "GFN1-xTB"], 
+                       help="Calculation method (default: CCSD)")
+    parser.add_argument("--output", help="Output filename (auto-generated if not specified)")
+    parser.add_argument("--plot", action="store_true", help="Generate comparison plot")
     
-    # Plot results
-    study.plot_comparison()
+    args = parser.parse_args()
+    
+    study = GeneralStudyManager(args.system)
+    
+    # Auto-generate filename if not specified
+    if args.output is None:
+        method_name = args.method.lower().replace("-", "_")
+        args.output = f"results/curves/{args.system.lower()}_{method_name}_data.csv"
+    
+    # Add the requested calculation
+    if args.method == "CCSD":
+        config = CalcConfig(method=CalcMethod.CCSD, basis="cc-pVTZ")
+    elif args.method == "GFN1-xTB":
+        config = CalcConfig(method=CalcMethod.GFN1_XTB)
+    
+    study.add_method(args.method, config, args.output)
+    
+    if args.plot:
+        study.plot_comparison()
+    
+    print(f"\nCompleted! Data saved to: {args.output}")
 
 if __name__ == "__main__":
     main()

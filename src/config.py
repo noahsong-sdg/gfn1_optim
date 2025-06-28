@@ -79,7 +79,7 @@ SYSTEM_CONFIGS = {
         elements=["Si"],
         bond_range=(1.0, 5.0),
         num_points=100,
-        spin_multiplicity=2)  # Triplet)
+        spin_multiplicity=3)  # Triplet)
 }
 
 def get_system_config(system_name: str) -> SystemConfig:

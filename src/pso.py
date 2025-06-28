@@ -260,7 +260,7 @@ class TBLiteParameterPSO:
             
             # Import here to avoid circular imports
             from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-            from system_config import get_system_config
+            from config import get_system_config
             
             # Create calculator with custom parameters
             custom_config = CalcConfig(
@@ -302,7 +302,7 @@ class TBLiteParameterPSO:
             param_file = self.create_param_file(parameters)
             
             from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-            from system_config import get_system_config
+            from config import get_system_config
             
             custom_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
