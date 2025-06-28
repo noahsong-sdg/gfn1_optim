@@ -191,7 +191,7 @@ class GeneralCalculator:
             'C': 2,   # 2S+1 = 3, so S = 1, spin = 2  
             'N': 3,   # 2S+1 = 4, so S = 3/2, spin = 3
             'O': 2,   # 2S+1 = 3, so S = 1, spin = 2
-            'Si': 3,  
+            'Si': 2,  
             'Cd': 0,  # Singlet
             'S': 2,   # Triplet
             'Zn': 0,  # Singlet 
