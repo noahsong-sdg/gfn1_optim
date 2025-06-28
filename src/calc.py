@@ -49,10 +49,6 @@ class GeneralCalculator:
         self.calc_config = calc_config
         self.system_config = system_config
         
-        # Override spin multiplicity from system config if not explicitly set
-        if calc_config.spin == 0 and hasattr(system_config, 'spin_multiplicity'):
-            self.calc_config.spin = system_config.spin_multiplicity
-
     def calculate_energy(self, atoms) -> float:
         """Calculate energy for given atomic configuration"""
         print(f"Calculating energy with {self.calc_config.method.value}...")
@@ -139,16 +135,7 @@ class GeneralCalculator:
                     f.write(f"{x_bohr:.10f} {y_bohr:.10f} {z_bohr:.10f} {symbol.lower()}\n")
                     
             f.write("$end\n")
-            
-            # Add spin multiplicity for TBLite
-            if isinstance(atoms, str):
-                spin = self._get_atom_spin_multiplicity(atoms)
-                multiplicity = spin + 1
-            else:
-                multiplicity = self.calc_config.spin + 1
-            
-            if multiplicity > 1:
-                f.write(f"$spin\n{multiplicity}\n$end\n")
+
                 
         return coord_file
     
@@ -204,7 +191,7 @@ class GeneralCalculator:
             'C': 2,   # 2S+1 = 3, so S = 1, spin = 2  
             'N': 3,   # 2S+1 = 4, so S = 3/2, spin = 3
             'O': 2,   # 2S+1 = 3, so S = 1, spin = 2
-            'Si': 2,  # 2S+1 = 3, so S = 1, spin = 2
+            'Si': 3,  
             'Cd': 0,  # Singlet
             'S': 2,   # Triplet
             'Zn': 0,  # Singlet 
