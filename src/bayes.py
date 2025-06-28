@@ -384,15 +384,14 @@ class TBLiteParameterBayesian:
     
     def _callback(self, result):
         """Callback function for optimization progress"""
-        # Check convergence
-        if len(result.func_vals) >= 2:
+        # Check convergence - need at least 2*patience evaluations
+        if len(result.func_vals) >= 2 * self.config.patience:
             recent_best = min(result.func_vals[-self.config.patience:])
-            if len(result.func_vals) >= self.config.patience:
-                older_best = min(result.func_vals[-2*self.config.patience:-self.config.patience])
-                improvement = abs(older_best - recent_best)
-                if improvement < self.config.convergence_threshold:
-                    print(f"Converged after {len(result.func_vals)} evaluations")
-                    return True  # Stop optimization
+            older_best = min(result.func_vals[-2*self.config.patience:-self.config.patience])
+            improvement = abs(older_best - recent_best)
+            if improvement < self.config.convergence_threshold:
+                print(f"Converged after {len(result.func_vals)} evaluations")
+                return True  # Stop optimization
         
         # Check for too many failures
         if self.failed_evaluations > self.config.n_calls * 0.3:
