@@ -6,7 +6,8 @@ Compare multiple parameter sets (TOML files) against CCSD reference data
 pixi run python src/compare.py --ccsd --pure \
     --params results/parameters/ga_optimized.toml \
         results/parameters/pso_optimized_params.toml \
-            --names ga pso --output results/comparison
+        results/parameters/bayes_opt.toml \
+            --names ga pso bayes--output results/comparison 
 """
 
 import numpy as np
@@ -459,7 +460,7 @@ def main():
     
     # Plot
     if not args.no_plot:
-        plot_path = output_dir / f"{args.system}_method_comparison.png"
+        plot_path = output_dir / f"{args.system}_method_comparison_v2.png"
         analyzer.plot_comparison(save_path=str(plot_path), show_plot=False)
     
     # Report

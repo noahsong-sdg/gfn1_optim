@@ -14,8 +14,8 @@ import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging - reduce verbosity during optimization
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Portable paths - automatically finds project root from current working directory
@@ -202,7 +202,7 @@ class TBLiteParameterPSO:
         self.train_distances = self.train_data['Distance'].values
         self.test_distances = self.test_data['Distance'].values
         
-        logger.info(f"Training points: {len(self.train_distances)}, Testing points: {len(self.test_distances)}")
+
     
     def _set_parameter_in_dict(self, param_dict: dict, path: str, value: float):
         """Set a parameter value using dot notation path"""
@@ -292,7 +292,6 @@ class TBLiteParameterPSO:
             return rmse
             
         except Exception as e:
-            logger.warning(f"Fitness evaluation failed: {e}")
             self.failed_evaluations += 1
             return float('inf')
     
@@ -337,7 +336,6 @@ class TBLiteParameterPSO:
             }
             
         except Exception as e:
-            logger.warning(f"Test evaluation failed: {e}")
             return {
                 'test_rmse': float('inf'),
                 'test_mae': float('inf'),
@@ -346,7 +344,6 @@ class TBLiteParameterPSO:
     
     def initialize_swarm(self):
         """Initialize particle swarm with random positions"""
-        logger.info(f"Initializing swarm with {self.config.n_particles} particles")
         
         self.swarm = []
         for i in range(self.config.n_particles):
@@ -365,12 +362,9 @@ class TBLiteParameterPSO:
             
             particle = Particle(parameters, self.parameter_bounds)
             self.swarm.append(particle)
-        
-        logger.info("Swarm initialization complete")
     
     def evaluate_swarm_parallel(self):
         """Evaluate fitness of all particles (serial evaluation to avoid multiprocessing issues)"""
-        logger.info("Evaluating swarm fitness...")
         
         # Note: Using serial evaluation for simplicity and debugging
         for particle in self.swarm:
@@ -384,7 +378,7 @@ class TBLiteParameterPSO:
                     if fitness < self.global_best_fitness:
                         self.global_best_fitness = fitness
                         self.global_best_params = particle.parameters.copy()
-                        logger.info(f"New global best fitness: {fitness:.6f}")
+                        print(f"New global best fitness: {fitness:.6f}")
                         
             except Exception as e:
                 logger.error(f"Particle evaluation failed: {e}")
@@ -421,8 +415,7 @@ class TBLiteParameterPSO:
     
     def optimize(self) -> Dict[str, float]:
         """Run PSO optimization"""
-        logger.info("Starting PSO optimization")
-        logger.info(f"Using {len(self.train_distances)} training points")
+        print(f"Starting PSO optimization: {len(self.train_distances)} training points, {self.config.n_particles} particles")
         
         start_time = time.time()
         
@@ -437,8 +430,9 @@ class TBLiteParameterPSO:
         for iteration in range(self.config.max_iterations):
             self.iteration = iteration
             
-            logger.info(f"Iteration {iteration + 1}/{self.config.max_iterations}")
-            logger.info(f"Best fitness: {self.global_best_fitness:.6f}")
+            # Show progress every 10 iterations
+            if (iteration + 1) % 10 == 0:
+                print(f"Iteration {iteration + 1}/{self.config.max_iterations}, Best: {self.global_best_fitness:.6f}")
             
             # Update swarm
             self.update_swarm()
@@ -449,17 +443,17 @@ class TBLiteParameterPSO:
             
             # Check convergence
             if self.check_convergence():
-                logger.info(f"Converged after {iteration + 1} iterations")
+                print(f"Converged after {iteration + 1} iterations")
                 break
             
             # Check for systematic failures
             if self.failed_evaluations > len(self.swarm) * 0.5:
-                logger.error("Too many failed evaluations - stopping optimization")
+                print("Too many failed evaluations - stopping optimization")
                 break
         
         total_time = time.time() - start_time
-        logger.info(f"Optimization completed in {total_time:.2f}s")
-        logger.info(f"Final best fitness: {self.global_best_fitness:.6f}")
+        print(f"PSO optimization completed in {total_time:.2f}s")
+        print(f"Final best fitness: {self.global_best_fitness:.6f}")
         
         return self.global_best_params
     
@@ -481,8 +475,6 @@ class TBLiteParameterPSO:
         
         with open(filename, 'w') as f:
             toml.dump(params, f)
-        
-        logger.info(f"Best parameters saved to {filename}")
     
     def save_fitness_history(self, filename: str):
         """Save fitness history to CSV"""
@@ -491,7 +483,6 @@ class TBLiteParameterPSO:
             'best_fitness': self.fitness_history
         })
         df.to_csv(filename, index=False)
-        logger.info(f"Fitness history saved to {filename}")
 
 def main():
     """H2-optimized PSO configuration"""

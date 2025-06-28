@@ -51,7 +51,7 @@ class GeneralCalculator:
         
     def calculate_energy(self, atoms) -> float:
         """Calculate energy for given atomic configuration"""
-        print(f"Calculating energy with {self.calc_config.method.value}...")
+        # Suppress verbose output during optimization
         
         if self.calc_config.method == CalcMethod.CCSD:
             return self._calc_ccsd(atoms)
@@ -217,12 +217,9 @@ class DissociationCurveGenerator:
         if distances is None:
             distances = get_calculation_distances(system_config)
         
-        print(f"Calculating {system_config.name} curve with {self.calculator.calc_config.method.value}...")
-        
         # Calculate reference: 2 isolated atoms
         atom_symbol = get_isolated_atom_symbol(system_config)
         atom_energy = self.calculator.calculate_energy(atom_symbol)
-        print(f"{atom_symbol} atom energy: {atom_energy:.8f} Hartree")
         
         energies = []
         
@@ -233,7 +230,6 @@ class DissociationCurveGenerator:
             molecule_energy = self.calculator.calculate_energy(molecule_atoms)
             dissociation_energy = molecule_energy - 2.0 * atom_energy
             energies.append(dissociation_energy)
-            print(f"  Distance {distance:.2f} Å: {dissociation_energy:.8f} Hartree")
         
         df = pd.DataFrame({
             'Distance': distances,
@@ -244,7 +240,6 @@ class DissociationCurveGenerator:
             # Ensure directory exists
             Path(filename).parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(filename, index=False)
-            print(f"Saved to {filename}")
             
         return df
 

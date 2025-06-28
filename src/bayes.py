@@ -19,8 +19,8 @@ from skopt.utils import use_named_args
 from skopt.acquisition import gaussian_ei, gaussian_pi, gaussian_lcb
 from skopt import dump, load
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging - reduce verbosity during optimization
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Portable paths - automatically finds project root from current working directory
@@ -146,7 +146,6 @@ class TBLiteParameterBayesian:
     def _load_reference_data(self) -> pd.DataFrame:
         """Load or generate reference CCSD data for H2"""
         if CCSD_REFERENCE_DATA.exists():
-            logger.info(f"Loading reference data from {CCSD_REFERENCE_DATA}")
             return pd.read_csv(CCSD_REFERENCE_DATA)
         else:
             logger.warning(f"Reference file {CCSD_REFERENCE_DATA} not found. Please ensure h2_ccsd_data.csv exists.")
@@ -166,8 +165,6 @@ class TBLiteParameterBayesian:
         
         self.train_distances = self.train_data['Distance'].values
         self.test_distances = self.test_data['Distance'].values
-        
-        logger.info(f"Training points: {len(self.train_distances)}, Testing points: {len(self.test_distances)}")
     
     def _set_parameter_in_dict(self, param_dict: dict, path: str, value: float):
         """Set a parameter value using dot notation path"""
@@ -227,7 +224,6 @@ class TBLiteParameterBayesian:
             parameter_values = [params[name] for name in self.param_names]
             
             self.iteration += 1
-            logger.info(f"Evaluation {self.iteration}")
             
             param_file = self.create_param_file(parameter_values)
             
@@ -263,7 +259,7 @@ class TBLiteParameterBayesian:
             if rmse < self.best_fitness:
                 self.best_fitness = rmse
                 self.best_params = dict(zip(self.param_names, parameter_values))
-                logger.info(f"New best fitness: {rmse:.6f}")
+                print(f"Evaluation {self.iteration}: New best fitness: {rmse:.6f}")
                 self.convergence_counter = 0
             else:
                 self.convergence_counter += 1
@@ -273,11 +269,9 @@ class TBLiteParameterBayesian:
             # Clean up temporary file
             Path(param_file).unlink(missing_ok=True)
             
-            logger.info(f"RMSE: {rmse:.6f}")
             return rmse
             
         except Exception as e:
-            logger.warning(f"Fitness evaluation failed: {e}")
             self.failed_evaluations += 1
             return float('inf')
     
@@ -322,7 +316,6 @@ class TBLiteParameterBayesian:
             }
             
         except Exception as e:
-            logger.warning(f"Test evaluation failed: {e}")
             return {
                 'test_rmse': float('inf'),
                 'test_mae': float('inf'),
@@ -331,9 +324,7 @@ class TBLiteParameterBayesian:
     
     def optimize(self) -> Dict[str, float]:
         """Run Bayesian optimization"""
-        logger.info("Starting Bayesian optimization")
-        logger.info(f"Using {len(self.train_distances)} training points")
-        logger.info(f"Parameter space dimension: {len(self.dimensions)}")
+        print(f"Starting Bayesian optimization: {len(self.train_distances)} training points, {len(self.dimensions)} parameters")
         
         start_time = time.time()
         
@@ -358,13 +349,13 @@ class TBLiteParameterBayesian:
         
         # Add default parameters as starting point
         default_values = [param.default_val for param in self.parameter_space]
-        logger.info("Evaluating default parameters...")
+        print("Evaluating default parameters...")
         default_fitness = self.objective_function(**dict(zip(self.param_names, default_values)))
         x0.append(default_values)
         y0.append(default_fitness)
         
         # Run Bayesian optimization
-        logger.info(f"Running GP optimization with {acquisition_function} acquisition...")
+        print(f"Running GP optimization with {acquisition_function} acquisition...")
         
         result = gp_minimize(
             func=self.objective_function,
@@ -383,9 +374,9 @@ class TBLiteParameterBayesian:
         )
         
         total_time = time.time() - start_time
-        logger.info(f"Optimization completed in {total_time:.2f}s")
-        logger.info(f"Final best fitness: {result.fun:.6f}")
-        logger.info(f"Total function evaluations: {len(result.func_vals)}")
+        print(f"Optimization completed in {total_time:.2f}s")
+        print(f"Final best fitness: {result.fun:.6f}")
+        print(f"Total function evaluations: {len(result.func_vals)}")
         
         # Store final results
         self.best_params = dict(zip(self.param_names, result.x))
@@ -403,12 +394,12 @@ class TBLiteParameterBayesian:
                 older_best = min(result.func_vals[-2*self.config.patience:-self.config.patience])
                 improvement = abs(older_best - recent_best)
                 if improvement < self.config.convergence_threshold:
-                    logger.info(f"Converged after {len(result.func_vals)} evaluations")
+                    print(f"Converged after {len(result.func_vals)} evaluations")
                     return True  # Stop optimization
         
         # Check for too many failures
         if self.failed_evaluations > self.config.n_calls * 0.3:
-            logger.error("Too many failed evaluations - stopping optimization")
+            print("Too many failed evaluations - stopping optimization")
             return True
             
         return False
@@ -434,8 +425,6 @@ class TBLiteParameterBayesian:
         
         with open(filename, 'w') as f:
             toml.dump(params, f)
-        
-        logger.info(f"Best parameters saved to {filename}")
     
     def save_fitness_history(self, filename: str):
         """Save fitness history to CSV"""
@@ -448,7 +437,6 @@ class TBLiteParameterBayesian:
         Path(filename).parent.mkdir(parents=True, exist_ok=True)
         
         df.to_csv(filename, index=False)
-        logger.info(f"Fitness history saved to {filename}")
     
     def save_optimization_result(self, filename: str):
         """Save complete optimization result for later analysis"""
@@ -459,7 +447,6 @@ class TBLiteParameterBayesian:
         Path(filename).parent.mkdir(parents=True, exist_ok=True)
         
         dump(self.optimization_result, filename)
-        logger.info(f"Complete optimization result saved to {filename}")
 
 def main():
     """H2-optimized Bayesian optimization"""

@@ -204,7 +204,7 @@ class GeneralParameterGA:
         """Load or generate reference data for the system"""
         # For H2, always use CCSD reference data
         if self.system_name == "H2":
-            ccsd_file = RESULTS_DIR / "curves" / "h2_ccsd_data.csv"
+            ccsd_file = RESULTS_DIR / "curves" / "h2_ccsd_500.csv"
             if ccsd_file.exists():
                 logger.info(f"Loading CCSD reference data from {ccsd_file}")
                 return pd.read_csv(ccsd_file)
