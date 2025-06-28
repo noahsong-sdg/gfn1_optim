@@ -139,18 +139,18 @@ class TBLiteParameterBayesian:
         # H-H pair interaction
         bounds.append(ParameterBounds("hamiltonian.xtb.kpair.H-H", 0.5, 1.5, 0.96))
         
-        # Hydrogen element parameters
+        # Hydrogen element parameters - Conservative bounds to avoid TBLite failures
         h_element_bounds = [
-            ("element.H.levels[0]", -15.0, -8.0, -10.92),  # 1s level
-            ("element.H.levels[1]", -4.0, -1.0, -2.17),   # 2s level
-            ("element.H.slater[0]", 0.8, 2.0, 1.21),      # 1s slater
-            ("element.H.slater[1]", 1.0, 3.0, 1.99),      # 2s slater
-            ("element.H.kcn[0]", 0.01, 0.15, 0.0655),     # coordination number dependence
-            ("element.H.kcn[1]", 0.001, 0.05, 0.0130),
-            ("element.H.gam", 0.2, 0.8, 0.47),           # gamma parameter
-            ("element.H.zeff", 0.8, 1.5, 1.12),          # effective nuclear charge
-            ("element.H.arep", 1.5, 3.0, 2.21),          # repulsion parameter
-            ("element.H.en", 1.5, 3.0, 2.2),             # electronegativity
+            ("element.H.levels[0]", -13.0, -9.0, -10.92),  # 1s level - tighter bounds
+            ("element.H.levels[1]", -3.0, -1.5, -2.17),   # 2s level - tighter bounds
+            ("element.H.slater[0]", 1.0, 1.6, 1.21),      # 1s slater - much tighter to avoid invalid exponents
+            ("element.H.slater[1]", 1.5, 2.5, 1.99),      # 2s slater - much tighter to avoid invalid exponents
+            ("element.H.kcn[0]", 0.03, 0.10, 0.0655),     # coordination number dependence - tighter
+            ("element.H.kcn[1]", 0.005, 0.03, 0.0130),    # tighter bounds
+            ("element.H.gam", 0.3, 0.6, 0.47),           # gamma parameter - tighter
+            ("element.H.zeff", 0.9, 1.3, 1.12),          # effective nuclear charge - tighter
+            ("element.H.arep", 1.8, 2.6, 2.21),          # repulsion parameter - tighter
+            ("element.H.en", 1.8, 2.6, 2.2),             # electronegativity - tighter
         ]
         
         for param_path, min_val, max_val, default in h_element_bounds:
@@ -248,8 +248,34 @@ class TBLiteParameterBayesian:
             toml.dump(param_dict, f)
             return f.name
 
+    def _validate_parameters(self, parameters: Dict[str, float]) -> bool:
+        """Validate parameter combinations to avoid TBLite failures"""
+        try:
+            # Check for obviously invalid Slater exponents
+            slater_0 = parameters.get("element.H.slater[0]", 1.21)
+            slater_1 = parameters.get("element.H.slater[1]", 1.99)
+            
+            # Slater exponents should be positive and reasonable
+            if slater_0 <= 0 or slater_1 <= 0:
+                return False
+            
+            # Check for NaN or inf values
+            for param_name, value in parameters.items():
+                if not np.isfinite(value):
+                    return False
+            
+            return True
+        except Exception:
+            return False
+
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
         """Evaluate fitness of parameter set using H2 RMSE"""
+        # Pre-validate parameters to avoid TBLite failures
+        if not self._validate_parameters(parameters):
+            logger.warning("Invalid parameter combination detected, returning penalty")
+            self.failed_evaluations += 1
+            return 1000.0
+        
         try:
             param_file = self.create_param_file(parameters)
             
@@ -288,7 +314,8 @@ class TBLiteParameterBayesian:
         except Exception as e:
             logger.error(f"Failed to evaluate fitness: {e}")
             self.failed_evaluations += 1
-            return float('inf')
+            # Return large finite penalty instead of infinity to avoid sklearn issues
+            return 1000.0  # Large penalty for failed evaluations
 
     def evaluate_test_performance(self, parameters: Dict[str, float]) -> Dict[str, float]:
         """Evaluate performance on test set"""
@@ -332,7 +359,7 @@ class TBLiteParameterBayesian:
                 
         except Exception as e:
             logger.error(f"Failed to evaluate test performance: {e}")
-            return {'rmse': float('inf'), 'mae': float('inf'), 'max_error': float('inf')}
+            return {'rmse': 1000.0, 'mae': 1000.0, 'max_error': 1000.0}
 
     def _normalize_parameters(self, parameters: Dict[str, float]) -> np.ndarray:
         """Normalize parameters to [0,1] range for GP"""

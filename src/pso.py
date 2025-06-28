@@ -28,7 +28,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 
 # Reference data files
-CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "h2_ccsd_data.csv"
+CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "h2_ccsd_500.csv"
 
 # Output files
 PSO_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "pso_optimized_params_v2.toml"

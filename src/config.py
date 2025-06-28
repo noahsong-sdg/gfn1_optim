@@ -77,7 +77,7 @@ SYSTEM_CONFIGS = {
         system_type=SystemType.DIATOMIC_MOLECULE,
         calculation_type=CalculationType.DISSOCIATION_CURVE,
         elements=["Si"],
-        bond_range=(2.0, 6.0),
+        bond_range=(1.0, 5.0),
         num_points=100,
         spin_multiplicity=2)  # Triplet)
 }

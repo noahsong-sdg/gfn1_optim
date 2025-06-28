@@ -16,7 +16,7 @@ from scipy.interpolate import interp1d
 
 from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor
-from system_config import get_system_config, SystemConfig, get_calculation_distances
+from config import get_system_config, SystemConfig, get_calculation_distances
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

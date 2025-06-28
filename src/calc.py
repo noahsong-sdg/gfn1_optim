@@ -398,12 +398,15 @@ def main():
     # Test with Si2
     print("Testing Si2 system:")
     print("=" * 30)
-    
+
     study = GeneralStudyManager("Si2")
-    
+
+    # Add CCSD calculation
+    study.add_method("CCSD", CalcConfig(method=CalcMethod.CCSD), "results/curves/si_ccsd_500.csv")
+
     # Add GFN1-xTB calculation
     xtb_config = CalcConfig(method=CalcMethod.GFN1_XTB)
-    study.add_method("GFN1-xTB", xtb_config, study.system_config.reference_data_file)
+    study.add_method("GFN1-xTB", xtb_config, "results/curves/si_pure_500.csv")
     
     # Plot results
     study.plot_comparison()
