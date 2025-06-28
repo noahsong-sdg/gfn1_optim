@@ -31,8 +31,8 @@ BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "h2_ccsd_data.csv"
 
 # Output files
-PSO_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "pso_optimized_params.toml"
-PSO_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "pso_fitness_history.csv"
+PSO_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "pso_optimized_params_v2.toml"
+PSO_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "pso_fitness_history_v2.csv"
 
 @dataclass
 class PSOConfig:
@@ -497,8 +497,8 @@ def main():
     """H2-optimized PSO configuration"""
     # Scaled down for H2 - simple 2-atom system doesn't need massive exploration
     pso_config = PSOConfig(
-        n_particles=12,      # Enough to explore parameter space efficiently  
-        max_iterations=25,   # H2 should converge relatively quickly
+        n_particles=30,      # Enough to explore parameter space efficiently  
+        max_iterations=100,   # H2 should converge relatively quickly
         max_workers=4        # Keep parallel workers for speed
     )
     
