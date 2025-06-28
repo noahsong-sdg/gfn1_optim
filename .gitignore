@@ -4,6 +4,7 @@
 *.egg-info
 data/
 archive/
-
+*.png
+*.txt
 **/__pycache__/
 
