@@ -3,7 +3,7 @@
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
-#SBATCH --job-name=pso
+#SBATCH --job-name=pso_si
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
@@ -21,9 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
 
-# Add some debugging
-echo "Current directory: $(pwd)"
-echo "Python version: $(python --version)"
-echo "Conda environment: $CONDA_DEFAULT_ENV"
-
-python src/pso.py
+python src/pso.py Si2

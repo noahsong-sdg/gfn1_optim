@@ -7,7 +7,7 @@ need to go to main() to change the hyperparameters
 
 """
 
-SPIN = 1
+SPIN = 2
 
 
 import numpy as np
