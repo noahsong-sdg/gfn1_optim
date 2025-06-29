@@ -429,6 +429,33 @@ class GeneralParameterGA:
         
         return child1, child2
     
+    def arithmetic_crossover(self, parent1: Individual, parent2: Individual, alpha: float = 0.5) -> Tuple[Individual, Individual]:
+        """Arithmetic crossover - creates intermediate solutions by blending parameters"""
+        if random.random() > self.config.crossover_rate:
+            return parent1.copy(), parent2.copy()
+        
+        child1_params = {}
+        child2_params = {}
+        
+        for param_name in parent1.parameters:
+            p1_val = parent1.parameters[param_name]
+            p2_val = parent2.parameters[param_name]
+            
+            # Linear combination with random alpha for each parameter
+            local_alpha = random.uniform(0.3, 0.7)  # Avoid extreme blends
+            
+            child1_params[param_name] = local_alpha * p1_val + (1 - local_alpha) * p2_val
+            child2_params[param_name] = (1 - local_alpha) * p1_val + local_alpha * p2_val
+        
+        child1 = Individual(child1_params)
+        child2 = Individual(child2_params)
+        
+        # Apply bounds to ensure valid parameters
+        self.apply_bounds(child1)
+        self.apply_bounds(child2)
+        
+        return child1, child2
+    
     def mutate(self, individual: Individual):
         """Gaussian mutation"""
         for param_name in individual.parameters:
