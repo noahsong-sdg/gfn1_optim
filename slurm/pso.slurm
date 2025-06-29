@@ -20,4 +20,10 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
+
+# Add some debugging
+echo "Current directory: $(pwd)"
+echo "Python version: $(python --version)"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+
 python src/pso.py

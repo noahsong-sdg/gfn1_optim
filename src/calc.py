@@ -3,6 +3,8 @@ General calculator for different molecular/material systems.
 Uses system configuration to handle H2, Si2, CdS, etc. in a unified way.
 """
 
+SPIN = 2
+
 from pyscf import gto, scf, cc
 import matplotlib
 matplotlib.use('Agg')

@@ -12,7 +12,7 @@ import numpy as np
 from ga import GeneralParameterGA, GAConfig
 from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor
-from system_config import get_system_config, list_available_systems, print_all_systems, print_system_info
+from config import get_system_config, list_available_systems, print_all_systems, print_system_info
 
 # Portable paths
 PROJECT_ROOT = Path.cwd()

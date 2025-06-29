@@ -5,9 +5,9 @@ Compare multiple parameter sets (TOML files) against CCSD reference data
 
 pixi run python src/compare.py --ccsd --pure \
     --params results/parameters/ga_optimized.toml \
-        results/parameters/pso_optimized_params.toml \
-        results/parameters/bayes_opt.toml \
-            --names ga pso bayes--output results/comparison 
+        results/parameters/pso_optimized_params_v2.toml \
+        results/parameters/bayes_pt.toml results/parameters/fitpar.toml \
+            --names ga pso2 bayes NEWUOA --output results/comparison 
 """
 
 import numpy as np
@@ -53,7 +53,7 @@ class MethodComparisonAnalyzer:
         
         if method_type == 'ccsd':
             # Load CCSD reference data
-            ccsd_file = RESULTS_DIR / "curves" / f"{self.system_name.lower()}_ccsd_data.csv"
+            ccsd_file = RESULTS_DIR / "curves" / f"{self.system_name.lower()}_ccsd_500.csv"
             if ccsd_file.exists():
                 self.results[name] = pd.read_csv(ccsd_file)
                 logger.info(f"Loaded CCSD data from {ccsd_file}")
@@ -240,6 +240,7 @@ class MethodComparisonAnalyzer:
         ax1.set_title(f'{self.system_name} Dissociation Curves Comparison', fontsize=14)
         ax1.grid(True, alpha=0.3)
         ax1.legend(fontsize=10)
+        ax1.set_ylim(-0.3, 0.3)
         ax1.set_xlim(0.4, 4.0)
         
         # Plot 2: Zoom in on equilibrium region
@@ -422,7 +423,7 @@ def main():
         logger.info("No methods specified. Auto-detecting available parameter files...")
         
         # Add CCSD if available
-        ccsd_file = RESULTS_DIR / "curves" / f"{args.system.lower()}_ccsd_data.csv"
+        ccsd_file = RESULTS_DIR / "curves" / f"{args.system.lower()}_ccsd_500.csv"
         if ccsd_file.exists():
             analyzer.add_method('CCSD/cc-pVTZ', 'ccsd')
         
@@ -460,7 +461,7 @@ def main():
     
     # Plot
     if not args.no_plot:
-        plot_path = output_dir / f"{args.system}_method_comparison_v2.png"
+        plot_path = output_dir / f"{args.system}_method_comparison_v3.png"
         analyzer.plot_comparison(save_path=str(plot_path), show_plot=False)
     
     # Report
