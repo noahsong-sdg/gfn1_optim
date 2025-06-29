@@ -179,9 +179,6 @@ class SimpleBayesOptimizer:
 
 def main():
     """Run simple Bayesian optimization"""
-    print("=" * 50)
-    print("SIMPLE BAYESIAN OPTIMIZATION FOR H2")
-    print("=" * 50)
     
     # Create optimizer
     optimizer = SimpleBayesOptimizer()

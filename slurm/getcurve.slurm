@@ -6,7 +6,7 @@
 #SBATCH --job-name=getcurve
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=24
+#SBATCH --cpus-per-task=36
 #SBATCH --output=getcurve_%j.out
 #SBATCH --error=getcurve_%j.err
 
