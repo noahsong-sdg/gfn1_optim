@@ -683,11 +683,11 @@ def main():
     
     # System-optimized configuration
     config = GAConfig(
-        population_size=20,
-        generations=30,
-        mutation_rate=0.1,
+        population_size=30,
+        generations=50,
+        mutation_rate=0.2,
         crossover_rate=0.8,
-        max_workers=8  # Better utilize available CPUs
+        max_workers=16  # Better utilize available CPUs
     )
     
     # Initialize GA

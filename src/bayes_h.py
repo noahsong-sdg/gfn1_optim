@@ -39,10 +39,11 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
 
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "h2_ccsd_500.csv"
-BAYES_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "bayes_optimized_params_v2.toml"
-BAYES_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "bayes_fitness_history_v2.csv"
-BAYES_RESULTS_PICKLE = RESULTS_DIR / "parameters" / "bayes_results_v2.pkl"
+CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "si_ccsd_500.csv"
+# these dont do anything rn 
+BAYES_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "si_optim.toml"
+BAYES_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "si_fitness_history.csv"
+BAYES_RESULTS_PICKLE = RESULTS_DIR / "parameters" / "si_results.pkl"
 
 @dataclass 
 class BayesConfig:
@@ -64,62 +65,90 @@ class ParamBounds:
     default_val: float 
 
 class TBLiteBayesian:
-    def __init__(self, base_param_file: str,
+    def __init__(self, 
+                 system_name: str,
+                 base_param_file: str,
                  ref_data: Optional[pd.DataFrame] = None,
                  config: BayesConfig = BayesConfig(),
                  train_frac: float = 0.8):
+        """Initialize Bayesian optimizer
+        
+        Args:
+            system_name: Name of system to optimize (e.g., 'H2', 'Si2', 'C2')
+            base_param_file: Path to base parameter TOML file
+            ref_data: Optional reference data (if None, loads from system config)
+            config: Bayesian optimization configuration
+            train_frac: Fraction of data to use for training
+        """
+        
+        # System configuration
+        self.system_name = system_name
+        from config import get_system_config
+        self.system_config = get_system_config(system_name)
+        
         with open(base_param_file, 'r') as f:
             self.base_params = toml.load(f)
         self.config = config 
         self.train_frac = train_frac 
-        self.parameter_space = self._define_h2_parameter_space()
+        
+        # Define parameter space using automatic extraction with 50% +/- bounds
+        self.parameter_space = self._define_parameter_space()
         self.param_names = [param.name for param in self.parameter_space]
         self.dimensions = [
             Real(param.min_val, param.max_val, name=param.name, prior='uniform')
                  for param in self.parameter_space
         ]
+        
+        # Load and split reference data
         self.ref_data = ref_data 
         if self.ref_data is None:
-            raise ValueError("Reference data is required for Bayesian optimization")
+            self.ref_data = self._load_reference_data()
+        
+        if self.ref_data.empty:
+            raise ValueError(f"No reference data available for {system_name}")
         
         self._SplitTrainTest()
 
         self.iteration = 0
         self.bestFitness = float('inf')
         self.bestParam = {}
-        self.fitnessHistory = {}
-        #self.convergence_counter = 0
+        self.fitnessHistory = []
         self.failed_evaluations = 0
 
-    def _get_h2_bounds(self) -> List[ParamBounds]:
-        # defined by 50% +/-
+    def _define_parameter_space(self) -> List[ParamBounds]:
+        """Define parameter space using automatic extraction with 50% +/- margins"""
         space = []
-
-        space.extend([
-            ParamBounds("hamiltonian.xtb.kpol", 1.0, 5.0, 2.85),
-            ParamBounds("hamiltonian.xtb.enscale", -0.02, 0.02, -0.007),
-        ])
-
-        space.extend([
-            ParamBounds("hamiltonian.xtb.shell.ss", 1.0, 3.0, 1.85),
-            ParamBounds("hamiltonian.xtb.shell.pp", 1.5, 3.5, 2.25),
-            ParamBounds("hamiltonian.xtb.shell.sp", 1.5, 3.0, 2.08),
-        ])
-
-        h_element_space = [
-            ParamBounds("element.H.levels[0]", -15.0, -8.0, -10.92),
-            ParamBounds("element.H.levels[1]", -4.0, -1.0, -2.17),
-            ParamBounds("element.H.slater[0]", 0.8, 2.0, 1.21),
-            ParamBounds("element.H.slater[1]", 1.0, 3.0, 1.99),
-            ParamBounds("element.H.kcn[0]", 0.01, 0.15, 0.0655),
-            ParamBounds("element.H.kcn[1]", 0.001, 0.05, 0.0130),
-            ParamBounds("element.H.gam", 0.2, 0.8, 0.47),
-        ]
-
-        space.extend(h_element_space)
-        return space 
-    def _load_data(self) -> pd.DataFrame:
-        return pd.read_csv(CCSD_REFERENCE_DATA)
+        
+        # Extract default parameters for this system
+        from data_extraction import GFN1ParameterExtractor
+        extractor = GFN1ParameterExtractor(Path(BASE_PARAM_FILE))
+        system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
+        
+        # Create bounds with 50% +/- margin for each parameter
+        for param_name, default_val in system_defaults.items():
+            margin = abs(default_val) * 0.5
+            min_val = default_val - margin
+            max_val = default_val + margin
+            
+            # Special handling for parameters that must stay positive
+            if 'slater' in param_name or 'kcn' in param_name:
+                min_val = max(0.001, min_val)  # Keep positive
+            
+            space.append(ParamBounds(param_name, min_val, max_val, default_val))
+        
+        logger.info(f"Generated {len(space)} parameter bounds for {self.system_name} with 50% +/- margins")
+        return space
+    
+    def _load_reference_data(self) -> pd.DataFrame:
+        """Load reference data for the system"""
+        ref_file = CCSD_REFERENCE_DATA
+        if ref_file.exists():
+            logger.info(f"Loading reference data from {ref_file}")
+            return pd.read_csv(ref_file)
+        else:
+            logger.warning(f"Reference file {ref_file} not found for {self.system_name}.")
+            return pd.DataFrame(columns=['Distance', 'Energy'])
+    
     def _SplitTrainTest(self):
         n = int(len(self.ref_data) * self.train_frac)
         train_idx = np.linspace(0, len(self.ref_data) - 1, n, dtype=int)
@@ -157,6 +186,7 @@ class TBLiteBayesian:
                 current[key] = {}
             current = current[key]
         current[keys[-1]] = value
+    
     def _create_param_file(self, paramVals: List[float]) -> str:
         params = self.base_params.copy()
         parameterDict = dict(zip(self.param_names, paramVals))
@@ -165,18 +195,19 @@ class TBLiteBayesian:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
             toml.dump(params, f)
             return f.name
+    
     def _objective_function(self, paramVals: List[float]) -> float:
         self.iteration += 1
         param_file = self._create_param_file(paramVals)
         from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-        from config import get_system_config
+        
         custom_config = CalcConfig(
             method=CalcMethod.XTB_CUSTOM,
             param_file=param_file,
             spin=SPIN
         )
-        system_config = get_system_config("H2")
-        calculator = GeneralCalculator(custom_config, system_config)
+        
+        calculator = GeneralCalculator(custom_config, self.system_config)
         generator = DissociationCurveGenerator(calculator)
         calc_data = generator.generate_curve(distances=self.train_distances, save=False)
 
@@ -191,9 +222,7 @@ class TBLiteBayesian:
             self.bestFitness = rmse
             self.bestParam = dict(zip(self.param_names, paramVals))
             print(f"Evaluation {self.iteration}: New best fitness: {rmse:.6f}")
-            self.convergence_counter = 0
-        else:
-            self.convergence_counter += 1
+        
         self.fitnessHistory.append(rmse)
         Path(param_file).unlink(missing_ok=True)
         return rmse 
@@ -201,15 +230,14 @@ class TBLiteBayesian:
     def _evaluate_test_performance(self, paramVals: List[float]) -> Dict[str, float]:
         param_file = self._create_param_file(paramVals)
         from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-        from config import get_system_config
+        
         custom_config = CalcConfig(
             method=CalcMethod.XTB_CUSTOM,
             param_file=param_file,
             spin=SPIN
         )
 
-        system_config = get_system_config("H2")
-        calculator = GeneralCalculator(custom_config, system_config)
+        calculator = GeneralCalculator(custom_config, self.system_config)
         generator = DissociationCurveGenerator(calculator)
         calc_data = generator.generate_curve(distances=self.test_distances, save=False)
         ref_energies = self.test_data['Energy'].values
@@ -229,8 +257,9 @@ class TBLiteBayesian:
             'test_mae': mae,
             'test_max_error': max_error
         }
+    
     def optimize(self) -> Dict[str, float]:
-        acq_fn = self.config.acquisition_func.upper()
+        acq_fn = self.config.acq_fn.upper()
         if acq_fn == "EI":
             acq_fn = gaussian_ei
         elif acq_fn == "PI":
@@ -244,7 +273,7 @@ class TBLiteBayesian:
         y0 = []
         
         default_values = [param.default_val for param in self.parameter_space]
-        print("Evaluating default parameters...")
+        print(f"Evaluating default parameters for {self.system_name}...")
         default_fitness = self._objective_function(default_values)
         x0.append(default_values)
         y0.append(default_fitness)
@@ -264,7 +293,6 @@ class TBLiteBayesian:
             n_restarts_optimizer=self.config.n_restarts,
             noise=self.config.noise,
             random_state=self.config.random_state,
-            # callback=self._callback,
             model_queue_size=1
         )
 
@@ -275,12 +303,12 @@ class TBLiteBayesian:
         return self.best_params
 
     def get_best_params(self) -> Dict[str, float]:
-         if not self.best_params:
+         if not hasattr(self, 'best_params'):
             raise ValueError("No optimization has been run")
          return self.best_params.copy()
     
     def save_best_params(self, filename: str):
-        if not self.best_params:
+        if not hasattr(self, 'best_params'):
             raise ValueError("No optimization has been run")
         
         params = self.base_params.copy()
@@ -300,13 +328,24 @@ class TBLiteBayesian:
         df.to_csv(filename, index=False)
     
     def save_optimization_result(self, filename: str):
-        if not self.optimization_result:
+        if not hasattr(self, 'optimization_result'):
             raise ValueError("No optimization has been run")
         
         Path(filename).parent.mkdir(parents=True, exist_ok=True)
         dump(self.optimization_result, filename)
 
-if __name__ == "__main__":
+def main():
+    """System-agnostic Bayesian optimization"""
+    import sys
+    
+    # Allow system selection from command line
+    if len(sys.argv) > 1:
+        system_name = sys.argv[1]
+    else:
+        system_name = "H2"  # Default
+    
+    print(f"Running Bayesian optimization for {system_name}")
+    
     bayes_config = BayesConfig(
         n_calls=100,
         n_init_pts=20,
@@ -317,19 +356,31 @@ if __name__ == "__main__":
         convergence_threshold=1e-6,
         patience=15
     )
+    
     optim = TBLiteBayesian(
+        system_name=system_name,
         base_param_file=str(BASE_PARAM_FILE),
         config=bayes_config
     )
+    
     best_params = optim.optimize()
-    print("Best parameters:", best_params)
-    optim.save_best_params(BAYES_OPTIMIZED_PARAMS)
-    optim.save_fitness_history(BAYES_FITNESS_HISTORY)
-    optim.save_optimization_result(BAYES_RESULTS_PICKLE)
+    print(f"Best parameters for {system_name}:", best_params)
+    
+    # Save results with system-specific filenames
+    bayes_params_file = RESULTS_DIR / "parameters" / f"bayes_optimized_params_{system_name.lower()}.toml"
+    bayes_history_file = RESULTS_DIR / "fitness" / f"bayes_fitness_history_{system_name.lower()}.csv"
+    bayes_results_file = RESULTS_DIR / "parameters" / f"bayes_results_{system_name.lower()}.pkl"
+    
+    optim.save_best_params(str(bayes_params_file))
+    optim.save_fitness_history(str(bayes_history_file))
+    optim.save_optimization_result(str(bayes_results_file))
 
     # Evaluate test performance
     best_param_values = [best_params[name] for name in optim.param_names]
-    test_metrics = optim.evaluate_test_performance(best_param_values)
-    print("\nTest Performance:")
+    test_metrics = optim._evaluate_test_performance(best_param_values)
+    print(f"\nTest Performance for {system_name}:")
     for metric, value in test_metrics.items():
         print(f"  {metric}: {value:.6f}")
+
+if __name__ == "__main__":
+    main()

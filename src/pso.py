@@ -1,5 +1,8 @@
 """
 Particle Swarm Optimization for TBLite parameter optimization
+Generalized for any molecular system (H2, Si2, etc.)
+
+make sure to change CCSD reference data and the output files and the SPIN variable
 """
 
 import numpy as np
@@ -27,12 +30,15 @@ DATA_DIR = PROJECT_ROOT / "data"
 # Configuration files
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 
-# Reference data files
-CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "h2_ccsd_500.csv"
+# CHANGE THESE -------------------------------------------------
+CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "si_ccsd_500.csv" 
+PSO_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "si_optim.toml"
+PSO_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "si_fitness_history.csv"
+SPIN = 2 # numberofalpha electrons - numberofbeta electrons
 
-# Output files
-PSO_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "pso_optimized_params_v2.toml"
-PSO_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "pso_fitness_history_v2.csv"
+
+from data_extraction import GFN1ParameterExtractor
+from config import get_system_config
 
 @dataclass
 class PSOConfig:
@@ -103,14 +109,27 @@ class Particle:
         return False
 
 class TBLiteParameterPSO:
-    """PSO optimizer for TBLite parameters using H2 dissociation data"""
+    """PSO optimizer for TBLite parameters for any molecular system"""
     
     def __init__(self, 
+                 system_name: str,
                  base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
                  config: PSOConfig = PSOConfig(),
                  train_fraction: float = 0.8):
-        """Initialize PSO optimizer"""
+        """Initialize PSO optimizer
+        
+        Args:
+            system_name: Name of system to optimize (e.g., 'H2', 'Si2', 'C2')
+            base_param_file: Path to base parameter TOML file
+            reference_data: Optional reference data (if None, loads from system config)
+            config: PSO configuration
+            train_fraction: Fraction of data to use for training
+        """
+        
+        # System configuration
+        self.system_name = system_name
+        self.system_config = get_system_config(system_name)
         
         # Load base parameters
         with open(base_param_file, 'r') as f:
@@ -119,8 +138,8 @@ class TBLiteParameterPSO:
         self.config = config
         self.train_fraction = train_fraction
         
-        # Define H2-relevant parameter bounds
-        self.parameter_bounds = self._define_h2_parameter_bounds()
+        # Define parameter bounds using extraction with 50% +/- bounds
+        self.parameter_bounds = self._define_parameter_bounds()
         
         # Load and split reference data
         if reference_data is not None:
@@ -139,52 +158,37 @@ class TBLiteParameterPSO:
         self.fitness_history = []
         self.failed_evaluations = 0
         
-    def _define_h2_parameter_bounds(self) -> List[ParameterBounds]:
-        """Define parameter bounds for H2-relevant parameters"""
+    def _define_parameter_bounds(self) -> List[ParameterBounds]:
+        """Define parameter bounds using automatic extraction with 50% +/- margins"""
         bounds = []
         
-        # Hamiltonian parameters
-        bounds.extend([
-            ParameterBounds("hamiltonian.xtb.kpol", 1.0, 5.0, 2.85),
-            ParameterBounds("hamiltonian.xtb.enscale", -0.02, 0.02, -0.007),
-        ])
+        # Extract default parameters for this system
+        extractor = GFN1ParameterExtractor(Path(BASE_PARAM_FILE))
+        system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
         
-        # Shell parameters
-        bounds.extend([
-            ParameterBounds("hamiltonian.xtb.shell.ss", 1.0, 3.0, 1.85),
-            ParameterBounds("hamiltonian.xtb.shell.pp", 1.5, 3.5, 2.25),
-            ParameterBounds("hamiltonian.xtb.shell.sp", 1.5, 3.0, 2.08),
-        ])
-        
-        # H-H pair interaction
-        bounds.append(ParameterBounds("hamiltonian.xtb.kpair.H-H", 0.5, 1.5, 0.96))
-        
-        # Hydrogen element parameters
-        h_element_bounds = [
-            ("element.H.levels[0]", -15.0, -8.0, -10.92),  # 1s level
-            ("element.H.levels[1]", -4.0, -1.0, -2.17),   # 2s level
-            ("element.H.slater[0]", 0.8, 2.0, 1.21),      # 1s slater
-            ("element.H.slater[1]", 1.0, 3.0, 1.99),      # 2s slater
-            ("element.H.kcn[0]", 0.01, 0.15, 0.0655),     # coordination number dependence
-            ("element.H.kcn[1]", 0.001, 0.05, 0.0130),
-            ("element.H.gam", 0.2, 0.8, 0.47),           # gamma parameter
-            ("element.H.zeff", 0.8, 1.5, 1.12),          # effective nuclear charge
-            ("element.H.arep", 1.5, 3.0, 2.21),          # repulsion parameter
-            ("element.H.en", 1.5, 3.0, 2.2),             # electronegativity
-        ]
-        
-        for param_path, min_val, max_val, default in h_element_bounds:
-            bounds.append(ParameterBounds(param_path, min_val, max_val, default))
+        # Create bounds with 50% +/- margin for each parameter
+        for param_name, default_val in system_defaults.items():
+            margin = abs(default_val) * 0.5
+            min_val = default_val - margin
+            max_val = default_val + margin
             
+            # Special handling for parameters that must stay positive
+            if 'slater' in param_name or 'kcn' in param_name:
+                min_val = max(0.001, min_val)  # Keep positive
+            
+            bounds.append(ParameterBounds(param_name, min_val, max_val, default_val))
+        
+        logger.info(f"Generated {len(bounds)} parameter bounds for {self.system_name} with 50% +/- margins")
         return bounds
     
     def _load_reference_data(self) -> pd.DataFrame:
-        """Load or generate reference CCSD data for H2"""
-        if CCSD_REFERENCE_DATA.exists():
-            logger.info(f"Loading reference data from {CCSD_REFERENCE_DATA}")
-            return pd.read_csv(CCSD_REFERENCE_DATA)
+        """Load reference data for the system"""
+        ref_file = Path(self.system_config.reference_data_file)
+        if ref_file.exists():
+            logger.info(f"Loading reference data from {ref_file}")
+            return pd.read_csv(ref_file)
         else:
-            logger.warning(f"Reference file {CCSD_REFERENCE_DATA} not found. Please ensure h2_ccsd_data.csv exists.")
+            logger.warning(f"Reference file {ref_file} not found for {self.system_name}.")
             # Return empty DataFrame as fallback
             return pd.DataFrame(columns=['Distance', 'Energy'])
     
@@ -202,8 +206,6 @@ class TBLiteParameterPSO:
         self.train_distances = self.train_data['Distance'].values
         self.test_distances = self.test_data['Distance'].values
         
-
-    
     def _set_parameter_in_dict(self, param_dict: dict, path: str, value: float):
         """Set a parameter value using dot notation path"""
         import re
@@ -254,26 +256,24 @@ class TBLiteParameterPSO:
             return f.name
     
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
-        """Evaluate fitness of parameter set using H2 dissociation curve"""
+        """Evaluate fitness of parameter set using system dissociation curve"""
         try:
             param_file = self.create_param_file(parameters)
             
             # Import here to avoid circular imports
             from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-            from config import get_system_config
             
             # Create calculator with custom parameters
             custom_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
                 param_file=param_file,
-                spin=1
+                spin=SPIN
             )
             
-            system_config = get_system_config("H2")
-            calculator = GeneralCalculator(custom_config, system_config)
+            calculator = GeneralCalculator(custom_config, self.system_config)
             generator = DissociationCurveGenerator(calculator)
             
-            # Generate H2 curve for training points
+            # Generate curve for training points
             calc_data = generator.generate_curve(distances=self.train_distances, save=False)
             
             # Calculate RMSE against reference
@@ -301,16 +301,14 @@ class TBLiteParameterPSO:
             param_file = self.create_param_file(parameters)
             
             from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-            from config import get_system_config
             
             custom_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
                 param_file=param_file,
-                spin=1
+                spin=SPIN
             )
             
-            system_config = get_system_config("H2")
-            calculator = GeneralCalculator(custom_config, system_config)
+            calculator = GeneralCalculator(custom_config, self.system_config)
             generator = DissociationCurveGenerator(calculator)
             
             # Generate test curve
@@ -415,9 +413,7 @@ class TBLiteParameterPSO:
     
     def optimize(self) -> Dict[str, float]:
         """Run PSO optimization"""
-        print(f"Starting PSO optimization: {len(self.train_distances)} training points, {self.config.n_particles} particles")
-        
-        start_time = time.time()
+        print(f"Starting PSO optimization for {self.system_name}: {len(self.train_distances)} training points, {self.config.n_particles} particles")
         
         # Initialize swarm
         self.initialize_swarm()
@@ -450,9 +446,6 @@ class TBLiteParameterPSO:
             if self.failed_evaluations > len(self.swarm) * 0.5:
                 print("Too many failed evaluations - stopping optimization")
                 break
-        
-        total_time = time.time() - start_time
-        print(f"PSO optimization completed in {total_time:.2f}s")
         print(f"Final best fitness: {self.global_best_fitness:.6f}")
         
         return self.global_best_params
@@ -485,30 +478,46 @@ class TBLiteParameterPSO:
         df.to_csv(filename, index=False)
 
 def main():
-    """H2-optimized PSO configuration"""
-    # Scaled down for H2 - simple 2-atom system doesn't need massive exploration
+    """System-agnostic PSO configuration"""
+    import sys
+    
+    # Allow system selection from command line
+    if len(sys.argv) > 1:
+        system_name = sys.argv[1]
+    else:
+        system_name = "H2"  # Default
+    
+    print(f"Running PSO optimization for {system_name}")
+    
+    # Scaled configuration - can be tuned per system
     pso_config = PSOConfig(
         n_particles=30,      # Enough to explore parameter space efficiently  
-        max_iterations=100,   # H2 should converge relatively quickly
-        max_workers=4        # Keep parallel workers for speed
+        max_iterations=100,   # Should be sufficient for most systems
+        max_workers=12
     )
-    
+    reference_data = pd.read_csv(CCSD_REFERENCE_DATA)
+
     # Initialize optimizer
     optimizer = TBLiteParameterPSO(
+        system_name=system_name,
         base_param_file=str(BASE_PARAM_FILE),
+        reference_data=reference_data,
         config=pso_config
     )
     
     # Run optimization
     best_params = optimizer.optimize()
     
-    # Save results
-    optimizer.save_best_parameters(str(PSO_OPTIMIZED_PARAMS))
-    optimizer.save_fitness_history(str(PSO_FITNESS_HISTORY))
+    # Save results with system-specific filenames
+    pso_params_file = RESULTS_DIR / "parameters" / f"pso_optimized_params_{system_name.lower()}.toml"
+    pso_history_file = RESULTS_DIR / "fitness" / f"pso_fitness_history_{system_name.lower()}.csv"
+    
+    optimizer.save_best_parameters(str(pso_params_file))
+    optimizer.save_fitness_history(str(pso_history_file))
     
     # Evaluate test performance
     test_metrics = optimizer.evaluate_test_performance(best_params)
-    print("Test Performance:")
+    print(f"Test Performance for {system_name}:")
     for metric, value in test_metrics.items():
         print(f"  {metric}: {value:.6f}")
 

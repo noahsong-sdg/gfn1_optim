@@ -6,7 +6,7 @@
 #SBATCH --job-name=pso
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --output=pso_%j.out
 #SBATCH --error=pso_%j.err
 
