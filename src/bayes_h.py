@@ -184,6 +184,15 @@ class TBLiteBayesian:
     def _set_param_in_dict(self, param_dict: dict, path: str, value: float):
         # this is some witchcraft
         import re 
+        
+        # Convert numpy types to native Python types to avoid TOML serialization issues
+        if hasattr(value, 'item'):  # numpy scalar
+            value = value.item()
+        elif isinstance(value, np.floating):
+            value = float(value)
+        elif isinstance(value, np.integer):
+            value = int(value)
+        
         if '[' in path and ']' in path:
             match = re.match(r'(.+)\[(\d+)\]$', path)
             if match:
