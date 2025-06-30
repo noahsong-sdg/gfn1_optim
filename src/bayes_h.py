@@ -25,7 +25,7 @@ import time
 from sklearn.model_selection import train_test_split
 from skopt import gp_minimize 
 from skopt.space import Real  
-from skopt.acquisition import gaussian_ei, gaussian_pi, gaussian_1cb
+from skopt.acquisition import gaussian_ei, gaussian_pi
 from skopt import dump, load 
 
 logging.basicConfig(level=logging.WARNING)
@@ -264,8 +264,6 @@ class TBLiteBayesian:
             acq_fn = gaussian_ei
         elif acq_fn == "PI":
             acq_fn = gaussian_pi
-        elif acq_fn == "LCB":
-            acq_fn = gaussian_1cb
         else:
             raise ValueError(f"Unknown acquisition function: {acq_fn}")
         

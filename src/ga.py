@@ -180,13 +180,20 @@ class GeneralParameterGA:
         # Type-based bounds
         if 'levels' in param_name:
             # Energy levels - allow ±30% variation
-            return (default_val - abs(default_val) * 0.3, default_val + abs(default_val) * 0.3)
+            margin = abs(default_val) * 0.3
+            if margin < 1e-6:  # Handle near-zero defaults
+                margin = 0.1
+            return (default_val - margin, default_val + margin)
         elif 'slater' in param_name:
             # Slater exponents - keep positive, allow wide range
-            return (max(0.1, default_val * 0.5), default_val * 2.0)
+            min_val = max(0.1, default_val * 0.5)
+            max_val = default_val * 2.0
+            return (min_val, max(max_val, min_val + 0.1))  # Ensure max > min
         elif 'kcn' in param_name:
             # Coordination number parameters - keep positive, allow wide range
-            return (max(0.001, default_val * 0.1), default_val * 5.0)
+            min_val = max(0.001, default_val * 0.1)
+            max_val = default_val * 5.0
+            return (min_val, max(max_val, min_val + 0.1))  # Ensure max > min
         elif param_name.endswith('.gam'):
             return (0.2, 0.8)
         elif param_name.endswith('.zeff'):
@@ -198,7 +205,17 @@ class GeneralParameterGA:
         else:
             # Default: ±50% around default
             margin = abs(default_val) * 0.5
-            return (default_val - margin, default_val + margin)
+            if margin < 1e-6:  # Handle near-zero defaults
+                margin = 0.1
+            min_val = default_val - margin
+            max_val = default_val + margin
+            
+            # Final validation to ensure valid bounds
+            if max_val <= min_val:
+                logger.warning(f"Computed invalid bounds for {param_name} (default={default_val}). Using fallback.")
+                return (default_val - 0.1, default_val + 0.1)
+            
+            return (min_val, max_val)
     
     def _load_or_generate_reference_data(self) -> pd.DataFrame:
         """Load or generate reference data for the system"""
@@ -274,9 +291,16 @@ class GeneralParameterGA:
             # Generate random parameters within bounds
             parameters = {}
             for bound in self.parameter_bounds:
+                # Validate bounds
+                if bound.max_val <= bound.min_val:
+                    logger.warning(f"Invalid bounds for {bound.name}: min={bound.min_val}, max={bound.max_val}. Using default.")
+                    parameters[bound.name] = bound.default_val
+                    continue
+                
                 if random.random() < 0.8:  # 80% chance to stay near default
                     # Normal distribution around default
-                    std = (bound.max_val - bound.min_val) * 0.1
+                    range_size = bound.max_val - bound.min_val
+                    std = max(range_size * 0.1, 1e-6)  # Ensure positive std with minimum value
                     value = np.random.normal(bound.default_val, std)
                 else:
                     # Uniform distribution across full range
