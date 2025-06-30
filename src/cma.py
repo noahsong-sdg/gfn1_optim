@@ -268,6 +268,14 @@ class GeneralParameterCMA:
         """Set a parameter value using path like 'element.H.levels[0]' or 'hamiltonian.xtb.kpol'"""
         import re
         
+        # Convert numpy types to native Python types to avoid TOML serialization issues
+        if hasattr(value, 'item'):  # numpy scalar
+            value = value.item()
+        elif isinstance(value, np.floating):
+            value = float(value)
+        elif isinstance(value, np.integer):
+            value = int(value)
+        
         # Check if this is an array access
         if '[' in path and ']' in path:
             # Split into path and array index: 'element.H.levels[0]' -> 'element.H.levels', '0'
@@ -329,9 +337,9 @@ class GeneralParameterCMA:
                 if 'slater' in param_name:
                     bounded_value = max(0.5, bounded_value)  # Absolute minimum for safety
                 
-                bounded_params[param_name] = bounded_value
+                bounded_params[param_name] = float(bounded_value)
             else:
-                bounded_params[param_name] = value
+                bounded_params[param_name] = float(value)
         return bounded_params
     
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
@@ -504,8 +512,8 @@ class GeneralParameterCMA:
                 # Get parameter vector from CMA-ES
                 x = self.optimizer.ask()
                 
-                # Convert to parameter dictionary
-                params = {param_names[i]: x[i] for i in range(len(param_names))}
+                # Convert to parameter dictionary (ensure numpy types become Python floats)
+                params = {param_names[i]: float(x[i]) for i in range(len(param_names))}
                 
                 # Evaluate fitness
                 fitness = self.evaluate_fitness(params)
@@ -519,7 +527,7 @@ class GeneralParameterCMA:
             # Track best solution
             best_solution = min(solutions, key=lambda x: x[1])
             best_x, best_fitness = best_solution
-            best_params = {param_names[i]: best_x[i] for i in range(len(param_names))}
+            best_params = {param_names[i]: float(best_x[i]) for i in range(len(param_names))}
             
             # Update best if improved
             if self.best_parameters is None or best_fitness < self.best_fitness:
