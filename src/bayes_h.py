@@ -123,23 +123,42 @@ class TBLiteBayesian:
         extractor = GFN1ParameterExtractor(Path(BASE_PARAM_FILE))
         system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
         
-        # Create bounds with 50% +/- margin for each parameter
+        # Create bounds with more conservative margins for each parameter
         for param_name, default_val in system_defaults.items():
-            margin = abs(default_val) * 0.5
-            min_val = default_val - margin
-            max_val = default_val + margin
-            
-            # Special handling for parameters that must stay positive
-            if 'slater' in param_name:
-                # Slater exponents - use conservative bounds to avoid TBLite errors
-                min_safe = max(0.5, default_val * 0.2)  # More conservative minimum
-                max_safe = default_val * 1.8  # More conservative maximum
-                min_val = min_safe
-                max_val = max_safe
+            # Use more conservative bounds to prevent SCF convergence failures
+            if 'levels' in param_name:
+                # Energy levels - allow ±20% variation (more conservative)
+                margin = abs(default_val) * 0.2
+                min_val = default_val - margin
+                max_val = default_val + margin
+            elif 'slater' in param_name:
+                # Slater exponents - very conservative bounds to ensure SCF stability
+                min_val = max(0.5, default_val * 0.5)  # No less than 50% of default
+                max_val = default_val * 1.5  # No more than 150% of default
             elif 'kcn' in param_name:
-                # For parameters that must be positive, don't force negative defaults positive
+                # Coordination number parameters - moderate bounds
                 if default_val > 0:
-                    min_val = max(0.001, min_val)  # Keep positive only if default is positive
+                    min_val = max(0.001, default_val * 0.2)
+                    max_val = default_val * 3.0
+                else:
+                    # For negative defaults, symmetric bounds
+                    margin = abs(default_val) * 0.3
+                    min_val = default_val - margin
+                    max_val = default_val + margin
+            elif param_name.endswith('.gam') or param_name.endswith('.zeff'):
+                # Important electronic parameters - conservative bounds
+                margin = abs(default_val) * 0.2
+                min_val = default_val - margin
+                max_val = default_val + margin
+            else:
+                # Default: ±30% around default (more conservative than 50%)
+                margin = abs(default_val) * 0.3
+                min_val = default_val - margin
+                max_val = default_val + margin
+                
+            # For parameters that must be positive, ensure minimum > 0
+            if 'slater' in param_name or ('kcn' in param_name and default_val > 0):
+                min_val = max(min_val, 0.001)
             
             # Validation: ensure max_val > min_val
             if max_val <= min_val:
@@ -159,7 +178,7 @@ class TBLiteBayesian:
             
             space.append(ParamBounds(param_name, min_val, max_val, default_val))
         
-        logger.info(f"Generated {len(space)} parameter bounds for {self.system_name} with 50% +/- margins")
+        logger.info(f"Generated {len(space)} parameter bounds for {self.system_name} with conservative margins")
         return space
     
     def _load_reference_data(self) -> pd.DataFrame:
@@ -250,65 +269,92 @@ class TBLiteBayesian:
     
     def _objective_function(self, paramVals: List[float]) -> float:
         self.iteration += 1
-        param_file = self._create_param_file(paramVals)
-        from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
         
-        custom_config = CalcConfig(
-            method=CalcMethod.XTB_CUSTOM,
-            param_file=param_file,
-            spin=SPIN
-        )
-        
-        calculator = GeneralCalculator(custom_config, self.system_config)
-        generator = DissociationCurveGenerator(calculator)
-        calc_data = generator.generate_curve(distances=self.train_distances, save=False)
+        try:
+            param_file = self._create_param_file(paramVals)
+            from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
+            
+            custom_config = CalcConfig(
+                method=CalcMethod.XTB_CUSTOM,
+                param_file=param_file,
+                spin=SPIN
+            )
+            
+            calculator = GeneralCalculator(custom_config, self.system_config)
+            generator = DissociationCurveGenerator(calculator)
+            calc_data = generator.generate_curve(distances=self.train_distances, save=False)
 
-        ref_energies = self.train_data['Energy'].values
-        calc_energies = calc_data['Energy'].values
+            ref_energies = self.train_data['Energy'].values
+            calc_energies = calc_data['Energy'].values
 
-        ref_relative = ref_energies - np.min(ref_energies)
-        calc_relative = calc_energies - np.min(calc_energies)
-        rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
+            ref_relative = ref_energies - np.min(ref_energies)
+            calc_relative = calc_energies - np.min(calc_energies)
+            rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
 
-        if rmse < self.bestFitness:
-            self.bestFitness = rmse
-            self.bestParam = dict(zip(self.param_names, paramVals))
-            print(f"Evaluation {self.iteration}: New best fitness: {rmse:.6f}")
-        
-        self.fitnessHistory.append(rmse)
-        Path(param_file).unlink(missing_ok=True)
-        return rmse 
+            if rmse < self.bestFitness:
+                self.bestFitness = rmse
+                self.bestParam = dict(zip(self.param_names, paramVals))
+                print(f"Evaluation {self.iteration}: New best fitness: {rmse:.6f}")
+            
+            self.fitnessHistory.append(rmse)
+            Path(param_file).unlink(missing_ok=True)
+            return rmse
+            
+        except Exception as e:
+            logger.warning(f"Evaluation {self.iteration} failed: {e}")
+            self.failed_evaluations += 1
+            # Clean up temp file if it exists
+            if 'param_file' in locals():
+                Path(param_file).unlink(missing_ok=True)
+            
+            # Return large penalty for failed evaluations
+            penalty = 1000.0 + np.random.normal(0, 10)  # Add noise to avoid identical values
+            self.fitnessHistory.append(penalty)
+            return penalty 
     
     def _evaluate_test_performance(self, paramVals: List[float]) -> Dict[str, float]:
-        param_file = self._create_param_file(paramVals)
-        from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-        
-        custom_config = CalcConfig(
-            method=CalcMethod.XTB_CUSTOM,
-            param_file=param_file,
-            spin=SPIN
-        )
+        try:
+            param_file = self._create_param_file(paramVals)
+            from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
+            
+            custom_config = CalcConfig(
+                method=CalcMethod.XTB_CUSTOM,
+                param_file=param_file,
+                spin=SPIN
+            )
 
-        calculator = GeneralCalculator(custom_config, self.system_config)
-        generator = DissociationCurveGenerator(calculator)
-        calc_data = generator.generate_curve(distances=self.test_distances, save=False)
-        ref_energies = self.test_data['Energy'].values
-        calc_energies = calc_data['Energy'].values
-        
-        ref_relative = ref_energies - np.min(ref_energies)
-        calc_relative = calc_energies - np.min(calc_energies)
-        
-        rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
-        mae = np.mean(np.abs(ref_relative - calc_relative))
-        max_error = np.max(np.abs(ref_relative - calc_relative))
-        
-        Path(param_file).unlink(missing_ok=True)
-        
-        return {
-            'test_rmse': rmse,
-            'test_mae': mae,
-            'test_max_error': max_error
-        }
+            calculator = GeneralCalculator(custom_config, self.system_config)
+            generator = DissociationCurveGenerator(calculator)
+            calc_data = generator.generate_curve(distances=self.test_distances, save=False)
+            ref_energies = self.test_data['Energy'].values
+            calc_energies = calc_data['Energy'].values
+            
+            ref_relative = ref_energies - np.min(ref_energies)
+            calc_relative = calc_energies - np.min(calc_energies)
+            
+            rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
+            mae = np.mean(np.abs(ref_relative - calc_relative))
+            max_error = np.max(np.abs(ref_relative - calc_relative))
+            
+            Path(param_file).unlink(missing_ok=True)
+            
+            return {
+                'test_rmse': rmse,
+                'test_mae': mae,
+                'test_max_error': max_error
+            }
+            
+        except Exception as e:
+            logger.warning(f"Test evaluation failed: {e}")
+            # Clean up temp file if it exists
+            if 'param_file' in locals():
+                Path(param_file).unlink(missing_ok=True)
+            
+            return {
+                'test_rmse': float('inf'),
+                'test_mae': float('inf'),
+                'test_max_error': float('inf')
+            }
     
     def optimize(self) -> Dict[str, float]:
         # Use string acquisition function names (modern scikit-optimize)
