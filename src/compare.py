@@ -3,7 +3,7 @@
 General Method Comparison Script
 Compare multiple parameter sets (TOML files) against CCSD reference data
 
-pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_ga.toml results/parameters/h2_pso.toml results/parameters/h2_bayes.toml results/parameters/h2_newuoa.toml results/parameters/h2_cma.toml --names ga pso2 bayes NEWUOA cma --output results/comparison 
+pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_ga.toml results/parameters/h2_pso.toml results/parameters/h2_bayes.toml results/parameters/h2_newuoa.toml results/parameters/h2_cma.toml --names ga pso bayes NEWUOA cma --output results/comparison 
 
 pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_cma.toml --names h2_cma --output results/comparison
 """

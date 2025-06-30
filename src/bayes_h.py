@@ -130,7 +130,13 @@ class TBLiteBayesian:
             max_val = default_val + margin
             
             # Special handling for parameters that must stay positive
-            if 'slater' in param_name or 'kcn' in param_name:
+            if 'slater' in param_name:
+                # Slater exponents - use conservative bounds to avoid TBLite errors
+                min_safe = max(0.5, default_val * 0.2)  # More conservative minimum
+                max_safe = default_val * 1.8  # More conservative maximum
+                min_val = min_safe
+                max_val = max_safe
+            elif 'kcn' in param_name:
                 # For parameters that must be positive, don't force negative defaults positive
                 if default_val > 0:
                     min_val = max(0.001, min_val)  # Keep positive only if default is positive
@@ -207,8 +213,28 @@ class TBLiteBayesian:
     def _create_param_file(self, paramVals: List[float]) -> str:
         params = self.base_params.copy()
         parameterDict = dict(zip(self.param_names, paramVals))
+        
+        # Validate parameter values before setting them
         for param_name, val in parameterDict.items():
+            if not isinstance(val, (int, float)) or not np.isfinite(val):
+                raise ValueError(f"Invalid parameter value for {param_name}: {val}")
+            
+            # Extra safety for Slater exponents
+            if 'slater' in param_name and val < 0.1:
+                logger.warning(f"Very small slater exponent {param_name}={val:.6f}, clamping to 0.5")
+                val = 0.5
+            
             self._set_param_in_dict(params, param_name, val)
+        
+        # Validate that existing H parameters are still reasonable (for non-H systems)
+        if self.system_name != "H2" and 'element' in params and 'H' in params['element']:
+            h_params = params['element']['H']
+            if 'slater' in h_params:
+                for i, slater_val in enumerate(h_params['slater']):
+                    if slater_val < 0.1:
+                        logger.warning(f"Fixing corrupted H slater[{i}]={slater_val:.6f}, setting to original value")
+                        h_params['slater'][i] = self.base_params['element']['H']['slater'][i]
+        
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
             toml.dump(params, f)
             return f.name
