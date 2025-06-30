@@ -169,8 +169,11 @@ class GeneralParameterCMA:
             # Energy levels - allow ±30% variation
             return (default_val - abs(default_val) * 0.3, default_val + abs(default_val) * 0.3)
         elif 'slater' in param_name:
-            # Slater exponents - keep positive, allow wide range
-            return (max(0.1, default_val * 0.5), default_val * 2.0)
+            # Slater exponents - keep positive with more conservative bounds
+            # Ensure minimum is at least 0.5 and not more than 80% below default
+            min_safe = max(0.5, default_val * 0.2)  # More conservative minimum
+            max_safe = default_val * 1.8  # More conservative maximum
+            return (min_safe, max_safe)
         elif 'kcn' in param_name:
             # Coordination number parameters - keep positive, allow wide range
             return (max(0.001, default_val * 0.1), default_val * 5.0)
@@ -320,7 +323,13 @@ class GeneralParameterCMA:
             if param_name in self.parameter_info:
                 min_val = self.parameter_info[param_name]['min']
                 max_val = self.parameter_info[param_name]['max']
-                bounded_params[param_name] = max(min_val, min(max_val, value))
+                bounded_value = max(min_val, min(max_val, value))
+                
+                # Extra safety check for Slater exponents
+                if 'slater' in param_name:
+                    bounded_value = max(0.5, bounded_value)  # Absolute minimum for safety
+                
+                bounded_params[param_name] = bounded_value
             else:
                 bounded_params[param_name] = value
         return bounded_params

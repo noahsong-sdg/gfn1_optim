@@ -83,6 +83,7 @@ class GeneralCalculator:
         mol.build()
 
         mf = scf.UHF(mol)
+        mf.max_cycle = 350  # Increase max SCF cycles for better convergence
         mf.kernel()
 
         ccsd = cc.CCSD(mf)
