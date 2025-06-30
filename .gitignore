@@ -8,3 +8,5 @@ archive/
 *.txt
 **/__pycache__/
 
+*.err
+*.out
