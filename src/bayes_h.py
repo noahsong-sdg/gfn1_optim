@@ -39,7 +39,7 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
 
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "si_ccsd_500.csv"
+CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "si2_ccsd_500.csv"
 # these dont do anything rn 
 BAYES_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "si_optim.toml"
 BAYES_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "si_fitness_history.csv"
@@ -132,7 +132,25 @@ class TBLiteBayesian:
             
             # Special handling for parameters that must stay positive
             if 'slater' in param_name or 'kcn' in param_name:
-                min_val = max(0.001, min_val)  # Keep positive
+                # For parameters that must be positive, don't force negative defaults positive
+                if default_val > 0:
+                    min_val = max(0.001, min_val)  # Keep positive only if default is positive
+            
+            # Validation: ensure max_val > min_val
+            if max_val <= min_val:
+                logger.warning(f"Invalid bounds for {param_name} (default={default_val:.6f}). Using symmetric bounds around default.")
+                # Use symmetric bounds that work
+                if default_val >= 0:
+                    min_val = default_val * 0.5
+                    max_val = default_val * 1.5
+                else:
+                    min_val = default_val * 1.5  # More negative
+                    max_val = default_val * 0.5  # Less negative
+                
+                # Final check
+                if max_val <= min_val:
+                    min_val = default_val - 0.1
+                    max_val = default_val + 0.1
             
             space.append(ParamBounds(param_name, min_val, max_val, default_val))
         

@@ -4,10 +4,12 @@ General Method Comparison Script
 Compare multiple parameter sets (TOML files) against CCSD reference data
 
 pixi run python src/compare.py --ccsd --pure \
-    --params results/parameters/ga_optimized.toml \
-        results/parameters/pso_optimized_params_v2.toml \
-        results/parameters/bayes_pt.toml results/parameters/fitpar.toml \
+    --params results/parameters/h2_ga.toml \
+        results/parameters/h2_pso.toml \
+        results/parameters/h2_bayes.toml results/parameters/h2_newuoa.toml \
             --names ga pso2 bayes NEWUOA --output results/comparison 
+
+pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_cma.toml --names h2_cma --output results/comparison
 """
 
 import numpy as np
@@ -461,7 +463,7 @@ def main():
     
     # Plot
     if not args.no_plot:
-        plot_path = output_dir / f"{args.system}_method_comparison_v3.png"
+        plot_path = output_dir / f"{args.system}_iwanttoseethatcma.png"
         analyzer.plot_comparison(save_path=str(plot_path), show_plot=False)
     
     # Report

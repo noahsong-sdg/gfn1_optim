@@ -228,7 +228,9 @@ class GeneralParameterGA:
             else:
                 raise FileNotFoundError(f"CCSD reference file {ccsd_file} not found. "
                                       "GA requires CCSD data for meaningful optimization.")
-        
+        elif self.system_name == "Si2":
+            ccsd_file = RESULTS_DIR / "curves" / "si2_ccsd_500.csv"
+            return pd.read_csv(ccsd_file)
         # For other systems, try system-specific reference file
         ref_file = Path(self.system_config.reference_data_file)
         if ref_file.exists():

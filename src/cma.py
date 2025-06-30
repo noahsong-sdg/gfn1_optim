@@ -18,8 +18,18 @@ import copy
 # External CMA-ES library - install with: pip install cmaes
 from cmaes import CMA
 
-# Set up logging
-logging.basicConfig(level=logging.WARNING)
+# Set up logging with better control
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+
+# Control verbosity of external libraries
+logging.getLogger('cmaes').setLevel(logging.WARNING)
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
+logging.getLogger('numpy').setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 # Portable paths - automatically finds project root from current working directory
@@ -447,25 +457,35 @@ class GeneralParameterCMA:
         param_names = list(self.parameter_info.keys())
         initial_mean = np.array([self.parameter_info[name]['default'] for name in param_names])
         
-        # Set up bounds for CMA-ES (optional, depending on library support)
-        bounds = None
-        if hasattr(CMA, 'bounds'):  # Check if the library supports bounds
-            bounds = np.array([[self.parameter_info[name]['min'], self.parameter_info[name]['max']] 
-                             for name in param_names])
+        logger.info(f"Parameter summary:")
+        for i, name in enumerate(param_names[:5]):  # Show first 5 parameters
+            pinfo = self.parameter_info[name]
+            logger.info(f"  {name}: default={pinfo['default']:.4f}, range=[{pinfo['min']:.4f}, {pinfo['max']:.4f}]")
+        if len(param_names) > 5:
+            logger.info(f"  ... and {len(param_names)-5} more parameters")
         
         # Initialize CMA-ES optimizer
-        self.optimizer = CMA(
-            mean=initial_mean,
-            sigma=self.config.sigma,
-            population_size=self.config.population_size,
-            seed=self.config.seed,
-            bounds=bounds if bounds is not None else None
-        )
+        try:
+            self.optimizer = CMA(
+                mean=initial_mean,
+                sigma=self.config.sigma,
+                population_size=self.config.population_size,
+                seed=self.config.seed
+            )
+            logger.info(f"CMA-ES initialized with population size: {self.optimizer.population_size}")
+        except Exception as e:
+            logger.error(f"Failed to initialize CMA-ES optimizer: {e}")
+            raise RuntimeError(f"CMA-ES initialization failed: {e}") from e
         
         for generation in range(self.config.max_generations):
             self.generation = generation
             
-            logger.info(f"Generation {generation + 1}/{self.config.max_generations}")
+            # Log every 10 generations or first/last few
+            should_log = (generation % 10 == 0 or generation < 3 or 
+                         generation >= self.config.max_generations - 3)
+            
+            if should_log:
+                logger.info(f"Generation {generation + 1}/{self.config.max_generations}")
             
             # Ask for new parameter sets
             solutions = []
@@ -497,6 +517,7 @@ class GeneralParameterCMA:
                 self.best_parameters = best_params.copy()
                 self.best_fitness = best_fitness
                 self.convergence_counter = 0
+                logger.info(f"  NEW BEST at gen {generation + 1}: RMSE = {best_fitness:.6f}")
             else:
                 self.convergence_counter += 1
             
@@ -509,11 +530,10 @@ class GeneralParameterCMA:
                 'std_fitness': np.std([sol[1] for sol in solutions])
             })
             
-            # Log progress
-            logger.info(f"  Best RMSE: {best_fitness:.6f}")
-            logger.info(f"  Avg RMSE: {avg_fitness:.6f}")
-            logger.info(f"  Failed evaluations: {self.failed_evaluations}")
-            logger.info(f"  Evaluation time: {eval_time:.2f}s")
+            # Log progress (reduced frequency)
+            if should_log:
+                logger.info(f"  Best RMSE: {best_fitness:.6f} | Avg: {avg_fitness:.6f} | "
+                           f"Fails: {self.failed_evaluations} | Time: {eval_time:.1f}s")
             
             # Early stopping if all fitness values are inf
             if best_fitness == float('inf'):
@@ -573,46 +593,95 @@ def main():
     """Example usage with different systems"""
     import sys
     
-    # Allow system selection from command line
-    if len(sys.argv) > 1:
-        system_name = sys.argv[1]
-    else:
-        system_name = "H2"  # Default
-    
-    print(f"Running CMA-ES optimization for {system_name}")
-    
-    # CMA-ES configuration
-    config = CMAConfig(
-        sigma=0.5,  # Initial step size
-        max_generations=100,
-        population_size=None,  # Use CMA-ES default
-        convergence_threshold=1e-6,
-        patience=20
-    )
-    
-    # Initialize CMA-ES
-    cma_optimizer = GeneralParameterCMA(
-        system_name=system_name,
-        base_param_file=str(BASE_PARAM_FILE),
-        config=config
-    )
-    
-    # Run optimization
-    best_parameters = cma_optimizer.optimize()
-    
-    # Save results
-    cma_optimizer.save_best_parameters(cma_optimizer.system_config.optimized_params_file)
-    cma_optimizer.save_fitness_history(cma_optimizer.system_config.fitness_history_file)
-    
-    # Print best parameters
-    if best_parameters:
-        print(f"\nBest Parameters for {system_name}:")
-        for param_name, value in best_parameters.items():
-            print(f"  {param_name}: {value:.6f}")
+    try:
+        # Allow system selection from command line
+        if len(sys.argv) > 1:
+            system_name = sys.argv[1]
+        else:
+            system_name = "H2"  # Default
         
-        print(f"\nBest RMSE: {cma_optimizer.best_fitness:.6f}")
-    else:
-        print("Optimization failed to find valid parameters")
+        print(f"="*60)
+        print(f"CMA-ES Optimization for {system_name}")
+        print(f"="*60)
+        
+        # CMA-ES configuration
+        config = CMAConfig(
+            sigma=0.5,  # Initial step size
+            max_generations=100,
+            population_size=None,  # Use CMA-ES default
+            convergence_threshold=1e-6,
+            patience=20
+        )
+        
+        print(f"Configuration: sigma={config.sigma}, max_gen={config.max_generations}")
+        print(f"Base parameter file: {BASE_PARAM_FILE}")
+        
+        # Initialize CMA-ES
+        print(f"\nInitializing CMA-ES optimizer...")
+        cma_optimizer = GeneralParameterCMA(
+            system_name=system_name,
+            base_param_file=str(BASE_PARAM_FILE),
+            config=config
+        )
+        
+        print(f"Parameters to optimize: {len(cma_optimizer.parameter_info)}")
+        print(f"Training points: {len(cma_optimizer.train_distances)}")
+        print(f"Test points: {len(cma_optimizer.test_distances)}")
+        
+        # Run optimization
+        print(f"\nStarting optimization...")
+        best_parameters = cma_optimizer.optimize()
+        
+        # Save results
+        print(f"\nSaving results...")
+        cma_optimizer.save_best_parameters(cma_optimizer.system_config.optimized_params_file)
+        cma_optimizer.save_fitness_history(cma_optimizer.system_config.fitness_history_file)
+        
+        # Print best parameters
+        if best_parameters:
+            print(f"\n" + "="*60)
+            print(f"OPTIMIZATION COMPLETED SUCCESSFULLY")
+            print(f"="*60)
+            print(f"Best RMSE: {cma_optimizer.best_fitness:.6f}")
+            print(f"Best Parameters for {system_name}:")
+            for param_name, value in best_parameters.items():
+                print(f"  {param_name}: {value:.6f}")
+            print(f"="*60)
+        else:
+            print(f"\n" + "="*60)
+            print(f"OPTIMIZATION FAILED")
+            print(f"="*60)
+            print("No valid parameters found")
+            
+    except ImportError as e:
+        print(f"\n" + "="*60)
+        print(f"IMPORT ERROR")
+        print(f"="*60)
+        print(f"Missing dependency: {e}")
+        print(f"Try: pip install cmaes")
+        print(f"="*60)
+        sys.exit(1)
+        
+    except FileNotFoundError as e:
+        print(f"\n" + "="*60)
+        print(f"FILE NOT FOUND ERROR")
+        print(f"="*60)
+        print(f"Missing file: {e}")
+        print(f"Make sure you have the required reference data and config files")
+        print(f"="*60)
+        sys.exit(1)
+        
+    except Exception as e:
+        print(f"\n" + "="*60)
+        print(f"UNEXPECTED ERROR")
+        print(f"="*60)
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {e}")
+        import traceback
+        print(f"\nFull traceback:")
+        traceback.print_exc()
+        print(f"="*60)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
