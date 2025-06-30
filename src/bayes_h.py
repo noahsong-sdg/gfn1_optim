@@ -25,7 +25,6 @@ import time
 from sklearn.model_selection import train_test_split
 from skopt import gp_minimize 
 from skopt.space import Real  
-from skopt.acquisition import gaussian_ei, gaussian_pi
 from skopt import dump, load 
 
 logging.basicConfig(level=logging.WARNING)
@@ -277,13 +276,11 @@ class TBLiteBayesian:
         }
     
     def optimize(self) -> Dict[str, float]:
+        # Use string acquisition function names (modern scikit-optimize)
         acq_fn = self.config.acq_fn.upper()
-        if acq_fn == "EI":
-            acq_fn = gaussian_ei
-        elif acq_fn == "PI":
-            acq_fn = gaussian_pi
-        else:
-            raise ValueError(f"Unknown acquisition function: {acq_fn}")
+        if acq_fn not in ["EI", "PI", "LCB", "MES", "PVRS"]:
+            logger.warning(f"Unknown acquisition function: {acq_fn}. Using 'EI' as default.")
+            acq_fn = "EI"
         
         x0 = []
         y0 = []
@@ -304,7 +301,7 @@ class TBLiteBayesian:
             n_initial_points=self.config.n_init_pts - 1,
             x0=x0,
             y0=y0,
-            acq_func=acq_fn,
+            acq_func=acq_fn,  # Now using string instead of function object
             acq_optimizer="auto",
             n_restarts_optimizer=self.config.n_restarts,
             noise=self.config.noise,
