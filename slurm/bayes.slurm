@@ -6,7 +6,7 @@
 #SBATCH --job-name=bayes_si
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=1
 #SBATCH --output=bayes_%j.out
 #SBATCH --error=bayes_%j.err
 

@@ -11,7 +11,6 @@ pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_cma.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import toml
 from pathlib import Path
 from typing import Optional, Dict, List, Union
 import argparse
@@ -19,6 +18,12 @@ import logging
 
 from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
 from config import get_system_config
+
+from ga import GAConfig
+from pso import PSOConfig
+from bayes_h import BayesianConfig
+from cma import CMAConfig
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -356,27 +361,52 @@ class MethodComparisonAnalyzer:
         return report_text
 
     def _get_hyperparameter_info(self) -> str:
-        """Get hyperparameter information for optimization methods"""
+        """Get hyperparameter information for optimization methods from actual config classes"""
         hyperparams = []
         
         # Check for PSO results
         if any("PSO" in name for name in self.results.keys()):
+            pso_config = PSOConfig()
             hyperparams.append("PSO Hyperparameters:")
-            hyperparams.append("• Particles: 12")
-            hyperparams.append("• Iterations: 25") 
-            hyperparams.append("• Inertia: 0.5-0.9 (adaptive)")
-            hyperparams.append("• Cognitive: 1.5")
-            hyperparams.append("• Social: 1.5")
+            hyperparams.append(f"• Particles: {pso_config.swarm_size}")
+            hyperparams.append(f"• Iterations: {pso_config.max_iterations}")
+            if pso_config.use_adaptive_inertia:
+                hyperparams.append(f"• Inertia: {pso_config.w_min}-{pso_config.w_max} (adaptive)")
+            else:
+                hyperparams.append(f"• Inertia: {pso_config.w}")
+            hyperparams.append(f"• Cognitive: {pso_config.c1}")
+            hyperparams.append(f"• Social: {pso_config.c2}")
             hyperparams.append("")
         
         # Check for GA results
         if any("GA" in name for name in self.results.keys()):
+            ga_config = GAConfig()
             hyperparams.append("GA Hyperparameters:")
-            hyperparams.append("• Population: 20")
-            hyperparams.append("• Generations: 30")
-            hyperparams.append("• Mutation Rate: 0.1")
-            hyperparams.append("• Crossover Rate: 0.8")
-            hyperparams.append("• Workers: 8")
+            hyperparams.append(f"• Population: {ga_config.population_size}")
+            hyperparams.append(f"• Generations: {ga_config.generations}")
+            hyperparams.append(f"• Mutation Rate: {ga_config.mutation_rate}")
+            hyperparams.append(f"• Crossover Rate: {ga_config.crossover_rate}")
+            hyperparams.append(f"• Workers: {ga_config.max_workers}")
+            hyperparams.append("")
+        
+        # Check for Bayesian results
+        if any("bayes" in name.lower() or "bayesian" in name.lower() for name in self.results.keys()):
+            bayes_config = BayesianConfig()
+            hyperparams.append("Bayesian Optimization Hyperparameters:")
+            hyperparams.append(f"• Function calls: {bayes_config.n_calls}")
+            hyperparams.append(f"• Initial points: {bayes_config.n_initial_points}")
+            hyperparams.append(f"• Acquisition: {bayes_config.acq_func}")
+            hyperparams.append("")
+        
+        # Check for CMA-ES results
+        if any("cma" in name.lower() for name in self.results.keys()):
+            cma_config = CMAConfig()
+            hyperparams.append("CMA-ES Hyperparameters:")
+            hyperparams.append(f"• Initial sigma: {cma_config.sigma}")
+            hyperparams.append(f"• Max generations: {cma_config.max_generations}")
+            hyperparams.append(f"• Bounds handling: {cma_config.bounds_handling}")
+            pop_info = f"{cma_config.population_size}" if cma_config.population_size else "auto (4+3*log(dim))"
+            hyperparams.append(f"• Population: {pop_info}")
             hyperparams.append("")
         
         return "\n".join(hyperparams).strip()

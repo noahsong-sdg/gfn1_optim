@@ -1,480 +1,237 @@
 """
-rn applied for h2
-ctrl f for h2 and replace everything
-and change the SPIN variable
-
-need to go to main() to change the hyperparameters
-
+Bayesian Optimization for TBLite parameter optimization - Refactored to use BaseOptimizer
 """
 
-SPIN = 2
-
-
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-import toml
-import tempfile
-import logging
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple 
-from dataclasses import dataclass 
 import time
+import logging
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+import pandas as pd
 
-from sklearn.model_selection import train_test_split
-from skopt import gp_minimize 
-from skopt.space import Real  
-from skopt import dump, load 
+# External Bayesian optimization library
+try:
+    from skopt import gp_minimize, dump, load
+    from skopt.space import Real
+    from skopt.utils import use_named_args
+    HAS_SKOPT = True
+except ImportError:
+    HAS_SKOPT = False
 
-logging.basicConfig(level=logging.WARNING)
+from base_optimizer import BaseOptimizer
+
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path.cwd()
-CONFIG_DIR = PROJECT_ROOT / "config"
-SCRIPT_DIR = PROJECT_ROOT / "src"
-
-RESULTS_DIR = PROJECT_ROOT / "results"
-DATA_DIR = PROJECT_ROOT / "data"
-
-BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-CCSD_REFERENCE_DATA = RESULTS_DIR / "curves" / "si2_ccsd_500.csv"
-# these dont do anything rn 
-BAYES_OPTIMIZED_PARAMS = RESULTS_DIR / "parameters" / "si_optim.toml"
-BAYES_FITNESS_HISTORY = RESULTS_DIR / "fitness" / "si_fitness_history.csv"
-BAYES_RESULTS_PICKLE = RESULTS_DIR / "parameters" / "si_results.pkl"
-
-@dataclass 
-class BayesConfig:
-    n_calls: int = 100
-    n_init_pts: int = 20
-    n_restarts: int = 10
-    acq_fn: str = "EI"
-    acq_weight: float = 0.01
-    random_state: int = 42
-    convergence_threshold: float = 1e-6
-    patience: int = 15
-    noise: float = 1e-10
-
 @dataclass
-class ParamBounds:
-    name: str 
-    min_val: float 
-    max_val: float 
-    default_val: float 
+class BayesianConfig:
+    """Configuration for Bayesian optimization"""
+    n_calls: int = 100  # Number of function evaluations
+    n_initial_points: int = 10  # Number of random points to start with
+    acq_func: str = "EI"  # Acquisition function: "EI", "LCB", "PI"
+    acq_optimizer: str = "auto"  # Acquisition optimizer
+    xi: float = 0.01  # Exploration-exploitation trade-off
+    kappa: float = 1.96  # Lower confidence bound parameter
+    n_restarts_optimizer: int = 5  # Number of restarts for acquisition optimization
+    noise: float = 1e-10  # Noise level for Gaussian process
+    random_state: Optional[int] = None  # Random state for reproducibility
 
-class TBLiteBayesian:
+
+class GeneralParameterBayesian(BaseOptimizer):
+    """Bayesian Optimization optimizer inheriting from BaseOptimizer"""
+    
     def __init__(self, 
                  system_name: str,
                  base_param_file: str,
-                 ref_data: Optional[pd.DataFrame] = None,
-                 config: BayesConfig = BayesConfig(),
-                 train_frac: float = 0.8):
-        """Initialize Bayesian optimizer
+                 reference_data: Optional[pd.DataFrame] = None,
+                 config: BayesianConfig = BayesianConfig(),
+                 train_fraction: float = 0.8):
+        """Initialize Bayesian optimizer"""
         
-        Args:
-            system_name: Name of system to optimize (e.g., 'H2', 'Si2', 'C2')
-            base_param_file: Path to base parameter TOML file
-            ref_data: Optional reference data (if None, loads from system config)
-            config: Bayesian optimization configuration
-            train_frac: Fraction of data to use for training
-        """
+        if not HAS_SKOPT:
+            raise ImportError("scikit-optimize is required for Bayesian optimization. "
+                            "Install with: pip install scikit-optimize")
         
-        # System configuration
-        self.system_name = system_name
-        from config import get_system_config
-        self.system_config = get_system_config(system_name)
+        # Initialize base optimizer
+        super().__init__(system_name, base_param_file, reference_data, train_fraction)
         
-        with open(base_param_file, 'r') as f:
-            self.base_params = toml.load(f)
-        self.config = config 
-        self.train_frac = train_frac 
+        # Bayesian-specific configuration
+        self.config = config
         
-        # Define parameter space using automatic extraction with 50% +/- bounds
-        self.parameter_space = self._define_parameter_space()
-        self.param_names = [param.name for param in self.parameter_space]
-        self.dimensions = [
-            Real(param.min_val, param.max_val, name=param.name, prior='uniform')
-                 for param in self.parameter_space
-        ]
+        # Bayesian-specific state
+        self.optimization_result = None
+        self.call_count = 0
         
-        # Load and split reference data
-        self.ref_data = ref_data 
-        if self.ref_data is None:
-            self.ref_data = self._load_reference_data()
+        # Set up optimization space
+        self.dimensions = self._create_search_space()
+        self.dimension_names = [bound.name for bound in self.parameter_bounds]
         
-        if self.ref_data.empty:
-            raise ValueError(f"No reference data available for {system_name}")
-        
-        self._SplitTrainTest()
-
-        self.iteration = 0
-        self.bestFitness = float('inf')
-        self.bestParam = {}
-        self.fitnessHistory = []
-        self.failed_evaluations = 0
-
-    def _define_parameter_space(self) -> List[ParamBounds]:
-        """Define parameter space using automatic extraction with 50% +/- margins"""
-        space = []
-        
-        # Extract default parameters for this system
-        from data_extraction import GFN1ParameterExtractor
-        extractor = GFN1ParameterExtractor(Path(BASE_PARAM_FILE))
-        system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
-        
-        # Create bounds with more conservative margins for each parameter
-        for param_name, default_val in system_defaults.items():
-            # Use more conservative bounds to prevent SCF convergence failures
-            if 'levels' in param_name:
-                # Energy levels - allow ±20% variation (more conservative)
-                margin = abs(default_val) * 0.2
-                min_val = default_val - margin
-                max_val = default_val + margin
-            elif 'slater' in param_name:
-                # Slater exponents - very conservative bounds to ensure SCF stability
-                min_val = max(0.5, default_val * 0.5)  # No less than 50% of default
-                max_val = default_val * 1.5  # No more than 150% of default
-            elif 'kcn' in param_name:
-                # Coordination number parameters - moderate bounds
-                if default_val > 0:
-                    min_val = max(0.001, default_val * 0.2)
-                    max_val = default_val * 3.0
-                else:
-                    # For negative defaults, symmetric bounds
-                    margin = abs(default_val) * 0.3
-                    min_val = default_val - margin
-                    max_val = default_val + margin
-            elif param_name.endswith('.gam') or param_name.endswith('.zeff'):
-                # Important electronic parameters - conservative bounds
-                margin = abs(default_val) * 0.2
-                min_val = default_val - margin
-                max_val = default_val + margin
+    def _create_search_space(self) -> List[Real]:
+        """Create the search space for Bayesian optimization"""
+        dimensions = []
+        for bound in self.parameter_bounds:
+            # Ensure valid bounds
+            if bound.max_val <= bound.min_val:
+                logger.warning(f"Invalid bounds for {bound.name}: using default ± 10%")
+                min_val = bound.default_val * 0.9
+                max_val = bound.default_val * 1.1
             else:
-                # Default: ±30% around default (more conservative than 50%)
-                margin = abs(default_val) * 0.3
-                min_val = default_val - margin
-                max_val = default_val + margin
-                
-            # For parameters that must be positive, ensure minimum > 0
-            if 'slater' in param_name or ('kcn' in param_name and default_val > 0):
-                min_val = max(min_val, 0.001)
+                min_val = bound.min_val
+                max_val = bound.max_val
             
-            # Validation: ensure max_val > min_val
-            if max_val <= min_val:
-                logger.warning(f"Invalid bounds for {param_name} (default={default_val:.6f}). Using symmetric bounds around default.")
-                # Use symmetric bounds that work
-                if default_val >= 0:
-                    min_val = default_val * 0.5
-                    max_val = default_val * 1.5
-                else:
-                    min_val = default_val * 1.5  # More negative
-                    max_val = default_val * 0.5  # Less negative
-                
-                # Final check
-                if max_val <= min_val:
-                    min_val = default_val - 0.1
-                    max_val = default_val + 0.1
-            
-            space.append(ParamBounds(param_name, min_val, max_val, default_val))
+            dimensions.append(Real(min_val, max_val, name=bound.name))
         
-        logger.info(f"Generated {len(space)} parameter bounds for {self.system_name} with conservative margins")
-        return space
+        logger.info(f"Created search space with {len(dimensions)} dimensions")
+        return dimensions
     
-    def _load_reference_data(self) -> pd.DataFrame:
-        """Load reference data for the system"""
-        ref_file = CCSD_REFERENCE_DATA
-        if ref_file.exists():
-            logger.info(f"Loading reference data from {ref_file}")
-            return pd.read_csv(ref_file)
-        else:
-            logger.warning(f"Reference file {ref_file} not found for {self.system_name}.")
-            return pd.DataFrame(columns=['Distance', 'Energy'])
-    
-    def _SplitTrainTest(self):
-        n = int(len(self.ref_data) * self.train_frac)
-        train_idx = np.linspace(0, len(self.ref_data) - 1, n, dtype=int)
-        test_idx = [i for i in range(len(self.ref_data)) if i not in train_idx]
-        self.train_data = self.ref_data.iloc[train_idx].copy()
-        self.test_data = self.ref_data.iloc[test_idx].copy()
-        self.train_distances = self.train_data['Distance'].values
-        self.test_distances = self.test_data['Distance'].values
-
-    def _set_param_in_dict(self, param_dict: dict, path: str, value: float):
-        # this is some witchcraft
-        import re 
+    def objective_function(self, x: List[float]) -> float:
+        """Objective function for Bayesian optimization (minimizes RMSE)"""
+        self.call_count += 1
         
-        # Convert numpy types to native Python types to avoid TOML serialization issues
-        if hasattr(value, 'item'):  # numpy scalar
-            value = value.item()
-        elif isinstance(value, np.floating):
-            value = float(value)
-        elif isinstance(value, np.integer):
-            value = int(value)
+        # Convert parameter vector to dictionary
+        parameters = {name: value for name, value in zip(self.dimension_names, x)}
         
-        if '[' in path and ']' in path:
-            match = re.match(r'(.+)\[(\d+)\]$', path)
-            if match:
-                array_path, index_str = match.groups()
-                index = int(index_str)
-                keys = array_path.split('.')
-                current = param_dict
-                for key in keys[:-1]:
-                    if key not in current:
-                        current[key] = {}
-                    current = current[key]
-                array_name = keys[-1]
-                if array_name not in current:
-                    current[array_name] = []
-                while len(current[array_name]) <= index:
-                    current[array_name].append(0.0)
-                current[array_name][index] = value
-                return 
-        keys = path.split('.')
-        current = param_dict
-        for key in keys[:-1]:
-            if key not in current:
-                current[key] = {}
-            current = current[key]
-        current[keys[-1]] = value
-    
-    def _create_param_file(self, paramVals: List[float]) -> str:
-        params = self.base_params.copy()
-        parameterDict = dict(zip(self.param_names, paramVals))
+        # Evaluate fitness using base class method
+        rmse = self.evaluate_fitness(parameters)
         
-        # Validate parameter values before setting them
-        for param_name, val in parameterDict.items():
-            if not isinstance(val, (int, float)) or not np.isfinite(val):
-                raise ValueError(f"Invalid parameter value for {param_name}: {val}")
-            
-            # Extra safety for Slater exponents
-            if 'slater' in param_name and val < 0.1:
-                logger.warning(f"Very small slater exponent {param_name}={val:.6f}, clamping to 0.5")
-                val = 0.5
-            
-            self._set_param_in_dict(params, param_name, val)
+        # Record in fitness history
+        self.fitness_history.append({
+            'generation': self.call_count - 1,
+            'best_fitness': rmse,
+            'avg_fitness': rmse,  # Same as best for single point evaluation
+            'std_fitness': 0.0
+        })
         
-        # Validate that existing H parameters are still reasonable (for non-H systems)
-        if self.system_name != "H2" and 'element' in params and 'H' in params['element']:
-            h_params = params['element']['H']
-            if 'slater' in h_params:
-                for i, slater_val in enumerate(h_params['slater']):
-                    if slater_val < 0.1:
-                        logger.warning(f"Fixing corrupted H slater[{i}]={slater_val:.6f}, setting to original value")
-                        h_params['slater'][i] = self.base_params['element']['H']['slater'][i]
+        if self.call_count % 10 == 0 or rmse < self.best_fitness:
+            logger.info(f"Call {self.call_count}/{self.config.n_calls}: RMSE = {rmse:.6f}")
         
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
-            toml.dump(params, f)
-            return f.name
-    
-    def _objective_function(self, paramVals: List[float]) -> float:
-        self.iteration += 1
+        # Update best if improved
+        if rmse < self.best_fitness:
+            self.best_fitness = rmse
+            self.best_parameters = parameters.copy()
+            logger.info(f"  NEW BEST at call {self.call_count}: RMSE = {rmse:.6f}")
         
-        try:
-            param_file = self._create_param_file(paramVals)
-            from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-            
-            custom_config = CalcConfig(
-                method=CalcMethod.XTB_CUSTOM,
-                param_file=param_file,
-                spin=SPIN
-            )
-            
-            calculator = GeneralCalculator(custom_config, self.system_config)
-            generator = DissociationCurveGenerator(calculator)
-            calc_data = generator.generate_curve(distances=self.train_distances, save=False)
-
-            ref_energies = self.train_data['Energy'].values
-            calc_energies = calc_data['Energy'].values
-
-            ref_relative = ref_energies - np.min(ref_energies)
-            calc_relative = calc_energies - np.min(calc_energies)
-            rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
-
-            if rmse < self.bestFitness:
-                self.bestFitness = rmse
-                self.bestParam = dict(zip(self.param_names, paramVals))
-                print(f"Evaluation {self.iteration}: New best fitness: {rmse:.6f}")
-            
-            self.fitnessHistory.append(rmse)
-            Path(param_file).unlink(missing_ok=True)
-            return rmse
-            
-        except Exception as e:
-            logger.warning(f"Evaluation {self.iteration} failed: {e}")
-            self.failed_evaluations += 1
-            # Clean up temp file if it exists
-            if 'param_file' in locals():
-                Path(param_file).unlink(missing_ok=True)
-            
-            # Return large penalty for failed evaluations
-            penalty = 1000.0 + np.random.normal(0, 10)  # Add noise to avoid identical values
-            self.fitnessHistory.append(penalty)
-            return penalty 
-    
-    def _evaluate_test_performance(self, paramVals: List[float]) -> Dict[str, float]:
-        try:
-            param_file = self._create_param_file(paramVals)
-            from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
-            
-            custom_config = CalcConfig(
-                method=CalcMethod.XTB_CUSTOM,
-                param_file=param_file,
-                spin=SPIN
-            )
-
-            calculator = GeneralCalculator(custom_config, self.system_config)
-            generator = DissociationCurveGenerator(calculator)
-            calc_data = generator.generate_curve(distances=self.test_distances, save=False)
-            ref_energies = self.test_data['Energy'].values
-            calc_energies = calc_data['Energy'].values
-            
-            ref_relative = ref_energies - np.min(ref_energies)
-            calc_relative = calc_energies - np.min(calc_energies)
-            
-            rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
-            mae = np.mean(np.abs(ref_relative - calc_relative))
-            max_error = np.max(np.abs(ref_relative - calc_relative))
-            
-            Path(param_file).unlink(missing_ok=True)
-            
-            return {
-                'test_rmse': rmse,
-                'test_mae': mae,
-                'test_max_error': max_error
-            }
-            
-        except Exception as e:
-            logger.warning(f"Test evaluation failed: {e}")
-            # Clean up temp file if it exists
-            if 'param_file' in locals():
-                Path(param_file).unlink(missing_ok=True)
-            
-            return {
-                'test_rmse': float('inf'),
-                'test_mae': float('inf'),
-                'test_max_error': float('inf')
-            }
+        return rmse  # Bayesian optimization minimizes
     
     def optimize(self) -> Dict[str, float]:
-        # Use string acquisition function names (modern scikit-optimize)
-        acq_fn = self.config.acq_fn.upper()
-        if acq_fn not in ["EI", "PI", "LCB", "MES", "PVRS"]:
-            logger.warning(f"Unknown acquisition function: {acq_fn}. Using 'EI' as default.")
-            acq_fn = "EI"
+        """Run Bayesian optimization"""
+        logger.info(f"Starting Bayesian optimization for {self.system_name}")
+        logger.info(f"Using {self.config.n_calls} function evaluations with {self.config.n_initial_points} initial points")
+        start_time = time.time()
         
-        x0 = []
-        y0 = []
+        # Set up the decorated objective function
+        @use_named_args(self.dimensions)
+        def objective(**params):
+            return self.objective_function([params[name] for name in self.dimension_names])
         
-        default_values = [param.default_val for param in self.parameter_space]
-        print(f"Evaluating default parameters for {self.system_name}...")
-        default_fitness = self._objective_function(default_values)
-        x0.append(default_values)
-        y0.append(default_fitness)
-
-        def objective_wrapper(params):
-            return self._objective_function(params)
-        
-        result = gp_minimize(
-            func=objective_wrapper,
-            dimensions=self.dimensions,
-            n_calls=self.config.n_calls,
-            n_initial_points=self.config.n_init_pts - 1,
-            x0=x0,
-            y0=y0,
-            acq_func=acq_fn,  # Now using string instead of function object
-            acq_optimizer="auto",
-            n_restarts_optimizer=self.config.n_restarts,
-            noise=self.config.noise,
-            random_state=self.config.random_state,
-            model_queue_size=1
-        )
-
-        self.best_params = dict(zip(self.param_names, result.x))
-        self.best_fitness = result.fun
-        self.optimization_result = result
-        
-        return self.best_params
-
-    def get_best_params(self) -> Dict[str, float]:
-         if not hasattr(self, 'best_params'):
-            raise ValueError("No optimization has been run")
-         return self.best_params.copy()
-    
-    def save_best_params(self, filename: str):
-        if not hasattr(self, 'best_params'):
-            raise ValueError("No optimization has been run")
-        
-        params = self.base_params.copy()
-        for param_name, value in self.best_params.items():
-            self._set_param_in_dict(params, param_name, value)
-        
-        Path(filename).parent.mkdir(parents=True, exist_ok=True)
-        with open(filename, 'w') as f:
-            toml.dump(params, f)
-    
-    def save_fitness_history(self, filename: str):
-        df = pd.DataFrame({
-            'evaluation': range(1, len(self.fitnessHistory) + 1),
-            'best_fitness': self.fitnessHistory
-        })
-        Path(filename).parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(filename, index=False)
+        try:
+            # Run Bayesian optimization
+            self.optimization_result = gp_minimize(
+                func=objective,
+                dimensions=self.dimensions,
+                n_calls=self.config.n_calls,
+                n_initial_points=self.config.n_initial_points,
+                acq_func=self.config.acq_func,
+                acq_optimizer=self.config.acq_optimizer,
+                xi=self.config.xi,
+                kappa=self.config.kappa,
+                n_restarts_optimizer=self.config.n_restarts_optimizer,
+                noise=self.config.noise,
+                random_state=self.config.random_state,
+                verbose=False  # We handle our own logging
+            )
+            
+            # Extract best parameters
+            best_x = self.optimization_result.x
+            best_rmse = self.optimization_result.fun
+            
+            # Update best parameters from optimization result
+            self.best_parameters = {name: value for name, value in zip(self.dimension_names, best_x)}
+            self.best_fitness = best_rmse
+            
+            total_time = time.time() - start_time
+            logger.info(f"Optimization completed in {total_time:.2f}s")
+            logger.info(f"Best RMSE: {best_rmse:.6f}")
+            
+            return self.best_parameters
+            
+        except Exception as e:
+            logger.error(f"Bayesian optimization failed: {e}")
+            raise
     
     def save_optimization_result(self, filename: str):
-        if not hasattr(self, 'optimization_result'):
+        """Save the optimization result for later analysis"""
+        if self.optimization_result is None:
             raise ValueError("No optimization has been run")
         
-        Path(filename).parent.mkdir(parents=True, exist_ok=True)
         dump(self.optimization_result, filename)
+        logger.info(f"Optimization result saved to {filename}")
+    
+    def load_optimization_result(self, filename: str):
+        """Load a previous optimization result"""
+        self.optimization_result = load(filename)
+        logger.info(f"Optimization result loaded from {filename}")
+    
+    def get_convergence_data(self) -> Dict[str, List[float]]:
+        """Get convergence data from the optimization result"""
+        if self.optimization_result is None:
+            raise ValueError("No optimization has been run")
+        
+        # Extract function values (convergence curve)
+        func_vals = self.optimization_result.func_vals
+        
+        # Calculate running minimum
+        running_min = []
+        current_min = float('inf')
+        for val in func_vals:
+            if val < current_min:
+                current_min = val
+            running_min.append(current_min)
+        
+        return {
+            'func_vals': func_vals.tolist(),
+            'running_min': running_min,
+            'x_iters': [list(x) for x in self.optimization_result.x_iters]
+        }
+
 
 def main():
-    """System-agnostic Bayesian optimization"""
+    """Example usage with different systems"""
     import sys
+    from pathlib import Path
     
-    # Allow system selection from command line
+    if not HAS_SKOPT:
+        print("Error: scikit-optimize is required for Bayesian optimization")
+        print("Install with: pip install scikit-optimize")
+        sys.exit(1)
+    
+    PROJECT_ROOT = Path.cwd()
+    CONFIG_DIR = PROJECT_ROOT / "config"
+    BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
+    
     if len(sys.argv) > 1:
         system_name = sys.argv[1]
     else:
-        system_name = "H2"  # Default
+        system_name = "H2"
     
     print(f"Running Bayesian optimization for {system_name}")
     
-    bayes_config = BayesConfig(
-        n_calls=100,
-        n_init_pts=20,
-        n_restarts=10,
-        acq_fn="EI",
-        acq_weight=0.01,
-        random_state=42,
-        convergence_threshold=1e-6,
-        patience=15
-    )
+    config = BayesianConfig(n_calls=50, n_initial_points=10)
+    bayes = GeneralParameterBayesian(system_name, str(BASE_PARAM_FILE), config=config)
+    best_parameters = bayes.optimize()
     
-    optim = TBLiteBayesian(
-        system_name=system_name,
-        base_param_file=str(BASE_PARAM_FILE),
-        config=bayes_config
-    )
+    # Save results using base class methods
+    bayes.save_best_parameters(bayes.system_config.optimized_params_file)
+    bayes.save_fitness_history(bayes.system_config.fitness_history_file)
     
-    best_params = optim.optimize()
-    print(f"Best parameters for {system_name}:", best_params)
+    # Save Bayesian-specific result
+    result_file = bayes.system_config.optimized_params_file.replace('.toml', '_bayes_result.pkl')
+    bayes.save_optimization_result(result_file)
     
-    # Save results with system-specific filenames
-    bayes_params_file = RESULTS_DIR / "parameters" / f"bayes_optimized_params_{system_name.lower()}.toml"
-    bayes_history_file = RESULTS_DIR / "fitness" / f"bayes_fitness_history_{system_name.lower()}.csv"
-    bayes_results_file = RESULTS_DIR / "parameters" / f"bayes_results_{system_name.lower()}.pkl"
-    
-    optim.save_best_params(str(bayes_params_file))
-    optim.save_fitness_history(str(bayes_history_file))
-    optim.save_optimization_result(str(bayes_results_file))
+    if best_parameters:
+        print(f"\nBest Parameters for {system_name}:")
+        for param_name, value in best_parameters.items():
+            print(f"  {param_name}: {value:.6f}")
 
-    # Evaluate test performance
-    best_param_values = [best_params[name] for name in optim.param_names]
-    test_metrics = optim._evaluate_test_performance(best_param_values)
-    print(f"\nTest Performance for {system_name}:")
-    for metric, value in test_metrics.items():
-        print(f"  {metric}: {value:.6f}")
 
 if __name__ == "__main__":
     main()
