@@ -95,7 +95,7 @@ class BaseOptimizer(ABC):
         
         # Initialize optimization state
         self.best_parameters = None
-        self.best_fitness = None
+        self.best_fitness = float('inf')  # Initialize to infinity for minimization (RMSE)
         self.convergence_counter = 0
         self.fitness_history = []
         self.failed_evaluations = 0

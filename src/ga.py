@@ -220,7 +220,9 @@ class GeneralParameterGA(BaseOptimizer):
         # Set best parameters for base class
         if self.best_individual is not None:
             self.best_parameters = self.best_individual.parameters.copy()
-            self.best_fitness = self.best_individual.fitness
+            # Convert GA fitness back to RMSE for base class consistency
+            ga_fitness = self.best_individual.fitness
+            self.best_fitness = (1.0 / ga_fitness) - 1.0 if ga_fitness > 0 else float('inf')
         
         return self.best_parameters
 
