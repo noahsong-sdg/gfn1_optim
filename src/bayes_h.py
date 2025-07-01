@@ -93,6 +93,11 @@ class GeneralParameterBayesian(BaseOptimizer):
         # Evaluate fitness using base class method
         rmse = self.evaluate_fitness(parameters)
         
+        # Handle failed evaluations (infinity values) by returning a large finite penalty
+        if not np.isfinite(rmse):
+            rmse = 1000.0  # Large penalty for failed evaluations
+            logger.warning(f"Call {self.call_count}: Evaluation failed, using penalty value {rmse}")
+        
         # Record in fitness history
         self.fitness_history.append({
             'generation': self.call_count - 1,

@@ -353,9 +353,13 @@ class BaseOptimizer(ABC):
             if bound:
                 bounded_value = max(bound.min_val, min(bound.max_val, value))
                 
-                # Extra safety check for Slater exponents
+                # Extra safety checks for critical parameters
                 if 'slater' in param_name:
                     bounded_value = max(0.1, bounded_value)  # Absolute minimum for safety
+                elif 'zeff' in param_name:
+                    bounded_value = max(1.0, bounded_value)  # Effective charge must be positive
+                elif 'kcn' in param_name and param_name.endswith('[0]'):
+                    bounded_value = max(0.001, bounded_value)  # First kcn parameter must be positive
                 
                 bounded_params[param_name] = float(bounded_value)
             else:
@@ -403,9 +407,13 @@ class BaseOptimizer(ABC):
             return rmse
             
         except Exception as e:
-            logger.warning(f"Fitness evaluation failed: {e}")
+            # Log the specific parameters that caused the failure for debugging
+            param_summary = {k: f"{v:.6f}" for k, v in parameters.items()}
+            logger.warning(f"Fitness evaluation failed with parameters {param_summary}: {e}")
             self.failed_evaluations += 1
-            return float('inf')
+            
+            # Return a large but finite penalty instead of infinity
+            return 1000.0
     
     def evaluate_test_performance(self, parameters: Dict[str, float]) -> Dict[str, float]:
         """Evaluate parameters' performance on the test set"""
@@ -450,9 +458,9 @@ class BaseOptimizer(ABC):
         except Exception as e:
             logger.warning(f"Test evaluation failed: {e}")
             return {
-                'test_rmse': float('inf'),
-                'test_mae': float('inf'),
-                'test_max_error': float('inf')
+                'test_rmse': 1000.0,
+                'test_mae': 1000.0,
+                'test_max_error': 1000.0
             }
     
     def check_convergence(self) -> bool:

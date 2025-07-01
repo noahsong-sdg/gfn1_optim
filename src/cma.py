@@ -53,7 +53,7 @@ BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 class CMAConfig:
     """Configuration for CMA-ES optimization"""
     sigma: float = 0.5  # Initial step size (standard deviation)
-    max_generations: int = 100  # Maximum number of generations
+    max_generations: int = 40  # Maximum number of generations (reduced for efficiency)
     population_size: Optional[int] = None  # If None, uses CMA-ES default (4 + 3*log(dim))
     seed: Optional[int] = None  # Random seed for reproducibility
     convergence_threshold: float = 1e-6  # Fitness improvement threshold
@@ -275,7 +275,7 @@ def main():
     
     print(f"Running CMA-ES optimization for {system_name}")
     
-    config = CMAConfig(sigma=0.5, max_generations=50)
+    config = CMAConfig(sigma=0.5, max_generations=40)
     cma = GeneralParameterCMA(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = cma.optimize()
     
