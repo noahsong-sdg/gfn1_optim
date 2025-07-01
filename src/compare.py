@@ -5,6 +5,10 @@ Compare multiple parameter sets (TOML files) against CCSD reference data
 
 pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_ga.toml results/parameters/h2_pso.toml results/parameters/h2_bayes.toml results/parameters/h2_newuoa.toml results/parameters/h2_cma.toml --names ga pso bayes NEWUOA cma --output results/comparison 
 
+pixi run python src/compare.py --system Si2 --ccsd --pure --params results/parameters/h2_ga.toml results/parameters/h2_pso.toml results/parameters/h2_bayes.toml results/parameters/h2_cma.toml --names ga pso bayes cma --output results/comparison 
+
+
+
 pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_cma.toml --names h2_cma --output results/comparison
 """
 
@@ -243,8 +247,8 @@ class MethodComparisonAnalyzer:
         ax1.set_title(f'{self.system_name} Dissociation Curves Comparison', fontsize=14)
         ax1.grid(True, alpha=0.3)
         ax1.legend(fontsize=10)
-        ax1.set_ylim(-0.3, 0.3)
-        ax1.set_xlim(0.4, 4.0)
+        ax1.set_ylim(-0.5, 0.1)
+        ax1.set_xlim(1.4, 5.0)
         
         # Plot 2: Zoom in on equilibrium region
         for method_name, data in self.results.items():
@@ -266,7 +270,7 @@ class MethodComparisonAnalyzer:
         ax2.set_title('Equilibrium Region (Zoomed)', fontsize=14)
         ax2.grid(True, alpha=0.3)
         ax2.legend(fontsize=10)
-        ax2.set_xlim(0.5, 2.0)
+        ax2.set_xlim(1.8, 3.0)
         
         # Add metrics text box if available
         if self.metrics:

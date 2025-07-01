@@ -87,6 +87,42 @@ def extract_h2_parameters() -> Dict[str, float]:
     extractor = GFN1ParameterExtractor()
     return extractor.extract_defaults_dict(['H'])
 
+def extract_si2_parameters() -> Dict[str, float]:
+    """Extract only Si2-relevant parameters for focused optimization"""
+    extractor = GFN1ParameterExtractor()
+    defaults = {}
+    
+    # Si-Si pair interaction (most critical for Si2)
+    if 'hamiltonian' in extractor.params and 'xtb' in extractor.params['hamiltonian']:
+        xtb = extractor.params['hamiltonian']['xtb']
+        if 'kpair' in xtb and 'Si-Si' in xtb['kpair']:
+            defaults['hamiltonian.xtb.kpair.Si-Si'] = xtb['kpair']['Si-Si']
+    
+    # Key global parameters that affect Si bonding
+    if 'hamiltonian' in extractor.params and 'xtb' in extractor.params['hamiltonian']:
+        xtb = extractor.params['hamiltonian']['xtb']
+        if 'kpol' in xtb:
+            defaults['hamiltonian.xtb.kpol'] = xtb['kpol']
+        if 'enscale' in xtb:
+            defaults['hamiltonian.xtb.enscale'] = xtb['enscale']
+    
+    # Si element parameters (all critical for Si2)
+    if 'element' in extractor.params and 'Si' in extractor.params['element']:
+        elem = extractor.params['element']['Si']
+        
+        # Array parameters
+        for array_name in ['levels', 'slater', 'kcn']:
+            if array_name in elem:
+                for i, value in enumerate(elem[array_name]):
+                    defaults[f'element.Si.{array_name}[{i}]'] = value
+        
+        # Single parameters  
+        for param in ['gam', 'zeff', 'arep', 'en']:
+            if param in elem:
+                defaults[f'element.Si.{param}'] = elem[param]
+    
+    return defaults
+
 if __name__ == "__main__":
     print("GFN1-xTB Parameter Extraction")
     print("=" * 40)

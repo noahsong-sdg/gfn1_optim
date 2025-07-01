@@ -18,7 +18,7 @@ import time
 
 # Import project modules
 from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
-from data_extraction import GFN1ParameterExtractor
+from data_extraction import GFN1ParameterExtractor, extract_si2_parameters
 from config import get_system_config, SystemConfig
 
 # Set up logging
@@ -104,9 +104,14 @@ class BaseOptimizer(ABC):
         """Define parameter bounds for system-relevant parameters using extracted defaults"""
         bounds = []
         
-        # Extract default parameters from base parameter file
-        extractor = GFN1ParameterExtractor(self.base_param_file)
-        system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
+        # Use focused parameter set for Si2 to avoid over-parameterization
+        if self.system_name == "Si2":
+            system_defaults = extract_si2_parameters()
+            logger.info(f"Using focused Si2 parameter set with {len(system_defaults)} parameters")
+        else:
+            # Extract default parameters from base parameter file for other systems
+            extractor = GFN1ParameterExtractor(self.base_param_file)
+            system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
         
         # Define bounds based on parameter type and extracted defaults
         for param_name, default_val in system_defaults.items():
@@ -125,7 +130,13 @@ class BaseOptimizer(ABC):
                 'hamiltonian.xtb.kpair.H-H': (0.5, 1.5),
             },
             'Si2': {
-                'hamiltonian.xtb.kpair.Si-Si': (0.5, 1.5),
+                'hamiltonian.xtb.kpair.Si-Si': (0.7, 1.3),  # Si-Si bonds are different from H-H
+                'hamiltonian.xtb.kpol': (2.0, 4.0),        # Polarization parameter
+                'hamiltonian.xtb.enscale': (-0.02, 0.005), # Energy scaling  
+                'element.Si.gam': (0.3, 0.6),              # Hubbard parameter
+                'element.Si.zeff': (14.0, 20.0),           # Effective nuclear charge
+                'element.Si.arep': (0.7, 1.2),             # Repulsion parameter
+                'element.Si.en': (1.5, 2.3),               # Electronegativity
             },
             'C2': {
                 'hamiltonian.xtb.kpair.C-C': (0.5, 1.5),

@@ -50,7 +50,7 @@ class GeneralCalculator:
     def __init__(self, calc_config: CalcConfig, system_config: SystemConfig):
         self.calc_config = calc_config
         self.system_config = system_config
-        
+
     def calculate_energy(self, atoms) -> float:
         """Calculate energy for given atomic configuration"""
         # Suppress verbose output during optimization

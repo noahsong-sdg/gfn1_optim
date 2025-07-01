@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GAConfig:
     """Configuration for genetic algorithm"""
-    population_size: int = 50
-    generations: int = 100
+    population_size: int = 30  # Reduced for focused parameter set
+    generations: int = 150     # Increased for better convergence
     mutation_rate: float = 0.1
     crossover_rate: float = 0.8
     tournament_size: int = 3
