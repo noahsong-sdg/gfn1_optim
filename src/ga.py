@@ -1,10 +1,9 @@
 """
-Genetic Algorithm for TBLite parameter optimization - Refactored to use BaseOptimizer
+version 3 - refactored with a base optimizer class
 """
 
 import numpy as np
 import random
-import copy
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -18,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class GAConfig:
-    """Configuration for genetic algorithm"""
-    population_size: int = 30  # Reduced for focused parameter set
-    generations: int = 150     # Increased for better convergence
+    """config"""
+    population_size: int = 30  
+    generations: int = 150     
     mutation_rate: float = 0.1
     crossover_rate: float = 0.8
     tournament_size: int = 3
@@ -32,7 +31,7 @@ class GAConfig:
 
 
 class Individual:
-    """Represents a single parameter set (genome) in the GA population"""
+    """ a single parameter set (genome) """
     
     def __init__(self, parameters: Dict[str, float], fitness: float = 0.0):
         self.parameters = parameters.copy()
@@ -40,7 +39,6 @@ class Individual:
         self.age = 0
         
     def copy(self):
-        """Create a deep copy of the individual"""
         return Individual(self.parameters.copy(), self.fitness)
     
     def __repr__(self):

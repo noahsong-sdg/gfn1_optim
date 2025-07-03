@@ -248,7 +248,7 @@ class MethodComparisonAnalyzer:
         ax1.grid(True, alpha=0.3)
         ax1.legend(fontsize=10)
         ax1.set_ylim(-0.5, 0.1)
-        ax1.set_xlim(1.4, 5.0)
+        ax1.set_xlim(0.5, 4.0)
         
         # Plot 2: Zoom in on equilibrium region
         for method_name, data in self.results.items():
@@ -270,7 +270,7 @@ class MethodComparisonAnalyzer:
         ax2.set_title('Equilibrium Region (Zoomed)', fontsize=14)
         ax2.grid(True, alpha=0.3)
         ax2.legend(fontsize=10)
-        ax2.set_xlim(1.8, 3.0)
+        ax2.set_xlim(0.5, 2.0)
         
         # Add metrics text box if available
         if self.metrics:

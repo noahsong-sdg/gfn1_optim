@@ -38,7 +38,6 @@ class BayesianConfig:
 
 class GeneralParameterBayesian(BaseOptimizer):
     """Bayesian Optimization optimizer inheriting from BaseOptimizer"""
-    
     def __init__(self, 
                  system_name: str,
                  base_param_file: str,
