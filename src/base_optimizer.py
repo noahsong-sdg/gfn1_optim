@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union
 from dataclasses import dataclass
 import time
+import pickle
+import random
 
 # Import project modules
 from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
@@ -55,7 +57,8 @@ class BaseOptimizer(ABC):
                  base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
                  train_fraction: float = 0.8,
-                 spin: int = 0):
+                 spin: int = 0,
+                 method_name: Optional[str] = None):
         """Initialize base optimizer
         
         Args:
@@ -99,6 +102,14 @@ class BaseOptimizer(ABC):
         self.convergence_counter = 0
         self.fitness_history = []
         self.failed_evaluations = 0
+        
+        self.method_name = method_name or self.__class__.__name__.replace('GeneralParameter', '').replace('BaseOptimizer', '').lower()
+        
+        # Check for checkpoint and load if present
+        checkpoint_path = self.get_checkpoint_path()
+        if os.path.exists(checkpoint_path):
+            logger.info(f"Checkpoint found at {checkpoint_path}, loading state...")
+            self.load_checkpoint()
         
     def _define_parameter_bounds(self) -> List[ParameterBounds]:
         """Define parameter bounds for system-relevant parameters using extracted defaults"""
@@ -528,9 +539,45 @@ class BaseOptimizer(ABC):
         df.to_csv(filename, index=False)
         logger.info(f"Fitness history saved to {filename}")
     
+    def get_checkpoint_path(self) -> str:
+        """Return the checkpoint filename for this system/method."""
+        return f"{self.system_name.lower()}_{self.method_name.lower()}_checkpt.pkl"
+
+    def save_checkpoint(self):
+        """Save minimal optimizer state to a checkpoint file (overwrites each time)."""
+        state = self.get_state()
+        # Save RNG state
+        state['random_state'] = random.getstate()
+        state['np_random_state'] = np.random.get_state()
+        with open(self.get_checkpoint_path(), 'wb') as f:
+            pickle.dump(state, f)
+        logger.info(f"Checkpoint saved to {self.get_checkpoint_path()}")
+
+    def load_checkpoint(self):
+        """Load optimizer state from checkpoint file."""
+        with open(self.get_checkpoint_path(), 'rb') as f:
+            state = pickle.load(f)
+        self.set_state(state)
+        # Restore RNG state
+        if 'random_state' in state:
+            random.setstate(state['random_state'])
+        if 'np_random_state' in state:
+            np.random.set_state(state['np_random_state'])
+        logger.info(f"Checkpoint loaded from {self.get_checkpoint_path()}")
+
     @abstractmethod
     def optimize(self) -> Dict[str, float]:
         """Run the optimization algorithm - must be implemented by subclasses"""
+        pass
+    
+    @abstractmethod
+    def get_state(self) -> dict:
+        """Return a dict of minimal state for checkpointing. Subclasses must implement."""
+        pass
+
+    @abstractmethod
+    def set_state(self, state: dict):
+        """Restore state from dict. Subclasses must implement."""
         pass
     
     def get_parameter_names(self) -> List[str]:
