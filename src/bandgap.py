@@ -209,7 +209,6 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
             mf.xc = method
         
         # Memory optimization settings
-        mf.max_memory = 8000  # 8GB memory limit
         mf.diis_start_cycle = 3
         mf.diis_space = 6
         
