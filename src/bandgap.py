@@ -31,7 +31,7 @@ from pyscf.pbc import dft as pbc_dft
 from pyscf.pbc import scf as pbc_scf
 
 
-def atoms_to_pyscf_cell(atoms: Atoms, basis: str = 'def2-svp', ecut: float = 400.0) -> pyscf.pbc.gto.Cell:
+def atoms_to_pyscf_cell(atoms: Atoms, basis: str = 'sto-3g', ecut: float = 400.0) -> pyscf.pbc.gto.Cell:
     """Convert ASE atoms to PySCF cell for periodic calculations"""
     # Get cell parameters
     cell_params = atoms.get_cell()
@@ -46,6 +46,9 @@ def atoms_to_pyscf_cell(atoms: Atoms, basis: str = 'def2-svp', ecut: float = 400
     cell.ecut = ecut
     cell.verbose = 0  # Reduce output
     
+    # Memory optimization: remove very diffuse functions
+    cell.exp_to_discard = 0.1
+    
     # Add atoms
     for i, (symbol, pos) in enumerate(zip(symbols, positions)):
         cell.atom.append([symbol, pos.tolist()])
@@ -54,7 +57,7 @@ def atoms_to_pyscf_cell(atoms: Atoms, basis: str = 'def2-svp', ecut: float = 400
     return cell
 
 
-def calculate_bandgap_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'def2-svp', 
+def calculate_bandgap_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g', 
                            ecut: float = 400.0, kpts: Optional[np.ndarray] = None) -> Dict[str, float]:
     """
     Calculate band gap using PySCF with periodic boundary conditions.
@@ -90,6 +93,11 @@ def calculate_bandgap_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'def
         else:
             mf = pbc_dft.RKS(cell, kpts)
             mf.xc = method
+        
+        # Memory optimization settings
+        mf.max_memory = 8000  # 8GB memory limit
+        mf.diis_start_cycle = 3
+        mf.diis_space = 6
         
         # Run SCF calculation
         mf.kernel()
@@ -161,7 +169,7 @@ def calculate_bandgap_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'def
         }
 
 
-def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'def2-svp') -> Dict[str, float]:
+def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') -> Dict[str, float]:
     """
     Calculate band gap for molecular systems using PySCF.
     
@@ -199,6 +207,11 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
         else:
             mf = dft.RKS(mol)
             mf.xc = method
+        
+        # Memory optimization settings
+        mf.max_memory = 8000  # 8GB memory limit
+        mf.diis_start_cycle = 3
+        mf.diis_space = 6
         
         # Run SCF calculation
         mf.kernel()
@@ -274,7 +287,7 @@ def determine_system_type(atoms: Atoms) -> str:
         return 'molecular'
 
 
-def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'def2-svp', 
+def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g', 
                      ecut: float = 400.0) -> Dict[str, float]:
     """
     Calculate band gap using appropriate PySCF method.
@@ -297,7 +310,7 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'def2-svp'
 
 
 def process_structures(xyz_file: str, output_file: str = None, method: str = 'pbe', 
-                     basis: str = 'def2-svp', ecut: float = 400.0) -> pd.DataFrame:
+                     basis: str = 'sto-3g', ecut: float = 400.0) -> pd.DataFrame:
     """
     Process all structures in an XYZ file and compute band gaps
     
