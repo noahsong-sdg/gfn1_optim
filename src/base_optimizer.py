@@ -141,13 +141,13 @@ class BaseOptimizer(ABC):
                 'hamiltonian.xtb.kpair.H-H': (0.5, 1.5),
             },
             'Si2': {
-                'hamiltonian.xtb.kpair.Si-Si': (0.7, 1.3),  # Si-Si bonds are different from H-H
-                'hamiltonian.xtb.kpol': (2.0, 4.0),        # Polarization parameter
-                'hamiltonian.xtb.enscale': (-0.02, 0.005), # Energy scaling  
-                'element.Si.gam': (0.3, 0.6),              # Hubbard parameter
-                'element.Si.zeff': (14.0, 20.0),           # Effective nuclear charge
-                'element.Si.arep': (0.7, 1.2),             # Repulsion parameter
-                'element.Si.en': (1.5, 2.3),               # Electronegativity
+                'hamiltonian.xtb.kpair.Si-Si': (0.8, 1.2),  # Tighter bounds, prevent negative values
+                'hamiltonian.xtb.kpol': (2.5, 3.5),        # Tighter around default ~2.85
+                'hamiltonian.xtb.enscale': (-0.015, 0.002), # Tighter around default -0.007
+                'element.Si.gam': (0.35, 0.55),             # Tighter around default 0.438
+                'element.Si.zeff': (15.5, 18.5),            # Tighter around default 16.9
+                'element.Si.arep': (0.8, 1.1),              # Tighter around default 0.948
+                'element.Si.en': (1.7, 2.1),                # Tighter around default 1.9
             },
             'C2': {
                 'hamiltonian.xtb.kpair.C-C': (0.5, 1.5),
@@ -167,8 +167,8 @@ class BaseOptimizer(ABC):
         
         # General parameter bounds
         general_bounds = {
-            'hamiltonian.xtb.kpol': (1.0, 5.0),
-            'hamiltonian.xtb.enscale': (-0.02, 0.02),
+            'hamiltonian.xtb.kpol': (1.5, 4.0),      # Slightly tighter lower bound
+            'hamiltonian.xtb.enscale': (-0.02, 0.01), # Slightly tighter upper bound
             'hamiltonian.xtb.shell.ss': (1.0, 3.0),
             'hamiltonian.xtb.shell.pp': (1.5, 3.5),
             'hamiltonian.xtb.shell.sp': (1.5, 3.0),
@@ -179,20 +179,20 @@ class BaseOptimizer(ABC):
         
         # Type-based bounds
         if 'levels' in param_name:
-            # Energy levels - allow ±30% variation
-            margin = abs(default_val) * 0.3
+            # Energy levels - allow ±25% variation (reduced from 30%)
+            margin = abs(default_val) * 0.25
             if margin < 1e-6:  # Handle near-zero defaults
                 margin = 0.1
             return (default_val - margin, default_val + margin)
         elif 'slater' in param_name:
-            # Slater exponents - keep positive, allow wide range
-            min_val = max(0.1, default_val * 0.5)
-            max_val = default_val * 2.0
+            # Slater exponents - keep positive, allow narrower range
+            min_val = max(0.5, default_val * 0.6)  # Increased minimum from 0.1 to 0.5
+            max_val = default_val * 1.8             # Reduced from 2.0 to 1.8
             return (min_val, max(max_val, min_val + 0.1))  # Ensure max > min
         elif 'kcn' in param_name:
-            # Coordination number parameters - keep positive, allow wide range
-            min_val = max(0.001, default_val * 0.1)
-            max_val = default_val * 5.0
+            # Coordination number parameters - keep positive, allow narrower range
+            min_val = max(0.01, default_val * 0.2)  # Increased minimum and reduced range
+            max_val = default_val * 3.0              # Reduced from 5.0 to 3.0
             return (min_val, max(max_val, min_val + 0.1))  # Ensure max > min
         elif param_name.endswith('.gam'):
             return (0.2, 0.8)
@@ -203,8 +203,8 @@ class BaseOptimizer(ABC):
         elif param_name.endswith('.en'):
             return (1.5, 3.0)
         else:
-            # Default: ±50% around default
-            margin = abs(default_val) * 0.5
+            # Default: ±40% around default (reduced from 50%)
+            margin = abs(default_val) * 0.4
             if margin < 1e-6:  # Handle near-zero defaults
                 margin = 0.1
             min_val = default_val - margin
@@ -366,11 +366,19 @@ class BaseOptimizer(ABC):
                 
                 # Extra safety checks for critical parameters
                 if 'slater' in param_name:
-                    bounded_value = max(0.1, bounded_value)  # Absolute minimum for safety
+                    bounded_value = max(0.5, bounded_value)  # Absolute minimum for safety
                 elif 'zeff' in param_name:
                     bounded_value = max(1.0, bounded_value)  # Effective charge must be positive
                 elif 'kcn' in param_name and param_name.endswith('[0]'):
-                    bounded_value = max(0.001, bounded_value)  # First kcn parameter must be positive
+                    bounded_value = max(0.01, bounded_value)  # First kcn parameter must be positive
+                elif 'kpair' in param_name:
+                    bounded_value = max(0.1, bounded_value)  # Pair parameters must be positive
+                elif 'gam' in param_name and not param_name.endswith('lgam'):
+                    bounded_value = max(0.1, min(1.0, bounded_value))  # Gamma parameters reasonable range
+                elif 'arep' in param_name:
+                    bounded_value = max(0.5, bounded_value)  # Repulsion parameters must be positive
+                elif 'en' in param_name and not param_name.endswith('zen'):
+                    bounded_value = max(0.5, bounded_value)  # Electronegativity must be positive
                 
                 bounded_params[param_name] = float(bounded_value)
             else:
