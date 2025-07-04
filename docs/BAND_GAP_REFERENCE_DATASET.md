@@ -28,7 +28,7 @@ You need to compute band gaps at the gamma point for each structure in your CdS 
 - **Mixing Parameter**: 0.7 for better convergence
 - **Level Shift**: 0.2 Hartree to avoid level crossing
 - **Davidson Diagonalization**: Efficient for large systems
-- **Max Cycles**: 100 (reduced from default 350)
+- **Max Cycles**: 350 (increased for better convergence)
 
 #### Basis Set
 - **GTH-DZVP**: Double-zeta basis with pseudopotentials

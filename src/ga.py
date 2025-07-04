@@ -193,25 +193,32 @@ class GeneralParameterGA(BaseOptimizer):
         """Run the genetic algorithm optimization"""
         logger.info(f"Starting genetic algorithm optimization for {self.system_name}")
         start_time = time.time()
+        
         # Initialize population only if not resuming
         if not self.population:
             default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
             self.population = [self.create_individual(default_params)]
             for _ in range(self.config.population_size - 1):
                 self.population.append(self.create_individual())
+        
         # Resume from self.generation if checkpoint loaded
         for generation in range(self.generation, self.config.generations):
             self.generation = generation
             logger.info(f"Generation {generation + 1}/{self.config.generations}")
-            # Evaluate fitness
+            
+            # Always evaluate fitness at the start of each generation
+            # (even when resuming, to ensure fresh fitness values)
             for individual in self.population:
                 individual.fitness = self.evaluate_individual_fitness(individual)
+            
             best_fitness = max(ind.fitness for ind in self.population)
             logger.info(f"  Best fitness: {best_fitness:.6f}")
+            
             # Early stopping if all fitness values are 0
             if best_fitness == 0.0:
                 logger.error("All individuals have zero fitness - stopping optimization")
                 break
+            
             # Check convergence
             if len(self.fitness_history) >= 2:
                 recent_improvement = abs(
@@ -222,18 +229,23 @@ class GeneralParameterGA(BaseOptimizer):
                     if self.convergence_counter >= self.config.patience:
                         logger.info(f"Converged at generation {generation + 1}")
                         break
+            
             # Evolve
             self.evolve_generation()
+            
             # Save checkpoint after each generation
             self.save_checkpoint()
+        
         total_time = time.time() - start_time
         logger.info(f"Optimization completed in {total_time:.2f}s")
+        
         # Set best parameters for base class
         if self.best_individual is not None:
             self.best_parameters = self.best_individual.parameters.copy()
             # Convert GA fitness back to RMSE for base class consistency
             ga_fitness = self.best_individual.fitness
             self.best_fitness = (1.0 / ga_fitness) - 1.0 if ga_fitness > 0 else float('inf')
+        
         return self.best_parameters
 
 

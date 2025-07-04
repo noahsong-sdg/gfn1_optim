@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import logging
 
 from ase import Atoms
 from tblite.ase import TBLite
@@ -24,6 +25,9 @@ from dataclasses import dataclass
 
 from config import SystemConfig, SystemType, CalculationType, get_system_config
 from config import get_calculation_distances, create_molecule_geometry, get_isolated_atom_symbol
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 # Portable paths
 PROJECT_ROOT = Path.cwd()
@@ -148,18 +152,77 @@ class GeneralCalculator:
             raise FileNotFoundError(f"Parameter file {self.calc_config.param_file} not found")
         
         param_file_abs = Path(self.calc_config.param_file).resolve()
-        cmd = f"tblite run --method gfn1 --param {param_file_abs} {coord_file}"
+        
+        # Enhanced SCF convergence parameters for optimized parameter files
+        cmd = [
+            "tblite", "run",
+            "--method", "gfn1",
+            "--param", str(param_file_abs),
+            "--iterations", "500",  # Increased from default 250
+            "--etemp", str(self.calc_config.elec_temp),
+            coord_file
+        ]
+        
         result = subprocess.run(
-            cmd.split(),
+            cmd,
             cwd=tmpdir,
             capture_output=True,
             text=True,
             check=False)
         
         if result.returncode != 0:
+            # Check if it's a convergence issue
+            stderr_lower = result.stderr.lower()
+            if "convergence" in stderr_lower or "scf" in stderr_lower or "iterations" in stderr_lower:
+                # Try with more relaxed convergence
+                logger.warning(f"SCF convergence failed for {param_file_abs.name}, trying with relaxed parameters...")
+                cmd_relaxed = [
+                    "tblite", "run",
+                    "--method", "gfn1",
+                    "--param", str(param_file_abs),
+                    "--iterations", "1000",  # More iterations
+                    "--etemp", str(self.calc_config.elec_temp),
+                    coord_file
+                ]
+                
+                result_relaxed = subprocess.run(
+                    cmd_relaxed,
+                    cwd=tmpdir,
+                    capture_output=True,
+                    text=True,
+                    check=False)
+                
+                if result_relaxed.returncode == 0:
+                    logger.info(f"Calculation succeeded with relaxed convergence for {param_file_abs.name}")
+                    return self._parse_tblite_e(result_relaxed.stdout)
+                else:
+                    # If still failing, try with even more relaxed parameters
+                    logger.warning(f"Still failing, trying with very relaxed convergence...")
+                    cmd_very_relaxed = [
+                        "tblite", "run",
+                        "--method", "gfn1",
+                        "--param", str(param_file_abs),
+                        "--iterations", "2000",  # Many more iterations
+                        "--etemp", str(self.calc_config.elec_temp),
+                        coord_file
+                    ]
+                    
+                    result_very_relaxed = subprocess.run(
+                        cmd_very_relaxed,
+                        cwd=tmpdir,
+                        capture_output=True,
+                        text=True,
+                        check=False)
+                    
+                    if result_very_relaxed.returncode == 0:
+                        logger.info(f"Calculation succeeded with very relaxed convergence for {param_file_abs.name}")
+                        return self._parse_tblite_e(result_very_relaxed.stdout)
+            
+            # If all attempts failed, raise error with detailed information
             error_msg = f"TBLite command failed with exit code {result.returncode}\n"
-            error_msg += f"Command: {cmd}\n"
+            error_msg += f"Command: {' '.join(cmd)}\n"
             error_msg += f"Working directory: {tmpdir}\n"
+            error_msg += f"Parameter file: {param_file_abs}\n"
             error_msg += f"STDOUT:\n{result.stdout}\n"
             error_msg += f"STDERR:\n{result.stderr}"
             raise RuntimeError(error_msg)
