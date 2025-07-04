@@ -289,23 +289,19 @@ def determine_system_type(atoms: Atoms) -> str:
 def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g', 
                      ecut: float = 400.0) -> Dict[str, float]:
     """
-    Calculate band gap using appropriate PySCF method.
+    Calculate band gap using molecular PySCF method (default).
     
     Args:
         atoms: ASE atoms object
         method: DFT functional
         basis: Basis set
-        ecut: Energy cutoff for periodic calculations
+        ecut: Energy cutoff (not used for molecular calculations)
     
     Returns:
         Dictionary with band gap information
     """
-    system_type = determine_system_type(atoms)
-    
-    if system_type == 'periodic':
-        return calculate_bandgap_pyscf(atoms, method, basis, ecut)
-    else:
-        return calculate_bandgap_molecular_pyscf(atoms, method, basis)
+    # Always use molecular calculation for now to avoid memory issues
+    return calculate_bandgap_molecular_only(atoms, method, basis)
 
 
 def process_structures(xyz_file: str, output_file: str = None, method: str = 'pbe', 
