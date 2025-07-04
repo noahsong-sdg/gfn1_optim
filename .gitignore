@@ -7,6 +7,6 @@ archive/
 *.png
 *.txt
 **/__pycache__/
-
+*.pkl
 *.err
 *.out
