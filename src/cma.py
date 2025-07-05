@@ -291,9 +291,9 @@ def main():
     cma = GeneralParameterCMA(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = cma.optimize()
     
-    # Save results using base class methods
-    cma.save_best_parameters(cma.system_config.optimized_params_file)
-    cma.save_fitness_history(cma.system_config.fitness_history_file)
+    # Save results using method-specific filenames
+    cma.save_best_parameters()  # Will use si2_cma.toml instead of si2_optimized.toml
+    cma.save_fitness_history()  # Will use si2_cma_fitness_history.csv
     
     if best_parameters:
         print(f"\nBest Parameters for {system_name}:")

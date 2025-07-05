@@ -196,6 +196,26 @@ class GeneralParameterBayesian(BaseOptimizer):
             'running_min': running_min,
             'x_iters': [list(x) for x in self.optimization_result.x_iters]
         }
+    
+    def get_state(self) -> dict:
+        """Return a dict of minimal state for checkpointing"""
+        return {
+            'best_parameters': self.best_parameters,
+            'best_fitness': self.best_fitness,
+            'fitness_history': self.fitness_history,
+            'call_count': self.call_count,
+            'optimization_result': self.optimization_result,
+            'config': self.config
+        }
+    
+    def set_state(self, state: dict):
+        """Restore state from dict"""
+        self.best_parameters = state.get('best_parameters')
+        self.best_fitness = state.get('best_fitness', float('inf'))
+        self.fitness_history = state.get('fitness_history', [])
+        self.call_count = state.get('call_count', 0)
+        self.optimization_result = state.get('optimization_result')
+        self.config = state.get('config', self.config)
 
 
 def main():
@@ -223,12 +243,12 @@ def main():
     bayes = GeneralParameterBayesian(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = bayes.optimize()
     
-    # Save results using base class methods
-    bayes.save_best_parameters(bayes.system_config.optimized_params_file)
-    bayes.save_fitness_history(bayes.system_config.fitness_history_file)
+    # Save results using method-specific filenames
+    bayes.save_best_parameters()  # Will use si2_bayes.toml instead of si2_optimized.toml
+    bayes.save_fitness_history()  # Will use si2_bayes_fitness_history.csv
     
-    # Save Bayesian-specific result
-    result_file = bayes.system_config.optimized_params_file.replace('.toml', '_bayes_result.pkl')
+    # Save Bayesian-specific result with method name
+    result_file = bayes.get_optimized_params_filename().replace('.toml', '_result.pkl')
     bayes.save_optimization_result(result_file)
     
     if best_parameters:

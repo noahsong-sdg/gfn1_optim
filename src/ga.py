@@ -269,9 +269,9 @@ def main():
     ga = GeneralParameterGA(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = ga.optimize()
     
-    # Save results using base class methods
-    ga.save_best_parameters(ga.system_config.optimized_params_file)
-    ga.save_fitness_history(ga.system_config.fitness_history_file)
+    # Save results using method-specific filenames
+    ga.save_best_parameters()  # Will use si2_ga.toml instead of si2_optimized.toml
+    ga.save_fitness_history()  # Will use si2_ga_fitness_history.csv
     
     if best_parameters:
         print(f"\nBest Parameters for {system_name}:")

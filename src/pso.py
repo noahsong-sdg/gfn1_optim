@@ -250,9 +250,9 @@ def main():
     pso = GeneralParameterPSO(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = pso.optimize()
     
-    # Save results using base class methods
-    pso.save_best_parameters(pso.system_config.optimized_params_file)
-    pso.save_fitness_history(pso.system_config.fitness_history_file)
+    # Save results using method-specific filenames
+    pso.save_best_parameters()  # Will use si2_pso.toml instead of si2_optimized.toml
+    pso.save_fitness_history()  # Will use si2_pso_fitness_history.csv
     
     if best_parameters:
         print(f"\nBest Parameters for {system_name}:")

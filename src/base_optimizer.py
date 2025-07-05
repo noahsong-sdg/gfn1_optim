@@ -507,10 +507,29 @@ class BaseOptimizer(ABC):
             self.convergence_counter = 0
             return False
     
-    def save_best_parameters(self, filename: str):
+    def get_method_specific_filename(self, base_filename: str) -> str:
+        """Generate a method-specific filename by inserting the method name before the extension"""
+        path = Path(base_filename)
+        # Insert method name before extension: si2_optimized.toml -> si2_bayes.toml
+        new_stem = f"{path.stem}_{self.method_name}"
+        return str(path.parent / f"{new_stem}{path.suffix}")
+    
+    def get_optimized_params_filename(self) -> str:
+        """Get the method-specific optimized parameters filename"""
+        return self.get_method_specific_filename(self.system_config.optimized_params_file)
+    
+    def get_fitness_history_filename(self) -> str:
+        """Get the method-specific fitness history filename"""
+        return self.get_method_specific_filename(self.system_config.fitness_history_file)
+    
+    def save_best_parameters(self, filename: Optional[str] = None):
         """Save the best parameters to a TOML file"""
         if self.best_parameters is None:
             raise ValueError("No optimization has been run")
+        
+        # Use method-specific filename if none provided
+        if filename is None:
+            filename = self.get_optimized_params_filename()
         
         # Create full parameter set
         params = copy.deepcopy(self.base_params)
@@ -525,10 +544,14 @@ class BaseOptimizer(ABC):
         
         logger.info(f"Best parameters saved to {filename}")
     
-    def save_fitness_history(self, filename: str):
+    def save_fitness_history(self, filename: Optional[str] = None):
         """Save fitness history to CSV"""
         if not self.fitness_history:
             raise ValueError("No optimization has been run")
+        
+        # Use method-specific filename if none provided
+        if filename is None:
+            filename = self.get_fitness_history_filename()
         
         # Handle different fitness history formats
         if isinstance(self.fitness_history[0], dict):
