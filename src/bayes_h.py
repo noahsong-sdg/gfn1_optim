@@ -114,6 +114,10 @@ class GeneralParameterBayesian(BaseOptimizer):
             self.best_parameters = parameters.copy()
             logger.info(f"  NEW BEST at call {self.call_count}: RMSE = {rmse:.6f}")
         
+        # Save checkpoint every 10 calls or when we find a new best
+        if self.call_count % 10 == 0 or rmse < self.best_fitness:
+            self.save_checkpoint()
+        
         return rmse  # Bayesian optimization minimizes
     
     def optimize(self) -> Dict[str, float]:
@@ -122,18 +126,34 @@ class GeneralParameterBayesian(BaseOptimizer):
         logger.info(f"Using {self.config.n_calls} function evaluations with {self.config.n_initial_points} initial points")
         start_time = time.time()
         
+        # Try to load checkpoint if it exists
+        try:
+            self.load_checkpoint()
+            logger.info(f"Resuming from checkpoint at call {self.call_count}")
+        except FileNotFoundError:
+            logger.info("No checkpoint found, starting fresh optimization")
+        
         # Set up the decorated objective function
         @use_named_args(self.dimensions)
         def objective(**params):
             return self.objective_function([params[name] for name in self.dimension_names])
         
         try:
-            # Run Bayesian optimization
+            # Calculate remaining calls
+            remaining_calls = max(0, self.config.n_calls - self.call_count)
+            
+            if remaining_calls <= 0:
+                logger.info("Optimization already completed based on checkpoint")
+                return self.best_parameters
+            
+            logger.info(f"Running {remaining_calls} remaining function evaluations")
+            
+            # Run Bayesian optimization with remaining calls
             self.optimization_result = gp_minimize(
                 func=objective,
                 dimensions=self.dimensions,
-                n_calls=self.config.n_calls,
-                n_initial_points=self.config.n_initial_points,
+                n_calls=remaining_calls,
+                n_initial_points=0,  # No initial points when resuming
                 acq_func=self.config.acq_func,
                 acq_optimizer=self.config.acq_optimizer,
                 xi=self.config.xi,
@@ -155,6 +175,9 @@ class GeneralParameterBayesian(BaseOptimizer):
             total_time = time.time() - start_time
             logger.info(f"Optimization completed in {total_time:.2f}s")
             logger.info(f"Best RMSE: {best_rmse:.6f}")
+            
+            # Save final checkpoint
+            self.save_checkpoint()
             
             return self.best_parameters
             
@@ -199,14 +222,16 @@ class GeneralParameterBayesian(BaseOptimizer):
     
     def get_state(self) -> dict:
         """Return a dict of minimal state for checkpointing"""
-        return {
+        state = {
             'best_parameters': self.best_parameters,
             'best_fitness': self.best_fitness,
             'fitness_history': self.fitness_history,
             'call_count': self.call_count,
             'optimization_result': self.optimization_result,
-            'config': self.config
+            'config': self.config,
+            'dimension_names': self.dimension_names
         }
+        return state
     
     def set_state(self, state: dict):
         """Restore state from dict"""
@@ -216,6 +241,7 @@ class GeneralParameterBayesian(BaseOptimizer):
         self.call_count = state.get('call_count', 0)
         self.optimization_result = state.get('optimization_result')
         self.config = state.get('config', self.config)
+        self.dimension_names = state.get('dimension_names', self.dimension_names)
 
 
 def main():
@@ -238,6 +264,7 @@ def main():
         system_name = "H2"
     
     print(f"Running Bayesian optimization for {system_name}")
+    print("Note: Checkpointing is enabled - optimization can be resumed if interrupted")
     
     config = BayesianConfig(n_calls=50, n_initial_points=10)
     bayes = GeneralParameterBayesian(system_name, str(BASE_PARAM_FILE), config=config)
