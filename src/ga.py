@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class GAConfig:
-    """config"""
-    population_size: int = 30  
+    population_size: int = 40  
     generations: int = 150     
     mutation_rate: float = 0.1
     crossover_rate: float = 0.8
@@ -265,7 +264,7 @@ def main():
     
     print(f"Running GA optimization for {system_name}")
     
-    config = GAConfig(population_size=30, generations=50)
+    config = GAConfig()
     ga = GeneralParameterGA(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = ga.optimize()
     

@@ -29,7 +29,7 @@ class BayesianConfig:
     n_initial_points: int = 20  # Number of random points to start with (increased)
     acq_func: str = "EI"  # Acquisition function: "EI", "LCB", "PI"
     acq_optimizer: str = "auto"  # Acquisition optimizer
-    xi: float = 0.01  # Exploration-exploitation trade-off
+    xi: float = 0.1  # Exploration-exploitation trade-off
     kappa: float = 1.96  # Lower confidence bound parameter
     n_restarts_optimizer: int = 5  # Number of restarts for acquisition optimization
     noise: float = 1e-10  # Noise level for Gaussian process
@@ -266,7 +266,7 @@ def main():
     print(f"Running Bayesian optimization for {system_name}")
     print("Note: Checkpointing is enabled - optimization can be resumed if interrupted")
     
-    config = BayesianConfig(n_calls=50, n_initial_points=10)
+    config = BayesianConfig()
     bayes = GeneralParameterBayesian(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = bayes.optimize()
     

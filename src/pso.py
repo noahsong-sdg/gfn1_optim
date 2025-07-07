@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PSOConfig:
     """Configuration for Particle Swarm Optimization"""
-    swarm_size: int = 30
+    swarm_size: int = 40
     max_iterations: int = 100
     w: float = 0.7  # Inertia weight
     c1: float = 1.5  # Cognitive coefficient
@@ -246,7 +246,7 @@ def main():
     
     print(f"Running PSO optimization for {system_name}")
     
-    config = PSOConfig(swarm_size=20, max_iterations=50)
+    config = PSOConfig()
     pso = GeneralParameterPSO(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = pso.optimize()
     

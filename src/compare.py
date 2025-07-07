@@ -5,7 +5,7 @@ Compare multiple parameter sets (TOML files) against CCSD reference data
 
 pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_ga.toml results/parameters/h2_pso.toml results/parameters/h2_bayes.toml results/parameters/h2_newuoa.toml results/parameters/h2_cma.toml --names ga pso bayes NEWUOA cma --output results/comparison 
 
-pixi run python src/compare.py --system Si2 --ccsd --pure --params results/parameters/si2_ga.toml results/parameters/si2_pso.toml results/parameters/si2_bayes.toml results/parameters/si2_cma.toml --names ga pso bayes cma --output results/comparison 
+pixi run python src/compare.py --system Si2 --ccsd --pure --params results/parameters/si2_ga.toml results/parameters/si2_pso.toml results/parameters/si2_bayes_v2.toml results/parameters/si2_cma.toml --names ga pso bayes cma --output results/comparison 
 
 
 
