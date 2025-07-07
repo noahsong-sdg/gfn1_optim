@@ -601,15 +601,21 @@ class BaseOptimizer(ABC):
         """Run the optimization algorithm - must be implemented by subclasses"""
         pass
     
-    @abstractmethod
     def get_state(self) -> dict:
-        """Return a dict of minimal state for checkpointing. Subclasses must implement."""
-        pass
+        """Return a dict of minimal state for checkpointing (base fields only)"""
+        return {
+            'best_parameters': self.best_parameters,
+            'best_fitness': self.best_fitness,
+            'fitness_history': self.fitness_history,
+            'convergence_counter': getattr(self, 'convergence_counter', 0)
+        }
 
-    @abstractmethod
     def set_state(self, state: dict):
-        """Restore state from dict. Subclasses must implement."""
-        pass
+        """Restore state from dict (base fields only)"""
+        self.best_parameters = state.get('best_parameters')
+        self.best_fitness = state.get('best_fitness', float('inf'))
+        self.fitness_history = state.get('fitness_history', [])
+        self.convergence_counter = state.get('convergence_counter', 0)
     
     def get_parameter_names(self) -> List[str]:
         """Get list of parameter names being optimized"""

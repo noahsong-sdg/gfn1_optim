@@ -127,11 +127,14 @@ class GeneralParameterBayesian(BaseOptimizer):
         start_time = time.time()
         
         # Try to load checkpoint if it exists
+        resumed = False
         try:
             self.load_checkpoint()
             logger.info(f"Resuming from checkpoint at call {self.call_count}")
+            resumed = True
         except FileNotFoundError:
             logger.info("No checkpoint found, starting fresh optimization")
+            resumed = False
         
         # Set up the decorated objective function
         @use_named_args(self.dimensions)
@@ -148,12 +151,15 @@ class GeneralParameterBayesian(BaseOptimizer):
             
             logger.info(f"Running {remaining_calls} remaining function evaluations")
             
+            # Always provide n_initial_points > 0 if not resuming, 0 if resuming
+            n_initial_points = 0 if resumed else self.config.n_initial_points
+            
             # Run Bayesian optimization with remaining calls
             self.optimization_result = gp_minimize(
                 func=objective,
                 dimensions=self.dimensions,
                 n_calls=remaining_calls,
-                n_initial_points=0,  # No initial points when resuming
+                n_initial_points=n_initial_points,
                 acq_func=self.config.acq_func,
                 acq_optimizer=self.config.acq_optimizer,
                 xi=self.config.xi,
@@ -221,23 +227,17 @@ class GeneralParameterBayesian(BaseOptimizer):
         }
     
     def get_state(self) -> dict:
-        """Return a dict of minimal state for checkpointing"""
-        state = {
-            'best_parameters': self.best_parameters,
-            'best_fitness': self.best_fitness,
-            'fitness_history': self.fitness_history,
+        state = super().get_state()
+        state.update({
             'call_count': self.call_count,
             'optimization_result': self.optimization_result,
             'config': self.config,
             'dimension_names': self.dimension_names
-        }
+        })
         return state
-    
+
     def set_state(self, state: dict):
-        """Restore state from dict"""
-        self.best_parameters = state.get('best_parameters')
-        self.best_fitness = state.get('best_fitness', float('inf'))
-        self.fitness_history = state.get('fitness_history', [])
+        super().set_state(state)
         self.call_count = state.get('call_count', 0)
         self.optimization_result = state.get('optimization_result')
         self.config = state.get('config', self.config)

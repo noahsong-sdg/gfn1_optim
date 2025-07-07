@@ -229,6 +229,25 @@ class GeneralParameterPSO(BaseOptimizer):
         
         return self.best_parameters
 
+    def get_state(self) -> dict:
+        state = super().get_state()
+        state.update({
+            'swarm': self.swarm,
+            'global_best_position': self.global_best_position,
+            'global_best_fitness': self.global_best_fitness,
+            'iteration': self.iteration,
+            'config': self.config
+        })
+        return state
+
+    def set_state(self, state: dict):
+        super().set_state(state)
+        self.swarm = state.get('swarm', [])
+        self.global_best_position = state.get('global_best_position')
+        self.global_best_fitness = state.get('global_best_fitness', 0.0)
+        self.iteration = state.get('iteration', 0)
+        self.config = state.get('config', self.config)
+
 
 def main():
     """Example usage with different systems"""

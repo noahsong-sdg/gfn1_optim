@@ -171,22 +171,21 @@ class GeneralParameterGA(BaseOptimizer):
             individual.age += 1
     
     def get_state(self) -> dict:
-        """Return minimal state for checkpointing."""
-        return {
+        state = super().get_state()
+        state.update({
             'population': self.population,
             'best_individual': self.best_individual,
             'generation': self.generation,
-            'fitness_history': self.fitness_history,
-            'convergence_counter': self.convergence_counter,
-        }
+            'config': self.config
+        })
+        return state
 
     def set_state(self, state: dict):
-        """Restore state from checkpoint."""
-        self.population = state['population']
-        self.best_individual = state['best_individual']
-        self.generation = state['generation']
-        self.fitness_history = state['fitness_history']
-        self.convergence_counter = state.get('convergence_counter', 0)
+        super().set_state(state)
+        self.population = state.get('population', [])
+        self.best_individual = state.get('best_individual')
+        self.generation = state.get('generation', 0)
+        self.config = state.get('config', self.config)
     
     def optimize(self) -> Dict[str, float]:
         """Run the genetic algorithm optimization"""

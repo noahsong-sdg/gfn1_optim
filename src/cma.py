@@ -266,16 +266,12 @@ class GeneralParameterCMA(BaseOptimizer):
         return self.best_parameters
     
     def get_state(self) -> dict:
-        """Return a dict of minimal state for checkpointing"""
-        state = {
-            'best_parameters': self.best_parameters,
-            'best_fitness': self.best_fitness,
-            'fitness_history': self.fitness_history,
+        state = super().get_state()
+        state.update({
             'failed_evaluations': self.failed_evaluations,
-            'convergence_counter': self.convergence_counter,
-            'generation': self.generation
-        }
-        
+            'generation': self.generation,
+            'config': self.config
+        })
         # Add CMA-ES specific state if optimizer exists
         if hasattr(self, 'optimizer') and self.optimizer is not None:
             state['cma_state'] = {
@@ -284,18 +280,13 @@ class GeneralParameterCMA(BaseOptimizer):
                 'population_size': self.optimizer.population_size,
                 'generation': self.optimizer.generation
             }
-        
         return state
-    
+
     def set_state(self, state: dict):
-        """Restore state from dict"""
-        self.best_parameters = state.get('best_parameters')
-        self.best_fitness = state.get('best_fitness')
-        self.fitness_history = state.get('fitness_history', [])
+        super().set_state(state)
         self.failed_evaluations = state.get('failed_evaluations', 0)
-        self.convergence_counter = state.get('convergence_counter', 0)
         self.generation = state.get('generation', 0)
-        
+        self.config = state.get('config', self.config)
         # Restore CMA-ES state if available
         if 'cma_state' in state and hasattr(self, 'optimizer') and self.optimizer is not None:
             cma_state = state['cma_state']
