@@ -76,16 +76,16 @@ class GeneralParameterCMA(BaseOptimizer):
             raise ImportError("cmaes library is required for CMA-ES optimization. "
                             "Install with: pip install cmaes")
         
-        # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction)
-        
-        # CMA-ES specific configuration
+        # CMA-ES specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
         
         # CMA-ES specific state
         self.optimizer = None
         self.generation = 0
         self.failed_evaluations = 0
+        
+        # Initialize base optimizer
+        super().__init__(system_name, base_param_file, reference_data, train_fraction)
         
     def apply_bounds(self, parameters: Dict[str, float]) -> Dict[str, float]:
         """Apply parameter bounds by clamping values"""

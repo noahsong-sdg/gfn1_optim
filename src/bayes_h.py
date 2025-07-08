@@ -8,7 +8,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import pandas as pd
-
+import pickle
 # External Bayesian optimization library
 try:
     from skopt import gp_minimize, dump, load
@@ -50,17 +50,17 @@ class GeneralParameterBayesian(BaseOptimizer):
             raise ImportError("scikit-optimize is required for Bayesian optimization. "
                             "Install with: pip install scikit-optimize")
         
-        # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction)
-        
-        # Bayesian-specific configuration
+        # Bayesian-specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
         
         # Bayesian-specific state
         self.optimization_result = None
         self.call_count = 0
         
-        # Set up optimization space
+        # Initialize base optimizer
+        super().__init__(system_name, base_param_file, reference_data, train_fraction)
+        
+        # Set up optimization space (after base init to access parameter_bounds)
         self.dimensions = self._create_search_space()
         self.dimension_names = [bound.name for bound in self.parameter_bounds]
         
@@ -294,7 +294,7 @@ def main():
     bayes.save_optimization_result(result_file)
     
     if best_parameters:
-        print(f"\nBest Parameters for {system_name}:")
+        print(f"\nBest Parameters for {args.system_name}:")
         for param_name, value in best_parameters.items():
             print(f"  {param_name}: {value:.6f}")
 

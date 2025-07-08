@@ -85,10 +85,7 @@ class GeneralParameterPSO(BaseOptimizer):
                  train_fraction: float = 0.8):
         """Initialize PSO optimizer"""
         
-        # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction)
-        
-        # PSO-specific configuration
+        # PSO-specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
         
         # PSO-specific state
@@ -96,6 +93,9 @@ class GeneralParameterPSO(BaseOptimizer):
         self.global_best_position = None
         self.global_best_fitness = 0.0
         self.iteration = 0
+        
+        # Initialize base optimizer
+        super().__init__(system_name, base_param_file, reference_data, train_fraction)
         
     def initialize_particle(self, parameters: Optional[Dict[str, float]] = None) -> Particle:
         """Initialize a single particle"""
