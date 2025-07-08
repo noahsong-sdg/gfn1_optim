@@ -301,7 +301,7 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g',
         Dictionary with band gap information
     """
     # Always use molecular calculation for now to avoid memory issues
-    return calculate_bandgap_molecular_only(atoms, method, basis)
+    return calculate_bandgap_molecular_pyscf(atoms, method, basis)
 
 
 def process_structures(xyz_file: str, output_file: str = None, method: str = 'pbe', 
