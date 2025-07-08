@@ -586,15 +586,25 @@ class BaseOptimizer(ABC):
 
     def load_checkpoint(self):
         """Load optimizer state from checkpoint file."""
-        with open(self.get_checkpoint_path(), 'rb') as f:
-            state = pickle.load(f)
-        self.set_state(state)
-        # Restore RNG state
-        if 'random_state' in state:
-            random.setstate(state['random_state'])
-        if 'np_random_state' in state:
-            np.random.set_state(state['np_random_state'])
-        logger.info(f"Checkpoint loaded from {self.get_checkpoint_path()}")
+        try:
+            with open(self.get_checkpoint_path(), 'rb') as f:
+                state = pickle.load(f)
+            self.set_state(state)
+            # Restore RNG state
+            if 'random_state' in state:
+                random.setstate(state['random_state'])
+            if 'np_random_state' in state:
+                np.random.set_state(state['np_random_state'])
+            logger.info(f"Checkpoint loaded from {self.get_checkpoint_path()}")
+        except (EOFError, pickle.UnpicklingError, FileNotFoundError) as e:
+            logger.warning(f"Failed to load checkpoint from {self.get_checkpoint_path()}: {e}")
+            logger.info("Starting fresh optimization")
+            # Reset state to fresh start
+            self.best_parameters = None
+            self.best_fitness = float('inf')
+            self.convergence_counter = 0
+            self.fitness_history = []
+            self.failed_evaluations = 0
 
     @abstractmethod
     def optimize(self) -> Dict[str, float]:

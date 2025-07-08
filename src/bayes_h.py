@@ -130,10 +130,14 @@ class GeneralParameterBayesian(BaseOptimizer):
         resumed = False
         try:
             self.load_checkpoint()
-            logger.info(f"Resuming from checkpoint at call {self.call_count}")
-            resumed = True
-        except FileNotFoundError:
-            logger.info("No checkpoint found, starting fresh optimization")
+            if self.call_count > 0:  # Only consider resumed if we actually loaded some state
+                logger.info(f"Resuming from checkpoint at call {self.call_count}")
+                resumed = True
+            else:
+                logger.info("Checkpoint loaded but no progress found, starting fresh")
+                resumed = False
+        except (FileNotFoundError, EOFError, pickle.UnpicklingError):
+            logger.info("No valid checkpoint found, starting fresh optimization")
             resumed = False
         
         # Set up the decorated objective function
@@ -247,6 +251,7 @@ class GeneralParameterBayesian(BaseOptimizer):
 def main():
     """Example usage with different systems"""
     import sys
+    import argparse
     from pathlib import Path
     
     if not HAS_SKOPT:
@@ -254,20 +259,32 @@ def main():
         print("Install with: pip install scikit-optimize")
         sys.exit(1)
     
+    parser = argparse.ArgumentParser(description='Run Bayesian optimization for TBLite parameters')
+    parser.add_argument('system_name', nargs='?', default='H2', 
+                       help='System name (default: H2)')
+    parser.add_argument('--fresh-start', action='store_true',
+                       help='Start fresh optimization, ignoring any existing checkpoints')
+    
+    args = parser.parse_args()
+    
     PROJECT_ROOT = Path.cwd()
     CONFIG_DIR = PROJECT_ROOT / "config"
     BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
     
-    if len(sys.argv) > 1:
-        system_name = sys.argv[1]
-    else:
-        system_name = "H2"
+    print(f"Running Bayesian optimization for {args.system_name}")
     
-    print(f"Running Bayesian optimization for {system_name}")
-    print("Note: Checkpointing is enabled - optimization can be resumed if interrupted")
+    if args.fresh_start:
+        # Remove checkpoint file if it exists
+        checkpoint_path = Path(f"{args.system_name.lower()}_bayesian_checkpt.pkl")
+        if checkpoint_path.exists():
+            checkpoint_path.unlink()
+            print(f"Removed existing checkpoint: {checkpoint_path}")
+        print("Starting fresh optimization (checkpointing disabled)")
+    else:
+        print("Note: Checkpointing is enabled - optimization can be resumed if interrupted")
     
     config = BayesianConfig()
-    bayes = GeneralParameterBayesian(system_name, str(BASE_PARAM_FILE), config=config)
+    bayes = GeneralParameterBayesian(args.system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = bayes.optimize()
     
     # Save results using method-specific filenames
