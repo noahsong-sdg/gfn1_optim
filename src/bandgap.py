@@ -98,6 +98,9 @@ def calculate_bandgap_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'sto
         mf.max_memory = 8000  # 8GB memory limit
         mf.diis_start_cycle = 3
         mf.diis_space = 6
+        mf.max_cycle = 300
+        mf.init_guess = 'minao'
+        mf.conv_tol = 1e-5
         
         # Run SCF calculation
         mf.kernel()

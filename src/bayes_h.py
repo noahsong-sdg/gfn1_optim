@@ -234,7 +234,6 @@ class GeneralParameterBayesian(BaseOptimizer):
         state = super().get_state()
         state.update({
             'call_count': self.call_count,
-            'optimization_result': self.optimization_result,
             'config': self.config,
             'dimension_names': self.dimension_names
         })
@@ -243,7 +242,6 @@ class GeneralParameterBayesian(BaseOptimizer):
     def set_state(self, state: dict):
         super().set_state(state)
         self.call_count = state.get('call_count', 0)
-        self.optimization_result = state.get('optimization_result')
         self.config = state.get('config', self.config)
         self.dimension_names = state.get('dimension_names', self.dimension_names)
 
