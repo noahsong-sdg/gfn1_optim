@@ -237,6 +237,19 @@ class GeneralParameterBayesian(BaseOptimizer):
             'config': self.config,
             'dimension_names': self.dimension_names
         })
+        
+        # Debug: check for any function references in the state
+        def check_for_functions(obj, path=""):
+            if callable(obj):
+                logger.warning(f"Found callable object at {path}: {type(obj).__name__}")
+            elif isinstance(obj, dict):
+                for key, value in obj.items():
+                    check_for_functions(value, f"{path}.{key}")
+            elif isinstance(obj, (list, tuple)):
+                for i, value in enumerate(obj):
+                    check_for_functions(value, f"{path}[{i}]")
+        
+        check_for_functions(state, "state")
         return state
 
     def set_state(self, state: dict):

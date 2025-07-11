@@ -576,13 +576,17 @@ class BaseOptimizer(ABC):
 
     def save_checkpoint(self):
         """Save minimal optimizer state to a checkpoint file (overwrites each time)."""
-        state = self.get_state()
-        # Save RNG state
-        state['random_state'] = random.getstate()
-        state['np_random_state'] = np.random.get_state()
-        with open(self.get_checkpoint_path(), 'wb') as f:
-            pickle.dump(state, f)
-        logger.info(f"Checkpoint saved to {self.get_checkpoint_path()}")
+        try:
+            state = self.get_state()
+            # Save RNG state
+            state['random_state'] = random.getstate()
+            state['np_random_state'] = np.random.get_state()
+            with open(self.get_checkpoint_path(), 'wb') as f:
+                pickle.dump(state, f)
+            logger.info(f"Checkpoint saved to {self.get_checkpoint_path()}")
+        except Exception as e:
+            logger.warning(f"Failed to save checkpoint: {e}")
+            logger.info("Continuing without checkpoint save")
 
     def load_checkpoint(self):
         """Load optimizer state from checkpoint file."""
