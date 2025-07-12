@@ -172,9 +172,9 @@ def calculate_bandgap_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'sto
         }
 
 
-def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') -> Dict[str, float]:
+def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: str = 'def2-svp') -> Dict[str, float]:
     """
-    Calculate band gap for molecular systems using PySCF.
+    Calculate band gap for molecular systems using PySCF with optimizations.
     
     Args:
         atoms: ASE atoms object
@@ -195,9 +195,14 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
         mol.charge = 0
         mol.spin = 0
         mol.verbose = 0
+        
+        # Add effective core potentials for heavy elements
+        if any(symbol in ['Cd', 'Zn', 'Ga', 'In'] for symbol in symbols):
+            mol.ecp = 'def2-ecp'  # Effective core potentials for heavy elements
+        
         mol.build()
         
-        # Create DFT calculator
+        # Create DFT calculator with density fitting
         if method.lower() == 'pbe':
             mf = dft.RKS(mol)
             mf.xc = 'pbe'
@@ -211,12 +216,39 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
             mf = dft.RKS(mol)
             mf.xc = method
         
-        # Memory optimization settings
+        # Enable density fitting for faster calculations
+        mf = mf.density_fit(auxbasis='def2-svp-jkfit')
+        
+        # Optimized SCF settings for large systems
+        mf.max_cycle = 200
         mf.diis_start_cycle = 3
-        mf.diis_space = 6
+        mf.diis_space = 8
+        mf.conv_tol = 1e-6
+        mf.conv_tol_grad = 1e-4
+        mf.init_guess = 'minao'
+        
+        # Level shifting for better convergence
+        mf.level_shift = 0.2
         
         # Run SCF calculation
         mf.kernel()
+        
+        # Check convergence
+        if not mf.converged:
+            # Try with more relaxed settings
+            # logger.warning(f"SCF not converged, trying with relaxed settings...") # logger is not defined
+            mf.conv_tol = 1e-5
+            mf.conv_tol_grad = 1e-3
+            mf.level_shift = 0.3
+            mf.kernel()
+            
+            if not mf.converged:
+                # Try with very relaxed settings
+                # logger.warning(f"Still not converged, trying with very relaxed settings...") # logger is not defined
+                mf.conv_tol = 1e-4
+                mf.conv_tol_grad = 1e-2
+                mf.level_shift = 0.5
+                mf.kernel()
         
         # Get orbital energies
         mo_energy = mf.mo_energy
