@@ -10,6 +10,7 @@ import json
 import argparse
 import tempfile
 import time
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple
 
@@ -18,6 +19,10 @@ import pandas as pd
 import ase.io
 from ase import Atoms
 from ase.calculators.calculator import Calculator
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # PySCF imports
 import pyscf
@@ -249,7 +254,7 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
         # Check convergence
         if not mf.converged:
             # Try with more relaxed settings
-            # logger.warning(f"SCF not converged, trying with relaxed settings...") # logger is not defined
+            logger.warning(f"SCF not converged, trying with relaxed settings...")
             mf.conv_tol = 1e-5
             mf.conv_tol_grad = 1e-3
             mf.level_shift = 0.3
@@ -257,7 +262,7 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
             
             if not mf.converged:
                 # Try with very relaxed settings
-                # logger.warning(f"Still not converged, trying with very relaxed settings...") # logger is not defined
+                logger.warning(f"Still not converged, trying with very relaxed settings...")
                 mf.conv_tol = 1e-4
                 mf.conv_tol_grad = 1e-2
                 mf.level_shift = 0.5
