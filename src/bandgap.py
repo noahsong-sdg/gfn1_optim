@@ -196,9 +196,22 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
         mol.spin = 0
         mol.verbose = 0
         
-        # Add effective core potentials for heavy elements
-        if any(symbol in ['Cd', 'Zn', 'Ga', 'In'] for symbol in symbols):
-            mol.ecp = 'def2-ecp'  # Effective core potentials for heavy elements
+        # Add effective core potentials for heavy elements (if available)
+        try:
+            if any(symbol in ['Cd', 'Zn', 'Ga', 'In'] for symbol in symbols):
+                # Use proper ECP format for PySCF
+                # For heavy elements, use lanl2dz which is widely supported
+                ecp_basis = {}
+                for symbol in symbols:
+                    if symbol in ['Cd', 'Zn', 'Ga', 'In']:
+                        ecp_basis[symbol] = 'lanl2dz'
+                
+                if ecp_basis:
+                    mol.ecp = ecp_basis
+                    logger.info(f"Using ECPs for heavy elements: {list(ecp_basis.keys())}")
+        except Exception as e:
+            logger.warning(f"ECP not available: {e}. Continuing without ECPs.")
+            # Continue without ECPs - this is often fine for band gap calculations
         
         mol.build()
         

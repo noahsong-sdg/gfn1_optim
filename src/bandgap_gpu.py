@@ -88,9 +88,22 @@ def calculate_bandgap_gpu_optimized(atoms: Atoms, method: str = 'pbe', basis: st
         mol.spin = 0
         mol.verbose = 0
         
-        # Add effective core potentials for heavy elements
-        if any(symbol in ['Cd', 'Zn', 'Ga', 'In', 'S', 'Se', 'Te'] for symbol in symbols):
-            mol.ecp = 'def2-ecp'
+        # Add effective core potentials for heavy elements (if available)
+        try:
+            if any(symbol in ['Cd', 'Zn', 'Ga', 'In', 'S', 'Se', 'Te'] for symbol in symbols):
+                # Use proper ECP format for PySCF
+                # For heavy elements, use lanl2dz which is widely supported
+                ecp_basis = {}
+                for symbol in symbols:
+                    if symbol in ['Cd', 'Zn', 'Ga', 'In', 'S', 'Se', 'Te']:
+                        ecp_basis[symbol] = 'lanl2dz'
+                
+                if ecp_basis:
+                    mol.ecp = ecp_basis
+                    logger.info(f"Using ECPs for heavy elements: {list(ecp_basis.keys())}")
+        except Exception as e:
+            logger.warning(f"ECP not available: {e}. Continuing without ECPs.")
+            # Continue without ECPs - this is often fine for band gap calculations
         
         mol.build()
         
