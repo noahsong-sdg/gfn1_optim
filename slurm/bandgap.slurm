@@ -6,7 +6,7 @@
 #SBATCH --job-name=bandgap_calc
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --output=bandgap_%j.out
 #SBATCH --error=bandgap_%j.err
 
@@ -22,12 +22,6 @@ module load anaconda
 # Set up environment
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
+# 8 cores took 15 hrs for 3 structures
 
-# Set environment variables for parallel processing
-export OMP_NUM_THREADS=8
-export MKL_NUM_THREADS=8
-export OPENBLAS_NUM_THREADS=8
-
-# Run with test mode first to verify everything works
-echo "Running test mode with first 3 structures..."
-python src/bandgap.py --test --method pbe --basis sto-3g --output test_band_gaps_molecular.csv
+python src/bandgap.py --test --method pbe --output bandgap_test.csv

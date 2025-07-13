@@ -1,4 +1,0 @@
-structure_id,formula,n_atoms,volume,cell_a,cell_b,cell_c,system_type,bandgap,homo_energy,lumo_energy,homo_idx,lumo_idx,method,basis,converged,total_energy,error
-0,Cd36S36,72,1790.089868501848,12.39778545,10.73679715,13.44794642,periodic,0.0,0.0,0.0,-1,-1,pbe,sto-3g,False,0.0,"Unable to allocate 8.94 TiB for an array with shape (7227, 7227, 7839, 3) and data type float64"
-1,Cd36S36,72,1790.089868501848,12.39778545,10.73679715,13.44794642,periodic,0.0,0.0,0.0,-1,-1,pbe,sto-3g,False,0.0,"Unable to allocate 8.94 TiB for an array with shape (7227, 7227, 7839, 3) and data type float64"
-2,Cd36S36,72,1790.089868501848,12.39778545,10.73679715,13.44794642,periodic,0.0,0.0,0.0,-1,-1,pbe,sto-3g,False,0.0,"Unable to allocate 8.94 TiB for an array with shape (7227, 7227, 7839, 3) and data type float64"

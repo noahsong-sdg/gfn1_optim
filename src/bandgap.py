@@ -325,6 +325,123 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
         }
 
 
+def calculate_bandgap_fast_screening(atoms: Atoms, method: str = 'pbe') -> Dict[str, float]:
+    """
+    Ultra-fast band gap calculation for screening using minimal basis and loose convergence.
+    This should be 10-50x faster than the standard calculation.
+    
+    Args:
+        atoms: ASE atoms object
+        method: DFT functional
+    
+    Returns:
+        Dictionary with band gap information
+    """
+    try:
+        # Convert to PySCF molecule
+        coords = atoms.get_positions()
+        symbols = atoms.get_chemical_symbols()
+        
+        mol = pyscf.gto.Mole()
+        mol.atom = [[symbol, coord.tolist()] for symbol, coord in zip(symbols, coords)]
+        mol.basis = 'sto-3g'  # Minimal basis for speed
+        mol.charge = 0
+        mol.spin = 0
+        mol.verbose = 0
+        
+        # Add ECPs for heavy elements
+        try:
+            if any(symbol in ['Cd', 'Zn', 'Ga', 'In'] for symbol in symbols):
+                ecp_basis = {}
+                for symbol in symbols:
+                    if symbol in ['Cd', 'Zn', 'Ga', 'In']:
+                        ecp_basis[symbol] = 'lanl2dz'
+                
+                if ecp_basis:
+                    mol.ecp = ecp_basis
+        except Exception as e:
+            pass  # Continue without ECPs
+        
+        mol.build()
+        
+        # Create DFT calculator
+        if method.lower() == 'pbe':
+            mf = dft.RKS(mol)
+            mf.xc = 'pbe'
+        else:
+            mf = dft.RKS(mol)
+            mf.xc = method
+        
+        # ULTRA-FAST SETTINGS
+        mf.max_cycle = 20  # Very few cycles
+        mf.diis_start_cycle = 1
+        mf.diis_space = 2
+        mf.conv_tol = 1e-3  # Very loose
+        mf.conv_tol_grad = 1e-1  # Very loose
+        mf.init_guess = 'minao'
+        mf.level_shift = 0.3
+        mf.max_memory = 2000  # 2GB limit
+        
+        # Run SCF calculation
+        mf.kernel()
+        
+        # Get orbital energies
+        mo_energy = mf.mo_energy
+        mo_occ = mf.mo_occ
+        
+        # Find HOMO and LUMO
+        occupied = np.where(mo_occ > 0.5)[0]
+        unoccupied = np.where(mo_occ < 0.5)[0]
+        
+        if len(occupied) > 0 and len(unoccupied) > 0:
+            homo_idx = occupied[-1]
+            lumo_idx = unoccupied[0]
+            
+            homo_energy = mo_energy[homo_idx]
+            lumo_energy = mo_energy[lumo_idx]
+            bandgap = lumo_energy - homo_energy
+            
+            return {
+                'bandgap': bandgap,
+                'homo_energy': homo_energy,
+                'lumo_energy': lumo_energy,
+                'homo_idx': homo_idx,
+                'lumo_idx': lumo_idx,
+                'method': method,
+                'basis': 'sto-3g',
+                'converged': mf.converged,
+                'total_energy': mf.e_tot,
+                'error': None
+            }
+        
+        return {
+            'bandgap': 0.0,
+            'homo_energy': 0.0,
+            'lumo_energy': 0.0,
+            'homo_idx': -1,
+            'lumo_idx': -1,
+            'method': method,
+            'basis': 'sto-3g',
+            'converged': False,
+            'total_energy': 0.0,
+            'error': 'Could not determine band gap'
+        }
+        
+    except Exception as e:
+        return {
+            'bandgap': 0.0,
+            'homo_energy': 0.0,
+            'lumo_energy': 0.0,
+            'homo_idx': -1,
+            'lumo_idx': -1,
+            'method': method,
+            'basis': 'sto-3g',
+            'converged': False,
+            'total_energy': 0.0,
+            'error': str(e)
+        }
+
+
 def determine_system_type(atoms: Atoms) -> str:
     """Determine if system is periodic or molecular"""
     cell = atoms.get_cell()
@@ -448,6 +565,96 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
     return df
 
 
+def process_structures_fast(xyz_file: str, output_file: str = None, method: str = 'pbe') -> pd.DataFrame:
+    """
+    Process all structures in an XYZ file using ultra-fast screening mode
+    
+    Args:
+        xyz_file (str): Path to XYZ file
+        output_file (str): Path to output CSV file
+        method (str): DFT functional to use
+        
+    Returns:
+        pd.DataFrame: DataFrame with results
+    """
+    print(f"Reading structures from {xyz_file}...")
+    structures = list(ase.io.read(xyz_file, index=':'))
+    print(f"Found {len(structures)} structures")
+    print("Using ULTRA-FAST screening mode (sto-3g basis, loose convergence)")
+    
+    results = []
+    start_time = time.time()
+    
+    for i, atoms in enumerate(structures):
+        print(f"Processing structure {i+1}/{len(structures)}: {atoms.get_chemical_formula()}")
+        
+        # Get structure info
+        structure_info = {
+            'structure_id': i,
+            'formula': atoms.get_chemical_formula(),
+            'n_atoms': len(atoms),
+            'volume': atoms.get_volume(),
+            'cell_a': atoms.cell[0, 0] if atoms.cell.any() else 0.0,
+            'cell_b': atoms.cell[1, 1] if atoms.cell.any() else 0.0,
+            'cell_c': atoms.cell[2, 2] if atoms.cell.any() else 0.0,
+            'system_type': determine_system_type(atoms)
+        }
+        
+        # Calculate band gap using fast screening
+        result = calculate_bandgap_fast_screening(atoms, method)
+        
+        # Combine results
+        combined_result = {**structure_info, **result}
+        results.append(combined_result)
+        
+        # Print progress
+        if result['converged'] and result['error'] is None:
+            print(f"  Band gap: {result['bandgap']:.4f} eV")
+            print(f"  HOMO: {result['homo_energy']:.4f} eV, LUMO: {result['lumo_energy']:.4f} eV")
+        else:
+            print(f"  Failed to converge or calculate band gap")
+            if result['error']:
+                print(f"  Error: {result['error']}")
+        
+        # Save intermediate results every 10 structures
+        if (i + 1) % 10 == 0:
+            df_temp = pd.DataFrame(results)
+            temp_file = f"temp_results_fast_{i+1}.csv"
+            df_temp.to_csv(temp_file, index=False)
+            print(f"  Saved intermediate results to {temp_file}")
+    
+    # Create final DataFrame
+    df = pd.DataFrame(results)
+    
+    # Save results
+    if output_file is None:
+        output_file = f"band_gap_results_fast_{Path(xyz_file).stem}_{method}_sto3g.csv"
+    
+    df.to_csv(output_file, index=False)
+    print(f"\nResults saved to {output_file}")
+    
+    # Print summary
+    successful = df[df['converged'] == True]
+    failed = df[df['converged'] == False]
+    
+    print(f"\n=== SUMMARY (FAST MODE) ===")
+    print(f"Total structures: {len(structures)}")
+    print(f"Successful calculations: {len(successful)}")
+    print(f"Failed calculations: {len(failed)}")
+    print(f"Success rate: {len(successful)/len(structures)*100:.1f}%")
+    
+    if len(successful) > 0:
+        band_gaps = successful['bandgap'].values
+        print(f"Band gap range: {np.min(band_gaps):.3f} - {np.max(band_gaps):.3f} eV")
+        print(f"Mean band gap: {np.mean(band_gaps):.3f} ± {np.std(band_gaps):.3f} eV")
+    
+    total_time = time.time() - start_time
+    print(f"Total time: {total_time/3600:.2f} hours")
+    print(f"Average time per structure: {total_time/len(structures)/60:.1f} minutes")
+    
+    return df
+
+
 def main():
     """Main function to run band gap calculations"""
     parser = argparse.ArgumentParser(description='Calculate band gaps using PySCF for reference dataset')
@@ -464,6 +671,8 @@ def main():
                        help='Energy cutoff for periodic calculations (default: 400.0)')
     parser.add_argument('--test', action='store_true',
                        help='Test with first 3 structures only')
+    parser.add_argument('--fast', action='store_true',
+                       help='Use ultra-fast screening mode (sto-3g basis, loose convergence)')
     
     args = parser.parse_args()
     
@@ -473,10 +682,20 @@ def main():
         structures = list(ase.io.read(args.xyz_file, index=':3'))
         test_file = 'test_structures.xyz'
         ase.io.write(test_file, structures)
-        df = process_structures(test_file, args.output, args.method, args.basis, args.ecut)
+        
+        if args.fast:
+            print("Using ultra-fast screening mode...")
+            df = process_structures_fast(test_file, args.output, args.method)
+        else:
+            df = process_structures(test_file, args.output, args.method, args.basis, args.ecut)
+        
         os.remove(test_file)
     else:
-        df = process_structures(args.xyz_file, args.output, args.method, args.basis, args.ecut)
+        if args.fast:
+            print("Using ultra-fast screening mode...")
+            df = process_structures_fast(args.xyz_file, args.output, args.method)
+        else:
+            df = process_structures(args.xyz_file, args.output, args.method, args.basis, args.ecut)
     
     return df
 
