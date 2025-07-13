@@ -6,7 +6,7 @@
 #SBATCH --job-name=cma_si2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=8
 #SBATCH --output=cma_%j.out
 #SBATCH --error=cma_%j.err
 
@@ -20,4 +20,4 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
-python src/cma.py Si2 
+python src/cma2.py Si2 
