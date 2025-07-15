@@ -15,13 +15,14 @@ import time
 import copy
 from base_optimizer import BaseOptimizer
 
-# Official pycma library
+from cma import CMAEvolutionStrategy
+"""# Official pycma library
 try:
     import cma
     from cma import CMAEvolutionStrategy, CMAOptions
     HAS_PYCMA = True
 except ImportError:
-    HAS_PYCMA = False
+    HAS_PYCMA = False"""
 
 # Set up logging with better control
 logging.basicConfig(
@@ -80,9 +81,9 @@ class GeneralParameterCMA2(BaseOptimizer):
                  train_fraction: float = 0.8):
         """Initialize pycma CMA-ES optimizer"""
         
-        if not HAS_PYCMA:
-            raise ImportError("pycma library is required for CMA-ES optimization. "
-                            "Install with: pip install cma")
+        #if not HAS_PYCMA:
+        #    raise ImportError("pycma library is required for CMA-ES optimization. "
+        #                    "Install with: pip install cma")
         
         # pycma specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
@@ -287,10 +288,10 @@ def main():
     import sys
     from pathlib import Path
     
-    if not HAS_PYCMA:
-        print("Error: pycma library is required for CMA-ES optimization")
-        print("Install with: pip install cma")
-        sys.exit(1)
+    # if not HAS_PYCMA:
+    #    print("Error: pycma library is required for CMA-ES optimization")
+    #    print("Install with: pip install cma")
+    #    sys.exit(1)
     
     PROJECT_ROOT = Path.cwd()
     CONFIG_DIR = PROJECT_ROOT / "config"
