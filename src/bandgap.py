@@ -237,36 +237,31 @@ def calculate_bandgap_molecular_pyscf(atoms: Atoms, method: str = 'pbe', basis: 
         # Enable density fitting for faster calculations
         mf = mf.density_fit(auxbasis='def2-svp-jkfit')
         
-        # Optimized SCF settings for large systems
-        mf.max_cycle = 200
-        mf.diis_start_cycle = 3
-        mf.diis_space = 8
-        mf.conv_tol = 1e-6
-        mf.conv_tol_grad = 1e-4
+        # OPTIMIZED SETTINGS FOR LARGE SYSTEMS
+        mf.max_cycle = 50  # Reduced from 200
+        mf.diis_start_cycle = 2  # Reduced from 3
+        mf.diis_space = 4  # Reduced from 8
+        mf.conv_tol = 1e-4  # Much looser - was 1e-6
+        mf.conv_tol_grad = 1e-2  # Much looser - was 1e-4
         mf.init_guess = 'minao'
         
         # Level shifting for better convergence
         mf.level_shift = 0.2
         
+        # Memory optimization
+        mf.max_memory = 4000  # 4GB limit
+        
         # Run SCF calculation
         mf.kernel()
         
-        # Check convergence
+        # Check convergence - only retry once with very relaxed settings
         if not mf.converged:
-            # Try with more relaxed settings
-            logger.warning(f"SCF not converged, trying with relaxed settings...")
-            mf.conv_tol = 1e-5
-            mf.conv_tol_grad = 1e-3
-            mf.level_shift = 0.3
+            logger.warning(f"SCF not converged, trying with very relaxed settings...")
+            mf.conv_tol = 1e-3  # Very loose
+            mf.conv_tol_grad = 1e-1  # Very loose
+            mf.level_shift = 0.5
+            mf.max_cycle = 30  # Even fewer cycles
             mf.kernel()
-            
-            if not mf.converged:
-                # Try with very relaxed settings
-                logger.warning(f"Still not converged, trying with very relaxed settings...")
-                mf.conv_tol = 1e-4
-                mf.conv_tol_grad = 1e-2
-                mf.level_shift = 0.5
-                mf.kernel()
         
         # Get orbital energies
         mo_energy = mf.mo_energy
@@ -511,28 +506,55 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
             'system_type': determine_system_type(atoms)
         }
         
-        # Calculate band gap
-        result = calculate_bandgap(atoms, method, basis, ecut)
+        # Calculate band gap with timeout protection
+        calc_start_time = time.time()
+        try:
+            result = calculate_bandgap(atoms, method, basis, ecut)
+            calc_time = time.time() - calc_start_time
+            
+            # Check if calculation took too long
+            if calc_time > 3600:  # More than 1 hour
+                logger.warning(f"Calculation took {calc_time/60:.1f} minutes - consider using --fast mode")
+                
+        except Exception as e:
+            calc_time = time.time() - calc_start_time
+            logger.error(f"Calculation failed for structure {i+1}: {e}")
+            result = {
+                'bandgap': 0.0,
+                'homo_energy': 0.0,
+                'lumo_energy': 0.0,
+                'homo_idx': -1,
+                'lumo_idx': -1,
+                'method': method,
+                'basis': basis,
+                'converged': False,
+                'total_energy': 0.0,
+                'error': str(e)
+            }
         
         # Combine results
-        combined_result = {**structure_info, **result}
+        combined_result = {**structure_info, **result, 'calculation_time': calc_time}
         results.append(combined_result)
         
         # Print progress
         if result['converged'] and result['error'] is None:
-            print(f"  Band gap: {result['bandgap']:.4f} eV")
+            print(f"  Band gap: {result['bandgap']:.4f} eV (time: {calc_time/60:.1f} min)")
             print(f"  HOMO: {result['homo_energy']:.4f} eV, LUMO: {result['lumo_energy']:.4f} eV")
         else:
-            print(f"  Failed to converge or calculate band gap")
+            print(f"  Failed to converge or calculate band gap (time: {calc_time/60:.1f} min)")
             if result['error']:
                 print(f"  Error: {result['error']}")
         
-        # Save intermediate results every 10 structures
-        if (i + 1) % 10 == 0:
+        # Save intermediate results every 5 structures (more frequent for large systems)
+        if (i + 1) % 5 == 0:
             df_temp = pd.DataFrame(results)
             temp_file = f"temp_results_{i+1}.csv"
             df_temp.to_csv(temp_file, index=False)
             print(f"  Saved intermediate results to {temp_file}")
+            
+            # Flush stdout to prevent stale file handle
+            import sys
+            sys.stdout.flush()
     
     # Create final DataFrame
     df = pd.DataFrame(results)
@@ -561,6 +583,7 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
     
     total_time = time.time() - start_time
     print(f"Total time: {total_time/3600:.2f} hours")
+    print(f"Average time per structure: {total_time/len(structures)/60:.1f} minutes")
     
     return df
 
