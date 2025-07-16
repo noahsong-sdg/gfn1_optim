@@ -134,7 +134,6 @@ class BaseOptimizer(ABC):
     
     def _get_parameter_bounds(self, param_name: str, default_val: float) -> Tuple[float, float]:
         """Get appropriate bounds for a parameter based on its name and default value"""
-        
         # System-specific parameter bounds (can be extended for different systems)
         system_specific_bounds = {
             'H2': {
@@ -149,72 +148,83 @@ class BaseOptimizer(ABC):
                 'element.Si.arep': (0.8, 1.1),              # Tighter around default 0.948
                 'element.Si.en': (1.7, 2.1),                # Tighter around default 1.9
             },
-            'C2': {
-                'hamiltonian.xtb.kpair.C-C': (0.5, 1.5),
-            },
-            'N2': {
-                'hamiltonian.xtb.kpair.N-N': (0.5, 1.5),
-            },
-            'O2': {
-                'hamiltonian.xtb.kpair.O-O': (0.5, 1.5),
+            'CdS': {
+                'hamiltonian.xtb.kpair.Cd-S': (0.7, 1.3),
+                'hamiltonian.xtb.kpair.Cd-Cd': (0.7, 1.3),
+                'hamiltonian.xtb.kpair.S-S': (0.7, 1.3),
+                'hamiltonian.xtb.kpol': (2.5, 3.5),
+                'hamiltonian.xtb.enscale': (-0.015, 0.002),
+                'element.Cd.gam': (0.35, 0.55),
+                'element.Cd.zeff': (15.5, 18.5),
+                'element.Cd.arep': (0.8, 1.1),
+                'element.Cd.en': (1.7, 2.1),
+                'element.S.gam': (0.35, 0.55),
+                'element.S.zeff': (15.5, 18.5),
+                'element.S.arep': (0.8, 1.1),
+                'element.S.en': (1.7, 2.1),
             },
         }
-        
         # Check for system-specific bounds first
         if self.system_name in system_specific_bounds:
             if param_name in system_specific_bounds[self.system_name]:
                 return system_specific_bounds[self.system_name][param_name]
-        
         # General parameter bounds
         general_bounds = {
-            'hamiltonian.xtb.kpol': (1.5, 4.0),      # Slightly tighter lower bound
-            'hamiltonian.xtb.enscale': (-0.02, 0.01), # Slightly tighter upper bound
-            'hamiltonian.xtb.shell.ss': (1.0, 3.0),
-            'hamiltonian.xtb.shell.pp': (1.5, 3.5),
-            'hamiltonian.xtb.shell.sp': (1.5, 3.0),
+            'hamiltonian.xtb.kpol': (2.0, 3.5),      # Tighter lower bound
+            'hamiltonian.xtb.enscale': (-0.015, 0.002), # Tighter upper bound
+            'hamiltonian.xtb.shell.ss': (1.0, 2.0),
+            'hamiltonian.xtb.shell.pp': (1.5, 2.5),
+            'hamiltonian.xtb.shell.sp': (1.5, 2.5),
         }
-        
         if param_name in general_bounds:
             return general_bounds[param_name]
-        
         # Type-based bounds
         if 'levels' in param_name:
-            # Energy levels - allow ±25% variation (reduced from 30%)
-            margin = abs(default_val) * 0.25
-            if margin < 1e-6:  # Handle near-zero defaults
-                margin = 0.1
-            return (default_val - margin, default_val + margin)
+            # Energy levels - must be negative, allow ±20% variation, min -20.0, max -0.1
+            margin = abs(default_val) * 0.2
+            min_val = min(-0.1, default_val - margin)
+            max_val = max(-20.0, default_val + margin)
+            if min_val > -0.1:
+                min_val = -0.1
+            if max_val < -20.0:
+                max_val = -20.0
+            return (max_val, min_val) if max_val < min_val else (min_val, max_val)
         elif 'slater' in param_name:
-            # Slater exponents - keep positive, allow narrower range
-            min_val = max(0.5, default_val * 0.6)  # Increased minimum from 0.1 to 0.5
-            max_val = default_val * 1.8             # Reduced from 2.0 to 1.8
-            return (min_val, max(max_val, min_val + 0.1))  # Ensure max > min
+            # Slater exponents - must be positive, typical range 0.5–2.0
+            min_val = max(0.5, default_val * 0.8)
+            max_val = min(2.0, default_val * 1.2)
+            return (min_val, max_val)
         elif 'kcn' in param_name:
-            # Coordination number parameters - keep positive, allow narrower range
-            min_val = max(0.01, default_val * 0.2)  # Increased minimum and reduced range
-            max_val = default_val * 3.0              # Reduced from 5.0 to 3.0
-            return (min_val, max(max_val, min_val + 0.1))  # Ensure max > min
+            # Coordination number parameters - must be positive, typical range 0.01–1.0
+            min_val = max(0.01, default_val * 0.5)
+            max_val = min(1.0, default_val * 1.5)
+            return (min_val, max_val)
+        elif 'kpair' in param_name:
+            # Pair parameters - must be positive, typical range 0.5–1.5
+            min_val = max(0.5, default_val * 0.8)
+            max_val = min(1.5, default_val * 1.2)
+            return (min_val, max_val)
         elif param_name.endswith('.gam'):
-            return (0.2, 0.8)
+            # Gamma parameters - typical range 0.3–0.6
+            return (0.3, 0.6)
         elif param_name.endswith('.zeff'):
-            return (0.8, 1.5)
+            # Effective charge - typical range 10.0–20.0
+            return (10.0, 20.0)
         elif param_name.endswith('.arep'):
-            return (1.5, 3.0)
+            # Repulsion parameters - typical range 0.8–1.2
+            return (0.8, 1.2)
         elif param_name.endswith('.en'):
-            return (1.5, 3.0)
+            # Electronegativity - typical range 1.5–2.5
+            return (1.5, 2.5)
         else:
-            # Default: ±40% around default (reduced from 50%)
-            margin = abs(default_val) * 0.4
-            if margin < 1e-6:  # Handle near-zero defaults
-                margin = 0.1
+            # Default: ±15% around default, but never allow negative for physical parameters
+            margin = abs(default_val) * 0.15
             min_val = default_val - margin
             max_val = default_val + margin
-            
-            # Final validation to ensure valid bounds
+            if min_val < 0 and default_val > 0:
+                min_val = 0.01
             if max_val <= min_val:
-                logger.warning(f"Computed invalid bounds for {param_name} (default={default_val}). Using fallback.")
-                return (default_val - 0.1, default_val + 0.1)
-            
+                return (default_val - 0.05, default_val + 0.05)
             return (min_val, max_val)
     
     def _load_or_generate_reference_data(self) -> pd.DataFrame:
