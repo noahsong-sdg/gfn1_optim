@@ -69,7 +69,7 @@ SYSTEM_CONFIGS = {
         elements=["H"],
         bond_range=(0.4, 4.0),
         num_points=200,
-        spin_multiplicity=0  # Singlet
+        spin_multiplicity=0  
     ),
     
     "Si2": SystemConfig(

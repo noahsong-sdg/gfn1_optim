@@ -16,40 +16,29 @@ import copy
 from base_optimizer import BaseOptimizer
 
 from cma import CMAEvolutionStrategy
-"""# Official pycma library
-try:
-    import cma
-    from cma import CMAEvolutionStrategy, CMAOptions
-    HAS_PYCMA = True
-except ImportError:
-    HAS_PYCMA = False"""
 
-# Set up logging with better control
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%H:%M:%S'
 )
 
-# Control verbosity of external libraries
+# shut up shut up shut up
 logging.getLogger('cma').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('numpy').setLevel(logging.WARNING)
-
 logger = logging.getLogger(__name__)
 
-# Portable paths - automatically finds project root from current working directory
 PROJECT_ROOT = Path.cwd()
 CONFIG_DIR = PROJECT_ROOT / "config"
 RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
 
-# Import project modules
 from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor
 from config import get_system_config, SystemConfig
 
-# Configuration files
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 
 
@@ -284,14 +273,8 @@ class GeneralParameterCMA2(BaseOptimizer):
 
 
 def main():
-    """Example usage with different systems"""
     import sys
     from pathlib import Path
-    
-    # if not HAS_PYCMA:
-    #    print("Error: pycma library is required for CMA-ES optimization")
-    #    print("Install with: pip install cma")
-    #    sys.exit(1)
     
     PROJECT_ROOT = Path.cwd()
     CONFIG_DIR = PROJECT_ROOT / "config"
@@ -299,17 +282,9 @@ def main():
     
     if len(sys.argv) > 1:
         system_name = sys.argv[1]
-    else:
-        system_name = "H2"
     
-    print(f"Running pycma CMA-ES optimization for {system_name}")
     
-    config = CMA2Config(
-        sigma=0.1,
-        max_generations=50,
-        n_jobs=4,  # Enable parallelization
-        verb_disp=1
-    )
+    config = CMA2Config()
     
     cma2 = GeneralParameterCMA2(system_name, str(BASE_PARAM_FILE), config=config)
     best_parameters = cma2.optimize()

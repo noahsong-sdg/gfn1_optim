@@ -5,7 +5,7 @@ Compare multiple parameter sets (TOML files) against CCSD reference data
 
 pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_ga.toml results/parameters/h2_pso.toml results/parameters/h2_bayes.toml results/parameters/h2_newuoa.toml results/parameters/h2_cma.toml --names ga pso bayes NEWUOA cma --output results/comparison 
 
-pixi run python src/compare.py --system Si2 --ccsd --pure --params results/parameters/si2_ga.toml results/parameters/si2_pso.toml results/parameters/Si2_optimized_bayes.toml results/parameters/Si2_optimized_cma.toml --names ga pso bayes cma --output results/comparison 
+pixi run python src/compare.py --system Si2 --ccsd --pure --params results/parameters/si2_ga.toml results/parameters/si2_pso.toml results/parameters/Si2_optimized_bayesian.toml results/parameters/Si2_optimized_cma.toml --names ga pso bayes cma --output results/comparison 
 
 
 
@@ -94,7 +94,8 @@ class MethodComparisonAnalyzer:
         """Calculate dissociation curve for a given configuration"""
         
         if distances is None:
-            distances = np.linspace(0.4, 4.0, 100)
+            # si2: 0.4 to 5.0
+            distances = np.linspace(0.4, 5.0, 100)
         
         logger.info(f"Calculating curve for {name}...")
         logger.info(f"  Method: {config.method}")

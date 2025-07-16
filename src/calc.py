@@ -80,7 +80,7 @@ class GeneralCalculator:
             # Molecule
             atom_str = '\n'.join([f"{sym} {pos[0]} {pos[1]} {pos[2]}" for sym, pos in atoms])
             mol.atom = atom_str
-            mol.spin = self.calc_config.spin
+            mol.spin = self.system_config.spin_multiplicity
 
         mol.basis = self.calc_config.basis
         mol.symmetry = False
@@ -253,15 +253,12 @@ class GeneralCalculator:
         """Get spin multiplicity for isolated atoms"""
         # Ground state spin multiplicities for common elements
         spin_multiplicities = {
-            'H': 1,   # 2S+1 = 2, so S = 1/2, spin = 1
-            'C': 2,   # 2S+1 = 3, so S = 1, spin = 2  
-            'N': 3,   # 2S+1 = 4, so S = 3/2, spin = 3
-            'O': 2,   # 2S+1 = 3, so S = 1, spin = 2
+            'H': 1,   
             'Si': 2,  
-            'Cd': 0,  # Singlet
-            'S': 2,   # Triplet
-            'Zn': 0,  # Singlet 
-            'Ga': 1,  # Doublet
+            'Cd': 0,  
+            'S': 2,   
+            'Zn': 0,  
+            'Ga': 1, 
         }
         return spin_multiplicities.get(element, 0)
 
