@@ -119,23 +119,8 @@ class GeneralParameterCMA2(BaseOptimizer):
             # Convert numpy array to parameter dictionary
             param_names = [bound.name for bound in self.parameter_bounds]
             parameters = {param_names[i]: float(x[i]) for i in range(len(param_names))}
-            
-            # Apply bounds if using repair method
-            if self.config.bounds_handling == "repair":
-                parameters = self.apply_bounds(parameters)
-            
-            # Evaluate fitness using base class method
+            # No need to apply bounds or penalty: pycma enforces bounds natively
             rmse = self.evaluate_fitness(parameters)
-            
-            # Apply penalty for out-of-bounds parameters if using penalty method
-            if self.config.bounds_handling == "penalty":
-                penalty = 0.0
-                for param_name, value in parameters.items():
-                    bound = next((b for b in self.parameter_bounds if b.name == param_name), None)
-                    if bound and (value < bound.min_val or value > bound.max_val):
-                        penalty += 1000.0  # Large penalty for constraint violation
-                rmse += penalty
-            
             return rmse  # pycma minimizes directly
             
         except Exception as e:
@@ -167,13 +152,24 @@ class GeneralParameterCMA2(BaseOptimizer):
         # Prepare initial parameters
         param_names = [bound.name for bound in self.parameter_bounds]
         initial_mean = np.array([bound.default_val for bound in self.parameter_bounds])
-        
+
+        # Prepare bounds for pycma
+        lower_bounds = [bound.min_val for bound in self.parameter_bounds]
+        upper_bounds = [bound.max_val for bound in self.parameter_bounds]
+
+        # Debug: Print all parameter defaults for verification
+        logger.info("Parameter defaults at CMA-ES initialization:")
+        for name, val in zip(param_names, initial_mean):
+            logger.info(f"  {name}: {val}")
+            if val == 0.5:
+                logger.warning(f"  WARNING: Default value for {name} is 0.5. This may indicate a TOML extraction bug.")
+
         logger.info(f"Parameter summary:")
         for i, bound in enumerate(self.parameter_bounds[:5]):  # Show first 5 parameters
             logger.info(f"  {bound.name}: default={bound.default_val:.4f}, range=[{bound.min_val:.4f}, {bound.max_val:.4f}]")
         if len(param_names) > 5:
             logger.info(f"  ... and {len(param_names)-5} more parameters")
-        
+
         # Set up pycma options
         options = {
             'maxiter': self.config.max_generations,
@@ -184,6 +180,7 @@ class GeneralParameterCMA2(BaseOptimizer):
             'tolx': self.config.tolx,
             'CMA_diagonal': False,  # Use full covariance matrix
             'CMA_elitist': False,   # Non-elitist selection
+            'bounds': [lower_bounds, upper_bounds],  # Enforce bounds natively
         }
         
         # Initialize pycma CMA-ES optimizer
