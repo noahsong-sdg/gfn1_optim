@@ -15,7 +15,7 @@ import time
 import copy
 from base_optimizer import BaseOptimizer
 
-import cma
+import cma1
 
 logging.basicConfig(
     level=logging.INFO,
@@ -188,7 +188,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         
         # Initialize pycma CMA-ES optimizer
         try:
-            self.es = cma.CMAEvolutionStrategy(
+            self.es = cma1.CMAEvolutionStrategy(
                 initial_mean, 
                 self.config.sigma, 
                 options

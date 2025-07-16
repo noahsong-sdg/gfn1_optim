@@ -26,7 +26,7 @@ from config import get_system_config
 from ga import GAConfig
 from pso import PSOConfig
 from bayes_h import BayesianConfig
-from cma import CMAConfig
+from cma1 import CMAConfig
 
 
 # Set up logging
