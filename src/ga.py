@@ -1,5 +1,5 @@
 """
-version 3 - refactored with a base optimizer class
+v3 - refactored with base optimizer class
 """
 
 import numpy as np
