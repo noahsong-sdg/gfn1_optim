@@ -25,6 +25,7 @@ class CalculationType(Enum):
     """Types of calculations to perform"""
     DISSOCIATION_CURVE = "dissociation"
     BULK = "bulk"
+    LATTICE_CONSTANTS = "lattice_constants"
 
 @dataclass
 class SystemConfig:
@@ -79,7 +80,18 @@ SYSTEM_CONFIGS = {
         elements=["Si"],
         bond_range=(1.5, 5.0),
         num_points=500,
-        spin_multiplicity=2)  # Triplet)
+        spin_multiplicity=2),  # Triplet)
+    
+    "CdS": SystemConfig(
+        name="CdS",
+        system_type=SystemType.SOLID_STATE,
+        calculation_type=CalculationType.LATTICE_CONSTANTS,
+        elements=["Cd", "S"],
+        crystal_system="wurtzite",
+        lattice_params={"a": 4.136, "c": 6.714},  # Experimental values from literature
+        num_points=50,  # Number of lattice parameter variations to test
+        spin_multiplicity=0
+    )
 }
 
 def get_system_config(system_name: str) -> SystemConfig:

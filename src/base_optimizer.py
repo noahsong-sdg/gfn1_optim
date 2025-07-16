@@ -21,7 +21,7 @@ import random
 # Import project modules
 from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor, extract_si2_parameters
-from config import get_system_config, SystemConfig
+from config import get_system_config, SystemConfig, CalculationType
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -386,13 +386,34 @@ class BaseOptimizer(ABC):
         return bounded_params
     
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
-        """Evaluate fitness of parameters by calculating curve error on training data"""
+        """Evaluate fitness of parameters by calculating curve error on training data or lattice constants for solids"""
         try:
             # Apply bounds
             parameters = self.apply_bounds(parameters)
-            
             param_file = self.create_param_file(parameters)
-            
+
+            # For lattice constant fitting
+            if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+                from calc import GeneralCalculator, LatticeConstantsGenerator, CalcConfig, CalcMethod
+                calc_config = CalcConfig(
+                    method=CalcMethod.XTB_CUSTOM,
+                    param_file=param_file,
+                    spin=self.spin
+                )
+                calculator = GeneralCalculator(calc_config, self.system_config)
+                generator = LatticeConstantsGenerator(calculator)
+                # Optimize lattice constants
+                a_opt, c_opt, _ = generator.optimize_lattice_constants()
+                # Reference values
+                a_ref = self.system_config.lattice_params["a"]
+                c_ref = self.system_config.lattice_params["c"]
+                # Loss: squared error
+                loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2
+                # Clean up temp file
+                os.unlink(param_file)
+                return loss
+
+            # Default: molecular (curve) fitting
             # Create calculator with custom parameters
             calc_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,
@@ -435,11 +456,33 @@ class BaseOptimizer(ABC):
             return 1000.0
     
     def evaluate_test_performance(self, parameters: Dict[str, float]) -> Dict[str, float]:
-        """Evaluate parameters' performance on the test set"""
+        """Evaluate parameters' performance on the test set or lattice constants for solids"""
         try:
             bounded_params = self.apply_bounds(parameters)
             param_file = self.create_param_file(bounded_params)
-            
+
+            if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+                from calc import GeneralCalculator, LatticeConstantsGenerator, CalcConfig, CalcMethod
+                calc_config = CalcConfig(
+                    method=CalcMethod.XTB_CUSTOM,
+                    param_file=param_file,
+                    spin=self.spin
+                )
+                calculator = GeneralCalculator(calc_config, self.system_config)
+                generator = LatticeConstantsGenerator(calculator)
+                a_opt, c_opt, _ = generator.optimize_lattice_constants()
+                a_ref = self.system_config.lattice_params["a"]
+                c_ref = self.system_config.lattice_params["c"]
+                a_error = abs(a_opt - a_ref)
+                c_error = abs(c_opt - c_ref)
+                os.unlink(param_file)
+                return {
+                    'test_a_error': a_error,
+                    'test_c_error': c_error,
+                    'test_total_error': a_error + c_error
+                }
+
+            # Default: molecular (curve) test evaluation
             # Create calculator with custom parameters
             calc_config = CalcConfig(
                 method=CalcMethod.XTB_CUSTOM,

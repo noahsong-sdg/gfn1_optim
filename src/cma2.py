@@ -221,7 +221,6 @@ class GeneralParameterCMA2(BaseOptimizer):
             
             # Record final statistics
             self.fitness_history.append({
-                'generation': self.es.generation,
                 'best_fitness': best_fitness,
                 'avg_fitness': np.mean(self.es.fit.fit),
                 'std_fitness': np.std(self.es.fit.fit)
@@ -289,8 +288,8 @@ def main():
     best_parameters = cma2.optimize()
     
     # Save results using method-specific filenames
-    cma2.save_best_parameters()  # Will use si2_cma2.toml instead of si2_optimized.toml
-    cma2.save_fitness_history()  # Will use si2_cma2_fitness_history.csv
+    cma2.save_best_parameters()  
+    cma2.save_fitness_history()  
     
     if best_parameters:
         print(f"\nBest Parameters for {system_name}:")
