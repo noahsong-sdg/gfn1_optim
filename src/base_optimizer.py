@@ -132,6 +132,28 @@ class BaseOptimizer(ABC):
         logger.info(f"Generated {len(bounds)} parameter bounds for {self.system_name} from extracted defaults")
         return bounds
     
+    def _validate_parameter_bounds(self):
+        """Debug method to validate all parameter bounds and identify issues"""
+        logger.info("Validating parameter bounds:")
+        issues = []
+        
+        for bound in self.parameter_bounds:
+            if bound.min_val >= bound.max_val:
+                issues.append(f"Invalid bounds for {bound.name}: min={bound.min_val}, max={bound.max_val}")
+            elif bound.min_val == bound.max_val:
+                issues.append(f"Equal bounds for {bound.name}: min=max={bound.min_val}")
+            elif bound.min_val == 0.5 and bound.max_val == 0.5:
+                issues.append(f"Suspicious bounds for {bound.name}: both min and max are 0.5")
+        
+        if issues:
+            logger.error("Parameter bound issues found:")
+            for issue in issues:
+                logger.error(f"  {issue}")
+            return False
+        else:
+            logger.info("All parameter bounds are valid")
+            return True
+
     def _get_parameter_bounds(self, param_name: str, default_val: float) -> Tuple[float, float]:
         """Get appropriate bounds for a parameter based on its name and default value"""
         # System-specific parameter bounds (can be extended for different systems)

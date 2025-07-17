@@ -153,9 +153,32 @@ class GeneralParameterCMA2(BaseOptimizer):
         param_names = [bound.name for bound in self.parameter_bounds]
         initial_mean = np.array([bound.default_val for bound in self.parameter_bounds])
 
-        # Prepare bounds for pycma
-        lower_bounds = [bound.min_val for bound in self.parameter_bounds]
-        upper_bounds = [bound.max_val for bound in self.parameter_bounds]
+        # Validate parameter bounds before proceeding
+        if not self._validate_parameter_bounds():
+            raise ValueError("Invalid parameter bounds detected. Check the log for details.")
+
+        # Prepare bounds for pycma in correct format: [lower_bounds, upper_bounds]
+        lower_bounds = np.array([bound.min_val for bound in self.parameter_bounds])
+        upper_bounds = np.array([bound.max_val for bound in self.parameter_bounds])
+        
+        # Debug: Check bounds validity
+        logger.info("Bounds validation:")
+        for i, (name, lb, ub) in enumerate(zip(param_names, lower_bounds, upper_bounds)):
+            logger.info(f"  {name}: [{lb}, {ub}]")
+            if lb >= ub:
+                logger.error(f"  ERROR: Lower bound ({lb}) >= Upper bound ({ub}) for {name}")
+            if lb == ub:
+                logger.warning(f"  WARNING: Lower bound equals upper bound for {name}")
+
+        # Check for any invalid bounds
+        invalid_bounds = lower_bounds >= upper_bounds
+        if np.any(invalid_bounds):
+            invalid_indices = np.where(invalid_bounds)[0]
+            logger.error(f"Invalid bounds found for parameters: {[param_names[i] for i in invalid_indices]}")
+            raise ValueError(f"Lower bounds must be less than upper bounds. Invalid parameters: {[param_names[i] for i in invalid_indices]}")
+
+        # Format bounds for pycma: [lower_bounds, upper_bounds]
+        bounds = [lower_bounds, upper_bounds]
 
         # Debug: Print all parameter defaults for verification
         logger.info("Parameter defaults at CMA-ES initialization:")
@@ -165,37 +188,24 @@ class GeneralParameterCMA2(BaseOptimizer):
                 logger.warning(f"  WARNING: Default value for {name} is 0.5. This may indicate a TOML extraction bug.")
 
         logger.info(f"Parameter summary:")
-        for i, bound in enumerate(self.parameter_bounds[:5]):  # Show first 5 parameters
+        for i, bound in enumerate(self.parameter_bounds):
             logger.info(f"  {bound.name}: default={bound.default_val:.4f}, range=[{bound.min_val:.4f}, {bound.max_val:.4f}]")
-        if len(param_names) > 5:
-            logger.info(f"  ... and {len(param_names)-5} more parameters")
 
-        # Set up pycma options
-        options = {
-            'maxiter': self.config.max_generations,
-            'popsize': self.config.population_size,
-            'seed': self.config.seed,
-            'verb_disp': self.config.verb_disp,
-            'tolfun': self.config.tolfun,
-            'tolx': self.config.tolx,
-            'CMA_diagonal': False,  # Use full covariance matrix
-            'CMA_elitist': False,   # Non-elitist selection
-            'bounds': [lower_bounds, upper_bounds],  # Enforce bounds natively
-        }
-        
-        # Initialize pycma CMA-ES optimizer
-        try:
-            self.es = cma.CMAEvolutionStrategy(
-                initial_mean, 
-                self.config.sigma, 
-                options
-            )
-            logger.info(f"pycma CMA-ES initialized with population size: {self.es.popsize}")
-            if self.config.n_jobs > 1:
-                logger.info(f"Parallel evaluation enabled with {self.config.n_jobs} jobs")
-        except Exception as e:
-            logger.error(f"Failed to initialize pycma CMA-ES optimizer: {e}")
-            raise RuntimeError(f"pycma CMA-ES initialization failed: {e}") from e
+        # Initialize CMA-ES with bounds
+        self.es = cma.CMAEvolutionStrategy(
+            initial_mean,
+            self.config.sigma,
+            {
+                'maxiter': self.config.max_generations,
+                'popsize': self.config.population_size,
+                'seed': self.config.seed,
+                'bounds': bounds,  # Pass bounds in correct format
+                'CMA_diagonal': True,
+                'CMA_elitist': True,
+                'tolfun': 1e-6,
+                'tolx': 1e-6
+            }
+        )
         
         # Run optimization with pycma's built-in parallelization
         try:
