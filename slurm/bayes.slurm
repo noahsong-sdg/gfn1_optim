@@ -20,4 +20,4 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
-python src/bayes_h.py Si2 --fresh-start
+python src/bayes_h.py CdS 

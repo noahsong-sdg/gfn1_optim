@@ -21,4 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
 
-python src/pso.py Si2
+python src/pso.py CdS
