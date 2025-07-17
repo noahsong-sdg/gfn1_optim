@@ -19,7 +19,7 @@ import pickle
 import random
 
 # Import project modules
-from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
+from calc import GeneralCalculator, DissociationCurveGenerator, LatticeConstantsGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor, extract_si2_parameters
 from config import get_system_config, SystemConfig, CalculationType
 
@@ -159,21 +159,21 @@ class BaseOptimizer(ABC):
         # System-specific parameter bounds (can be extended for different systems)
         system_specific_bounds = {
             'H2': {
-                'hamiltonian.xtb.kpair.H-H': (0.5, 1.5),
+                'hamiltonian.xtb.kpair.H-H': (0.7, 1.3),  # Tighter, must be positive
             },
             'Si2': {
-                'hamiltonian.xtb.kpair.Si-Si': (0.8, 1.2),  # Tighter bounds, prevent negative values
-                'hamiltonian.xtb.kpol': (2.5, 3.5),        # Tighter around default ~2.85
-                'hamiltonian.xtb.enscale': (-0.015, 0.002), # Tighter around default -0.007
+                'hamiltonian.xtb.kpair.Si-Si': (0.8, 1.2),  # Tighter, must be positive
+                'hamiltonian.xtb.kpol': (20.5, 3.5),        # Tighter around default ~2.85
+                'hamiltonian.xtb.enscale': (-0.015, 0.002), # Tighter around default ~0.6
                 'element.Si.gam': (0.35, 0.55),             # Tighter around default 0.438
                 'element.Si.zeff': (15.5, 18.5),            # Tighter around default 16.9
                 'element.Si.arep': (0.8, 1.1),              # Tighter around default 0.948
                 'element.Si.en': (1.7, 2.1),                # Tighter around default 1.9
             },
             'CdS': {
-                'hamiltonian.xtb.kpair.Cd-S': (0.7, 1.3),
-                'hamiltonian.xtb.kpair.Cd-Cd': (0.7, 1.3),
-                'hamiltonian.xtb.kpair.S-S': (0.7, 1.3),
+                'hamiltonian.xtb.kpair.Cd-Cd': (0.8, 1.2),
+                'hamiltonian.xtb.kpair.S-S': (0.8, 1.2),
+                'hamiltonian.xtb.kpair.Cd-S': (0.8, 1.2),
                 'hamiltonian.xtb.kpol': (2.5, 3.5),
                 'hamiltonian.xtb.enscale': (-0.015, 0.002),
                 'element.Cd.gam': (0.35, 0.55),
@@ -192,7 +192,7 @@ class BaseOptimizer(ABC):
                 return system_specific_bounds[self.system_name][param_name]
         # General parameter bounds
         general_bounds = {
-            'hamiltonian.xtb.kpol': (2.0, 3.5),      # Tighter lower bound
+            'hamiltonian.xtb.kpol': (2.5, 3.5),      # Tighter lower bound
             'hamiltonian.xtb.enscale': (-0.015, 0.002), # Tighter upper bound
             'hamiltonian.xtb.shell.ss': (1.0, 2.0),
             'hamiltonian.xtb.shell.pp': (1.5, 2.5),
@@ -217,9 +217,19 @@ class BaseOptimizer(ABC):
             max_val = min(2.0, default_val * 1.2)
             return (min_val, max_val)
         elif 'kcn' in param_name:
-            # Coordination number parameters - must be positive, typical range 0.01–1.0
-            min_val = max(0.01, default_val * 0.5)
-            max_val = min(1.0, default_val * 1.5)
+            # Coordination number parameters - can be positive or negative
+            if default_val >= 0:
+                # Positive kcn: typical range 0.01–10               min_val = max(0.01, default_val * 0.5               max_val = min(1.0, default_val * 1.5)
+                min_val = max(0.01, default_val * 0.5)
+                max_val = min(1.0, default_val * 1.5)
+            else:
+                # Negative kcn: allow variation around negative value
+                margin = abs(default_val) * 0.3
+                min_val = default_val - margin
+                max_val = default_val + margin
+                # Ensure bounds are reasonable
+                min_val = max(-1.0, min_val)
+                max_val = min(-0.001, max_val)
             return (min_val, max_val)
         elif 'kpair' in param_name:
             # Pair parameters - must be positive, typical range 0.5–1.5
@@ -276,15 +286,38 @@ class BaseOptimizer(ABC):
             # Generate with GFN1-xTB as fallback
             calc_config = CalcConfig(method=CalcMethod.GFN1_XTB)
             calculator = GeneralCalculator(calc_config, self.system_config)
-            generator = DissociationCurveGenerator(calculator)
             
-            ref_data = generator.generate_curve(
-                save=True, filename=str(ref_file)
-            )
+            # Use appropriate generator based on system type
+            if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+                # For solid-state systems, generate lattice constant scan
+                generator = LatticeConstantsGenerator(calculator)
+                ref_data = generator.generate_lattice_scan(
+                    save=True, filename=str(ref_file)
+                )
+            else:
+                # For molecular systems, generate dissociation curve
+                generator = DissociationCurveGenerator(calculator)
+                ref_data = generator.generate_curve(
+                    save=True, filename=str(ref_file)
+                )
+            
             return ref_data
     
     def _split_train_test_data(self):
         """Split reference data into training and test sets using random sampling"""
+        # For solid-state systems, we don't need train/test split since we optimize lattice constants directly
+        if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+            logger.info("Solid-state system detected - no train/test split needed for lattice constant optimization")
+            # Set dummy values to avoid errors in other parts of the code
+            self.train_distances = np.array([])
+            self.train_energies = np.array([])
+            self.test_distances = np.array([])
+            self.test_energies = np.array([])
+            self.reference_data = pd.DataFrame()
+            self.test_reference_data = pd.DataFrame()
+            return
+        
+        # For molecular systems, split the data
         # Get distance and energy columns from full dataset
         if 'Distance' in self.full_reference_data.columns:
             full_distances = self.full_reference_data['Distance'].values
