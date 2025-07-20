@@ -19,7 +19,7 @@ import pickle
 import random
 
 # Import project modules
-from calc import GeneralCalculator, DissociationCurveGenerator, LatticeConstantsGenerator, CalcConfig, CalcMethod
+from calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
 from data_extraction import GFN1ParameterExtractor, extract_si2_parameters
 from config import get_system_config, SystemConfig, CalculationType
 
@@ -376,7 +376,7 @@ class BaseOptimizer(ABC):
             # Use appropriate generator based on system type
             if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
                 # For solid-state systems, generate lattice constant scan
-                generator = LatticeConstantsGenerator(calculator)
+                generator = CrystalGenerator(calculator)
                 ref_data = generator.generate_lattice_scan(
                     save=True, filename=str(ref_file)
                 )
@@ -545,14 +545,14 @@ class BaseOptimizer(ABC):
 
             # For lattice constant fitting
             if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-                from calc import GeneralCalculator, LatticeConstantsGenerator, CalcConfig, CalcMethod
+                from calc import GeneralCalculator, CrystalGenerator, CalcConfig, CalcMethod
                 calc_config = CalcConfig(
                     method=CalcMethod.XTB_CUSTOM,
                     param_file=param_file,
                     spin=self.spin
                 )
                 calculator = GeneralCalculator(calc_config, self.system_config)
-                generator = LatticeConstantsGenerator(calculator)
+                generator = CrystalGenerator(calculator)
                 # Optimize lattice constants
                 a_opt, c_opt, _ = generator.optimize_lattice_constants()
                 # Reference values
@@ -613,14 +613,14 @@ class BaseOptimizer(ABC):
             param_file = self.create_param_file(bounded_params)
 
             if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-                from calc import GeneralCalculator, LatticeConstantsGenerator, CalcConfig, CalcMethod
+                from calc import GeneralCalculator, CrystalGenerator, CalcConfig, CalcMethod
                 calc_config = CalcConfig(
                     method=CalcMethod.XTB_CUSTOM,
                     param_file=param_file,
                     spin=self.spin
                 )
                 calculator = GeneralCalculator(calc_config, self.system_config)
-                generator = LatticeConstantsGenerator(calculator)
+                generator = CrystalGenerator(calculator)
                 a_opt, c_opt, _ = generator.optimize_lattice_constants()
                 a_ref = self.system_config.lattice_params["a"]
                 c_ref = self.system_config.lattice_params["c"]
