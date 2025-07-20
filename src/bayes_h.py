@@ -168,8 +168,18 @@ class GeneralParameterBayesian(BaseOptimizer):
             
             logger.info(f"Running {remaining_calls} remaining function evaluations")
             
-            # Always provide n_initial_points > 0 if not resuming, 0 if resuming
-            n_initial_points = 0 if resumed else self.config.n_initial_points
+            # For resuming, we need to provide x0 (initial points) instead of n_initial_points
+            if resumed:
+                n_initial_points = 0
+                # We need to provide x0 for resumed optimization
+                # For now, just use the best parameters as a starting point
+                if self.best_parameters:
+                    x0 = [[self.best_parameters[name] for name in self.dimension_names]]
+                else:
+                    x0 = None
+            else:
+                n_initial_points = self.config.n_initial_points
+                x0 = None
             
             # Run Bayesian optimization with remaining calls
             self.optimization_result = gp_minimize(
@@ -177,6 +187,7 @@ class GeneralParameterBayesian(BaseOptimizer):
                 dimensions=self.dimensions,
                 n_calls=remaining_calls,
                 n_initial_points=n_initial_points,
+                x0=x0,  # Add initial points for resumed optimization
                 acq_func=self.config.acq_func,
                 acq_optimizer=self.config.acq_optimizer,
                 xi=self.config.xi,

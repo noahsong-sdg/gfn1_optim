@@ -20,7 +20,7 @@ import random
 
 # Import project modules
 from calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
-from data_extraction import GFN1ParameterExtractor, extract_si2_parameters
+from data_extraction import GFN1ParameterExtractor, extract_system_parameters
 from config import get_system_config, SystemConfig, CalculationType
 
 # Set up logging
@@ -118,14 +118,9 @@ class BaseOptimizer(ABC):
         # DEBUG: Test Hypothesis 1 - Parameter Extraction Issues
         logger.debug(f"DEBUG: HYPOTHESIS 1 - Starting parameter extraction for system: {self.system_name}")
         
-        # Use focused parameter set for Si2 to avoid over-parameterization
-        if self.system_name == "Si2":
-            system_defaults = extract_si2_parameters()
-            logger.info(f"Using focused Si2 parameter set with {len(system_defaults)} parameters")
-        else:
-            # Extract default parameters from base parameter file for other systems
-            extractor = GFN1ParameterExtractor(self.base_param_file)
-            system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
+        # Use focused parameter extraction for all systems to avoid over-parameterization
+        system_defaults = extract_system_parameters(self.system_config.elements)
+        logger.info(f"Using focused parameter set for {self.system_name} with {len(system_defaults)} parameters")
         
         # DEBUG: Log all extracted parameters
         logger.debug(f"DEBUG: Extracted {len(system_defaults)} parameters:")

@@ -123,6 +123,61 @@ def extract_si2_parameters() -> Dict[str, float]:
     
     return defaults
 
+def extract_system_parameters(elements: List[str]) -> Dict[str, float]:
+    """Extract only system-relevant parameters for focused optimization"""
+    extractor = GFN1ParameterExtractor()
+    defaults = {}
+    
+    # Generate all possible pair interactions for the system elements
+    element_pairs = []
+    for i, elem1 in enumerate(elements):
+        for elem2 in elements[i:]:  # Include self-pairs and avoid duplicates
+            element_pairs.append(f"{elem1}-{elem2}")
+    
+    # Extract pair interactions for the system elements
+    if 'hamiltonian' in extractor.params and 'xtb' in extractor.params['hamiltonian']:
+        xtb = extractor.params['hamiltonian']['xtb']
+        if 'kpair' in xtb:
+            for pair in element_pairs:
+                if pair in xtb['kpair']:
+                    defaults[f'hamiltonian.xtb.kpair.{pair}'] = xtb['kpair'][pair]
+    
+    # Key global parameters that affect bonding
+    if 'hamiltonian' in extractor.params and 'xtb' in extractor.params['hamiltonian']:
+        xtb = extractor.params['hamiltonian']['xtb']
+        if 'kpol' in xtb:
+            defaults['hamiltonian.xtb.kpol'] = xtb['kpol']
+        if 'enscale' in xtb:
+            defaults['hamiltonian.xtb.enscale'] = xtb['enscale']
+        
+        # Shell parameters
+        if 'shell' in xtb:
+            for param in ['ss', 'pp', 'sp']:
+                if param in xtb['shell']:
+                    defaults[f'hamiltonian.xtb.shell.{param}'] = xtb['shell'][param]
+    
+    # Element parameters for each element in the system
+    for element in elements:
+        if 'element' in extractor.params and element in extractor.params['element']:
+            elem = extractor.params['element'][element]
+            
+            # Array parameters
+            for array_name in ['levels', 'slater', 'kcn']:
+                if array_name in elem:
+                    for i, value in enumerate(elem[array_name]):
+                        defaults[f'element.{element}.{array_name}[{i}]'] = value
+            
+            # Single parameters  
+            for param in ['gam', 'zeff', 'arep', 'en']:
+                if param in elem:
+                    defaults[f'element.{element}.{param}'] = elem[param]
+    
+    return defaults
+
+def extract_cds_parameters() -> Dict[str, float]:
+    """Extract only CdS-relevant parameters for focused optimization"""
+    return extract_system_parameters(['Cd', 'S'])
+
 if __name__ == "__main__":
     print("GFN1-xTB Parameter Extraction")
     print("=" * 40)
