@@ -65,7 +65,14 @@ class GeneralParameterBayesian(BaseOptimizer):
         
         # Set up optimization space (after base init to access parameter_bounds)
         self.dimensions = self._create_search_space()
-        self.dimension_names = [bound.name for bound in self.parameter_bounds]
+        
+        # Use saved dimension names from checkpoint if available, otherwise create new ones
+        if hasattr(self, '_saved_dimension_names') and self._saved_dimension_names is not None:
+            self.dimension_names = self._saved_dimension_names
+            logger.debug("Using saved dimension names from checkpoint")
+        else:
+            self.dimension_names = [bound.name for bound in self.parameter_bounds]
+            logger.debug("Creating new dimension names")
         
     def _create_search_space(self) -> List[Real]:
         """Create the search space for Bayesian optimization"""
@@ -268,7 +275,13 @@ class GeneralParameterBayesian(BaseOptimizer):
         super().set_state(state)
         self.call_count = state.get('call_count', 0)
         self.config = state.get('config', self.config)
-        self.dimension_names = state.get('dimension_names', self.dimension_names)
+        
+        # Handle dimension_names carefully - it might not exist during initialization
+        if hasattr(self, 'dimension_names'):
+            self.dimension_names = state.get('dimension_names', self.dimension_names)
+        else:
+            # If dimension_names doesn't exist yet, store it for later use
+            self._saved_dimension_names = state.get('dimension_names', None)
         
         # Reset optimization_result as it's not included in checkpoints
         self.optimization_result = None
