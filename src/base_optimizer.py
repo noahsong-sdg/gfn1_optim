@@ -250,8 +250,17 @@ class BaseOptimizer(ABC):
         # DEBUG: Test Hypothesis 2b - Slater Exponents Logic
         elif 'slater' in param_name:
             logger.debug(f"DEBUG: HYPOTHESIS 2b - Processing slater parameter: {param_name}")
-            min_val = max(0.5, default_val * 0.8)
-            max_val = min(2.0, default_val * 1.2)
+            # Handle case where default value is already above hardcoded maximum
+            if default_val > 2.0:
+                # For large Slater exponents, allow variation around the default
+                margin = default_val * 0.1  # 10% margin
+                min_val = max(0.5, default_val - margin)
+                max_val = default_val + margin
+            else:
+                # Original logic for smaller Slater exponents
+                min_val = max(0.5, default_val * 0.8)
+                max_val = min(2.0, default_val * 1.2)
+            
             result = (min_val, max_val)
             logger.debug(f"DEBUG: Slater calculation: default={default_val}, min_val={min_val}, max_val={max_val}, result={result}")
             if result[0] >= result[1]:
