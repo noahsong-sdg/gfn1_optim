@@ -69,10 +69,13 @@ class GeneralParameterBayesian(BaseOptimizer):
         dimensions = []
         for bound in self.parameter_bounds:
             # Ensure valid bounds
-            if bound.max_val <= bound.min_val:
+            if bound.max_val < bound.min_val:
                 logger.warning(f"Invalid bounds for {bound.name}: using default ± 10%")
                 min_val = bound.default_val * 0.9
                 max_val = bound.default_val * 1.1
+            elif bound.max_val == bound.min_val:
+                min_val = bound.min_val - 0.001
+                max_val = bound.max_val + 0.001
             else:
                 min_val = bound.min_val
                 max_val = bound.max_val
