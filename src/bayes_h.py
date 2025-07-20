@@ -74,12 +74,12 @@ class GeneralParameterBayesian(BaseOptimizer):
                 min_val = bound.default_val * 0.9
                 max_val = bound.default_val * 1.1
             elif bound.max_val == bound.min_val:
-                min_val = bound.min_val - 0.001
-                max_val = bound.max_val + 0.001
+                min_val = bound.min_val - 0.01
+                max_val = bound.max_val + 0.01
             else:
                 min_val = bound.min_val
                 max_val = bound.max_val
-            
+            print(min_val, max_val)
             dimensions.append(Real(min_val, max_val, name=bound.name))
         
         logger.info(f"Created search space with {len(dimensions)} dimensions")

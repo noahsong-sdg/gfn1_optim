@@ -32,8 +32,6 @@ export NUMEXPR_NUM_THREADS=16
 export PYSCF_MAX_MEMORY=4000
 export PYSCF_NUM_THREADS=16
 
-echo "test"
 conda activate /projects/noso3320/software/gfn_env
 
-python src/bandgap.py --test --fast --method pbe --output test_band_gaps_fast.csv
-
+python src/bandgap.py --test --method pbe --output test_band_gaps_fast.csv
