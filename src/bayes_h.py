@@ -73,13 +73,13 @@ class GeneralParameterBayesian(BaseOptimizer):
                 logger.warning(f"Invalid bounds for {bound.name}: using default ± 10%")
                 min_val = bound.default_val * 0.9
                 max_val = bound.default_val * 1.1
-                if bound.max_val == bound.min_val:
-                    min_val = bound.min_val - 0.01
-                    max_val = bound.max_val + 0.01
+                if bound.max_val == bound.min_val == 0:
+                    min_val = 0.01
+                    max_val =  0.01
+                    logger.info(min_val, max_val)
             else:
                 min_val = bound.min_val
                 max_val = bound.max_val
-            logger.info(min_val, max_val)
             dimensions.append(Real(min_val, max_val, name=bound.name))
         
         logger.info(f"Created search space with {len(dimensions)} dimensions")
