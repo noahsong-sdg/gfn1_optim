@@ -24,7 +24,7 @@ from data_extraction import GFN1ParameterExtractor, extract_si2_parameters
 from config import get_system_config, SystemConfig, CalculationType
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Portable paths
@@ -115,6 +115,9 @@ class BaseOptimizer(ABC):
         """Define parameter bounds for system-relevant parameters using extracted defaults"""
         bounds = []
         
+        # DEBUG: Test Hypothesis 1 - Parameter Extraction Issues
+        logger.debug(f"DEBUG: HYPOTHESIS 1 - Starting parameter extraction for system: {self.system_name}")
+        
         # Use focused parameter set for Si2 to avoid over-parameterization
         if self.system_name == "Si2":
             system_defaults = extract_si2_parameters()
@@ -124,9 +127,20 @@ class BaseOptimizer(ABC):
             extractor = GFN1ParameterExtractor(self.base_param_file)
             system_defaults = extractor.extract_defaults_dict(self.system_config.elements)
         
+        # DEBUG: Log all extracted parameters
+        logger.debug(f"DEBUG: Extracted {len(system_defaults)} parameters:")
+        for param_name, default_val in system_defaults.items():
+            logger.debug(f"DEBUG:   {param_name}: {default_val}")
+        
         # Define bounds based on parameter type and extracted defaults
         for param_name, default_val in system_defaults.items():
+            logger.debug(f"DEBUG: Processing bounds for: {param_name} = {default_val}")
             min_val, max_val = self._get_parameter_bounds(param_name, default_val)
+            
+            # DEBUG: Check final bounds
+            if min_val >= max_val:
+                logger.error(f"DEBUG: FINAL INVALID BOUNDS: {param_name} = ({min_val}, {max_val}) (min >= max)")
+            
             bounds.append(ParameterBounds(param_name, min_val, max_val, default_val))
         
         logger.info(f"Generated {len(bounds)} parameter bounds for {self.system_name} from extracted defaults")
@@ -156,6 +170,10 @@ class BaseOptimizer(ABC):
 
     def _get_parameter_bounds(self, param_name: str, default_val: float) -> Tuple[float, float]:
         """Get appropriate bounds for a parameter based on its name and default value"""
+        
+        # DEBUG: Log all parameter processing
+        logger.debug(f"DEBUG: Processing parameter '{param_name}' with default_val={default_val}")
+        
         # System-specific parameter bounds (can be extended for different systems)
         system_specific_bounds = {
             'H2': {
@@ -186,10 +204,16 @@ class BaseOptimizer(ABC):
                 'element.S.en': (1.7, 2.1),
             },
         }
-        # Check for system-specific bounds first
+        
+        # DEBUG: Check system-specific bounds first
         if self.system_name in system_specific_bounds:
             if param_name in system_specific_bounds[self.system_name]:
-                return system_specific_bounds[self.system_name][param_name]
+                bounds = system_specific_bounds[self.system_name][param_name]
+                logger.debug(f"DEBUG: Using system-specific bounds for '{param_name}': {bounds}")
+                if bounds[0] >= bounds[1]:
+                    logger.error(f"DEBUG: INVALID SYSTEM-SPECIFIC BOUNDS: {param_name} = {bounds} (min >= max)")
+                return bounds
+        
         # General parameter bounds
         general_bounds = {
             'hamiltonian.xtb.kpol': (2.5, 3.5),      # Tighter lower bound
@@ -198,11 +222,18 @@ class BaseOptimizer(ABC):
             'hamiltonian.xtb.shell.pp': (1.5, 2.5),
             'hamiltonian.xtb.shell.sp': (1.5, 2.5),
         }
+        
+        # DEBUG: Check general bounds
         if param_name in general_bounds:
-            return general_bounds[param_name]
-        # Type-based bounds
+            bounds = general_bounds[param_name]
+            logger.debug(f"DEBUG: Using general bounds for '{param_name}': {bounds}")
+            if bounds[0] >= bounds[1]:
+                logger.error(f"DEBUG: INVALID GENERAL BOUNDS: {param_name} = {bounds} (min >= max)")
+            return bounds
+        
+        # DEBUG: Test Hypothesis 2a - Energy Levels Logic
         if 'levels' in param_name:
-            # Energy levels - must be negative, allow ±20% variation, min -20.0, max -0.1
+            logger.debug(f"DEBUG: HYPOTHESIS 2a - Processing energy levels parameter: {param_name}")
             margin = abs(default_val) * 0.2
             min_val = min(-0.1, default_val - margin)
             max_val = max(-20.0, default_val + margin)
@@ -210,58 +241,100 @@ class BaseOptimizer(ABC):
                 min_val = -0.1
             if max_val < -20.0:
                 max_val = -20.0
-            return (max_val, min_val) if max_val < min_val else (min_val, max_val)
+            result = (max_val, min_val) if max_val < min_val else (min_val, max_val)
+            logger.debug(f"DEBUG: Energy levels calculation: default={default_val}, margin={margin}, min_val={min_val}, max_val={max_val}, result={result}")
+            if result[0] >= result[1]:
+                logger.error(f"DEBUG: INVALID ENERGY LEVELS BOUNDS: {param_name} = {result} (min >= max)")
+            return result
+        
+        # DEBUG: Test Hypothesis 2b - Slater Exponents Logic
         elif 'slater' in param_name:
-            # Slater exponents - must be positive, typical range 0.5–2.0
+            logger.debug(f"DEBUG: HYPOTHESIS 2b - Processing slater parameter: {param_name}")
             min_val = max(0.5, default_val * 0.8)
             max_val = min(2.0, default_val * 1.2)
-            return (min_val, max_val)
+            result = (min_val, max_val)
+            logger.debug(f"DEBUG: Slater calculation: default={default_val}, min_val={min_val}, max_val={max_val}, result={result}")
+            if result[0] >= result[1]:
+                logger.error(f"DEBUG: INVALID SLATER BOUNDS: {param_name} = {result} (min >= max)")
+            return result
+        
+        # DEBUG: Test Hypothesis 2c - kcn Logic
         elif 'kcn' in param_name:
-            # Coordination number parameters - can be positive or negative
+            logger.debug(f"DEBUG: HYPOTHESIS 2c - Processing kcn parameter: {param_name}")
             if default_val == 0.0:
-                # Special case for zero kcn: allow small positive range
-                return (0.0, 0.1)
+                result = (0.0, 0.1)
+                logger.debug(f"DEBUG: kcn zero case: default={default_val}, result={result}")
             elif default_val > 0:
-                # Positive kcn: typical range 0.01–1.0
                 min_val = max(0.01, default_val * 0.5)
                 max_val = min(1.0, default_val * 1.5)
-                return (min_val, max_val)
+                result = (min_val, max_val)
+                logger.debug(f"DEBUG: kcn positive case: default={default_val}, min_val={min_val}, max_val={max_val}, result={result}")
             else:
-                # Negative kcn: allow variation around negative value
                 margin = abs(default_val) * 0.3
                 min_val = default_val - margin
                 max_val = default_val + margin
-                # Ensure bounds are reasonable
                 min_val = max(-1.0, min_val)
                 max_val = min(-0.001, max_val)
-                return (min_val, max_val)
+                result = (min_val, max_val)
+                logger.debug(f"DEBUG: kcn negative case: default={default_val}, margin={margin}, min_val={min_val}, max_val={max_val}, result={result}")
+            
+            if result[0] >= result[1]:
+                logger.error(f"DEBUG: INVALID KCN BOUNDS: {param_name} = {result} (min >= max)")
+            return result
+        
+        # DEBUG: Test Hypothesis 2d - kpair Logic
         elif 'kpair' in param_name:
-            # Pair parameters - must be positive, typical range 0.5–1.5
+            logger.debug(f"DEBUG: HYPOTHESIS 2d - Processing kpair parameter: {param_name}")
             min_val = max(0.5, default_val * 0.8)
             max_val = min(1.5, default_val * 1.2)
-            return (min_val, max_val)
+            result = (min_val, max_val)
+            logger.debug(f"DEBUG: kpair calculation: default={default_val}, min_val={min_val}, max_val={max_val}, result={result}")
+            if result[0] >= result[1]:
+                logger.error(f"DEBUG: INVALID KPAIR BOUNDS: {param_name} = {result} (min >= max)")
+            return result
+        
+        # DEBUG: Test Hypothesis 2e - Gamma parameters
         elif param_name.endswith('.gam'):
-            # Gamma parameters - typical range 0.3–0.6
-            return (0.3, 0.6)
+            result = (0.3, 0.6)
+            logger.debug(f"DEBUG: Gamma parameter: {param_name} = {result}")
+            return result
+        
+        # DEBUG: Test Hypothesis 2f - Effective charge
         elif param_name.endswith('.zeff'):
-            # Effective charge - typical range 10.0–20.0
-            return (10.0, 20.0)
+            result = (10.0, 20.0)
+            logger.debug(f"DEBUG: Effective charge parameter: {param_name} = {result}")
+            return result
+        
+        # DEBUG: Test Hypothesis 2g - Repulsion parameters
         elif param_name.endswith('.arep'):
-            # Repulsion parameters - typical range 0.8–1.2
-            return (0.8, 1.2)
+            result = (0.8, 1.2)
+            logger.debug(f"DEBUG: Repulsion parameter: {param_name} = {result}")
+            return result
+        
+        # DEBUG: Test Hypothesis 2h - Electronegativity
         elif param_name.endswith('.en'):
-            # Electronegativity - typical range 1.5–2.5
-            return (1.5, 2.5)
+            result = (1.5, 2.5)
+            logger.debug(f"DEBUG: Electronegativity parameter: {param_name} = {result}")
+            return result
+        
+        # DEBUG: Test Hypothesis 2i - General fallback logic
         else:
-            # Default: ±15% around default, but never allow negative for physical parameters
+            logger.debug(f"DEBUG: HYPOTHESIS 2i - Using general fallback for: {param_name}")
             margin = abs(default_val) * 0.15
             min_val = default_val - margin
             max_val = default_val + margin
             if min_val < 0 and default_val > 0:
                 min_val = 0.01
             if max_val <= min_val:
-                return (default_val - 0.05, default_val + 0.05)
-            return (min_val, max_val)
+                result = (default_val - 0.05, default_val + 0.05)
+                logger.debug(f"DEBUG: General fallback (invalid case): default={default_val}, margin={margin}, min_val={min_val}, max_val={max_val}, using fallback result={result}")
+            else:
+                result = (min_val, max_val)
+                logger.debug(f"DEBUG: General fallback (normal case): default={default_val}, margin={margin}, min_val={min_val}, max_val={max_val}, result={result}")
+            
+            if result[0] >= result[1]:
+                logger.error(f"DEBUG: INVALID GENERAL FALLBACK BOUNDS: {param_name} = {result} (min >= max)")
+            return result
     
     def _load_or_generate_reference_data(self) -> pd.DataFrame:
         """Load or generate reference data for the system"""

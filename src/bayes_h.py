@@ -22,6 +22,9 @@ from base_optimizer import BaseOptimizer
 
 logger = logging.getLogger(__name__)
 
+# Set debug logging
+logging.basicConfig(level=logging.DEBUG)
+
 @dataclass
 class BayesianConfig:
     """Configuration for Bayesian optimization"""
@@ -67,8 +70,20 @@ class GeneralParameterBayesian(BaseOptimizer):
     def _create_search_space(self) -> List[Real]:
         """Create the search space for Bayesian optimization"""
         dimensions = []
-        for bound in self.parameter_bounds:
+        logger.debug(f"DEBUG: Creating search space for {len(self.parameter_bounds)} parameters")
+        
+        for i, bound in enumerate(self.parameter_bounds):
+            logger.debug(f"DEBUG: Parameter {i+1}/{len(self.parameter_bounds)}: {bound.name}")
+            logger.debug(f"DEBUG:   Default: {bound.default_val}")
+            logger.debug(f"DEBUG:   Bounds: [{bound.min_val}, {bound.max_val}]")
+            
+            # Check for invalid bounds before creating Real dimension
+            if bound.min_val >= bound.max_val:
+                logger.error(f"DEBUG: INVALID BOUNDS DETECTED: {bound.name} = [{bound.min_val}, {bound.max_val}] (min >= max)")
+                raise ValueError(f"Invalid bounds for parameter '{bound.name}': min={bound.min_val}, max={bound.max_val}")
+            
             dimensions.append(Real(bound.min_val, bound.max_val, name=bound.name))
+            logger.debug(f"DEBUG:   Created Real dimension: Real({bound.min_val}, {bound.max_val}, name='{bound.name}')")
         
         logger.info(f"Created search space with {len(dimensions)} dimensions")
         return dimensions

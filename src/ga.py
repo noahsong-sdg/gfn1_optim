@@ -123,8 +123,6 @@ class GeneralParameterGA(BaseOptimizer):
                 if bound.max_val < bound.min_val:
                     print("bruh")
                 mutation_std = (bound.max_val - bound.min_val) * self.config.mutation_strength
-                if mutation_std < 0:
-                    logger.info(mutation_std, " what happened lol")
                 mutation = np.random.normal(0, mutation_std)
                 individual.parameters[param_name] += mutation
                 
