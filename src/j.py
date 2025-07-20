@@ -1,3 +1,15 @@
+"""
+pure: {'a': 4.812134508597587, 'c': 7.458952249253911, 'alpha': 89.99999999999994, 'beta': 89.99999999999996, 
+'gamma': 119.99999972975012, 'volume': 149.58359831772657, 'u': 0.4630666817140237}
+
+{'a': 4.812134508597609, 'c': 7.458952249253893, 'alpha': 90.0, 'beta': 89.99999999999996, 
+'gamma': 119.99999972975007, 'volume': 149.58359831772762, 'u': 0.46306668171402454}
+
+
+"""
+
+
+
 from ase import Atoms
 from ase.optimize import BFGS
 from ase.constraints import UnitCellFilter
@@ -49,8 +61,9 @@ def xtb_calc(tel=300):
 TEL = 300
 ##############################################################################
 
-atoms = bulk("CdS", "wurtzite", a=5.82, c=11.12)
-calc = xtb_calc(tel=TEL) 
+atoms = bulk("CdS", "wurtzite", a=4.17, c=6.78)
+atoms.calc = TBLite(method="GFN1-xTB", param="results/parameters/test.toml", electronic_temperature=TEL) 
+# atoms.calc = TBLite(method="GFN1-xTB", electronic_temperature=TEL)
 ucf = UnitCellFilter(atoms)
 opt = BFGS(ucf)
 opt.run(fmax=0.01) # Convergence criterion: max force < 0.01 eV/Å
@@ -60,8 +73,8 @@ scaled_positions = atoms.get_scaled_positions()
 u_val = scaled_positions[2, 2] 
 # Store results
 
-gap = dft.bandgap.bandgap(calc, )
-properties = {
+# gap = dft.bandgap.bandgap(calc, )
+properties_gfn = {
         'a': cellpars[0],  # Length of the first lattice vector (a)
         'c': cellpars[2],  # Length of the third lattice vector (c)
         'alpha': cellpars[3],  # Angle between b and c (alpha)
@@ -69,10 +82,22 @@ properties = {
         'gamma': cellpars[5],  # Angle between a and b (gamma)
         'volume': atoms.get_volume(),  # Volume of the unit cell (Angstrom^3)
         'u': u_val,
-        'Band Gap': gap,
+        # 'Band Gap': gap,
         # 'elastic_constants_GPa': elastic, # 6x6 Voigt matrix
     }
+print(properties_gfn)
 
+
+
+properties_custom = {
+    'a': cellpars[0],  # Length of the first lattice vector (a)
+    'c': cellpars[2],  # Length of the third lattice vector (c)
+    'alpha': cellpars[3],  # Angle between b and c (alpha)
+    'beta': cellpars[4],  # Angle between a and c (beta)
+    'gamma': cellpars[5],  # Angle between a and b (gamma)
+    'volume': atoms.get_volume(),  # Volume of the unit cell (Angstrom^3)
+    'u': u_val,
+}
 
 
 

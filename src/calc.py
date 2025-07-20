@@ -331,82 +331,14 @@ class DissociationCurveGenerator:
             
         return df
 
-class LatticeConstantsGenerator:
+class CrystalGenerator:
     """Generate lattice constants for solid-state systems"""
     
     def __init__(self, calculator: GeneralCalculator):
         self.calculator = calculator
-        
-    def generate_lattice_scan(self, a_range: Optional[Tuple[float, float]] = None, 
-                             c_range: Optional[Tuple[float, float]] = None,
-                             num_points: Optional[int] = None,
-                             save: bool = True, 
-                             filename: Optional[str] = None) -> pd.DataFrame:
-        """Generate lattice constant scan for the configured system"""
-        
-        system_config = self.calculator.system_config
-        
-        if system_config.system_type != SystemType.SOLID_STATE:
-            raise ValueError(f"Lattice constants only for solid-state systems, not {system_config.system_type}")
-        
-        if system_config.crystal_system != "wurtzite":
-            raise ValueError(f"Currently only wurtzite structures supported, not {system_config.crystal_system}")
-        
-        # Use system defaults if not provided
-        if a_range is None:
-            a_range = (system_config.lattice_params["a"] * 0.9, system_config.lattice_params["a"] * 1.1)
-        if c_range is None:
-            c_range = (system_config.lattice_params["c"] * 0.9, system_config.lattice_params["c"] * 1.1)
-        if num_points is None:
-            num_points = system_config.num_points
-        
-        # Generate grid of lattice parameters
-        a_values = np.linspace(a_range[0], a_range[1], num_points)
-        c_values = np.linspace(c_range[0], c_range[1], num_points)
-        
-        energies = []
-        volumes = []
-        
-        for a in a_values:
-            for c in c_values:
-                try:
-                    # Create wurtzite structure
-                    atoms = bulk(system_config.name, crystalstructure='wurtzite', a=a, c=c)
-                    
-                    # Calculate energy
-                    energy = self.calculator.calculate_energy(atoms)
-                    volume = atoms.get_volume()
-                    
-                    energies.append(energy)
-                    volumes.append(volume)
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to calculate energy for a={a:.3f}, c={c:.3f}: {e}")
-                    energies.append(np.nan)
-                    volumes.append(np.nan)
-        
-        # Create DataFrame
-        df = pd.DataFrame({
-            'a': np.repeat(a_values, num_points),
-            'c': np.tile(c_values, num_points),
-            'Energy': energies,
-            'Volume': volumes
-        })
-        
-        # Remove failed calculations
-        df = df.dropna()
-        
-        if save and filename:
-            # Ensure directory exists
-            Path(filename).parent.mkdir(parents=True, exist_ok=True)
-            df.to_csv(filename, index=False)
-            
-        return df
     
     def optimize_lattice_constants(self, a_guess: Optional[float] = None, 
-                                  c_guess: Optional[float] = None) -> Tuple[float, float, float]:
-        """Optimize lattice constants for minimum energy"""
-        
+                                  c_guess: Optional[float] = None) -> pd.DataFrame:        
         system_config = self.calculator.system_config
         
         if system_config.system_type != SystemType.SOLID_STATE:
@@ -421,12 +353,18 @@ class LatticeConstantsGenerator:
         # Create initial structure
         atoms = bulk(system_config.name, crystalstructure='wurtzite', a=a_guess, c=c_guess)
         
-        # Set up calculator
+        # Set up calculator based on method
         if self.calculator.calc_config.method == CalcMethod.GFN1_XTB:
             atoms.calc = TBLite(method="GFN1-xTB", electronic_temperature=self.calculator.calc_config.elec_temp)
         elif self.calculator.calc_config.method == CalcMethod.XTB_CUSTOM:
-            atoms.calc = TBLite(method="GFN1-xTB", param=self.calculator.calc_config.param_file, 
-                               electronic_temperature=self.calculator.calc_config.elec_temp)
+            # Use custom TBLite ASE calculator for parameter optimization
+            from tblite_ase_calculator import TBLiteASECalculator
+            atoms.calc = TBLiteASECalculator(
+                param_file=self.calculator.calc_config.param_file,
+                method="gfn1",
+                electronic_temperature=self.calculator.calc_config.elec_temp,
+                spin=self.calculator.calc_config.spin
+            )
         else:
             raise ValueError(f"Lattice optimization not supported for method {self.calculator.calc_config.method}")
         
@@ -434,14 +372,18 @@ class LatticeConstantsGenerator:
         ucf = UnitCellFilter(atoms)
         opt = BFGS(ucf)
         opt.run(fmax=0.01)  # Convergence criterion
+
+        df = pd.DataFrame({
+            'a': atoms.cell.cellpar()[0],
+            'b': atoms.cell.cellpar()[1],
+            'c': atoms.cell.cellpar()[2],
+            'alpha': atoms.cell.cellpar()[3],
+            'beta': atoms.cell.cellpar()[4],
+            'gamma': atoms.cell.cellpar()[5],
+            'Energy': atoms.get_potential_energy() * 0.0367493  # Convert to Hartree
+        })
         
-        # Get optimized lattice parameters
-        cell_params = atoms.cell.cellpar()
-        a_opt = cell_params[0]
-        c_opt = cell_params[2]
-        energy_opt = atoms.get_potential_energy() * 0.0367493  # Convert to Hartree
-        
-        return a_opt, c_opt, energy_opt
+        return df
 
 class GeneralStudyManager:
     """High-level manager for molecular/material studies"""
@@ -466,16 +408,18 @@ class GeneralStudyManager:
                     filename=filename
                 )
             elif self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-                generator = LatticeConstantsGenerator(calculator)
-                self.results[name] = generator.generate_lattice_scan(
-                    save=bool(filename), 
-                    filename=filename
-                )
+                generator = CrystalGenerator(calculator)
+                self.results[name] = generator.optimize_lattice_constants()
             else:
                 raise NotImplementedError(f"Calculation type {self.system_config.calculation_type} not implemented yet")
     
     def calculate_rmse_vs_reference(self, reference_method: str) -> None:
-        """Calculate RMSE compared to reference method"""
+        """Calculate RMSE compared to reference method or experimental data"""
+        if reference_method == "experimental":
+            # Use experimental reference data for solid-state systems
+            self._calculate_rmse_vs_experimental()
+            return
+        
         if reference_method not in self.results:
             print(f"Warning: Reference method '{reference_method}' not found in results")
             return
@@ -530,7 +474,6 @@ class GeneralStudyManager:
                 print(f"  Max Error: {max_error_rel:.6f} Hartree")
         
         elif self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-            # For lattice constants, compare optimized values
             ref_a = ref_data['a'].iloc[ref_data['Energy'].idxmin()]
             ref_c = ref_data['c'].iloc[ref_data['Energy'].idxmin()]
             ref_energy = ref_data['Energy'].min()
@@ -556,6 +499,51 @@ class GeneralStudyManager:
                 print(f"  Δa:        {a_error:.4f} Å")
                 print(f"  Δc:        {c_error:.4f} Å")
                 print(f"  ΔE:        {energy_error:.6f} Hartree")
+
+    def _calculate_rmse_vs_experimental(self) -> None:
+        """Calculate RMSE compared to experimental lattice constants"""
+        #reference data for CdS (wurtzite), mat database
+        experimental_data = {
+            'a': 4.17,      # Å
+            'b': 4.17,      # Å  
+            'c': 6.78,      # Å
+            'alpha': 90.0,  # degrees
+            'beta': 90.0,   # degrees
+            'gamma': 120.0, # degrees
+            'volume': 102.04 # Å³
+        }
+        
+        print(f"Experimental CdS (wurtzite):")
+        print(f"  a={experimental_data['a']:.3f} Å, c={experimental_data['c']:.3f} Å")
+        print(f"  Volume={experimental_data['volume']:.2f} Å³")
+        
+        for name, data in self.results.items():
+            # Get optimized lattice constants from calculation
+            calc_a = data['a'].iloc[data['Energy'].idxmin()]
+            calc_c = data['c'].iloc[data['Energy'].idxmin()]
+            calc_energy = data['Energy'].min()
+            
+            # Calculate volume from lattice constants (wurtzite: V = a²c * sin(120°))
+            calc_volume = calc_a**2 * calc_c * np.sin(np.radians(120))
+            
+            print(f"{name} optimized: a={calc_a:.3f} Å, c={calc_c:.3f} Å, E={calc_energy:.8f} Hartree")
+            print(f"{name} volume: {calc_volume:.2f} Å³")
+            
+            # Calculate errors
+            a_error = abs(calc_a - experimental_data['a'])
+            c_error = abs(calc_c - experimental_data['c'])
+            volume_error = abs(calc_volume - experimental_data['volume'])
+            
+            # Calculate relative errors (%)
+            a_rel_error = (a_error / experimental_data['a']) * 100
+            c_rel_error = (c_error / experimental_data['c']) * 100
+            volume_rel_error = (volume_error / experimental_data['volume']) * 100
+            
+            print(f"{name} errors vs experimental:")
+            print(f"  Δa:        {a_error:.4f} Å ({a_rel_error:.2f}%)")
+            print(f"  Δc:        {c_error:.4f} Å ({c_rel_error:.2f}%)")
+            print(f"  ΔV:        {volume_error:.2f} Å³ ({volume_rel_error:.2f}%)")
+            print()
 
     def plot_comparison(self, output_file: Optional[str] = None) -> None:
         """Create comparison plot of all methods"""
@@ -598,6 +586,10 @@ class GeneralStudyManager:
             plt.ylabel('Relative Energy (Hartree)', fontsize=12)
             
         elif self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+            # Experimental reference point
+            exp_a, exp_c = 4.17, 6.78
+            plt.plot(exp_a, exp_c, 'k*', markersize=15, label=f'Experimental (a={exp_a:.3f}, c={exp_c:.3f})', zorder=10)
+            
             # Create 2D contour plot for lattice constants
             for i, (name, data) in enumerate(self.results.items()):
                 color = colors[i % len(colors)]
