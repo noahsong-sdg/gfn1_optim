@@ -218,10 +218,14 @@ class BaseOptimizer(ABC):
             return (min_val, max_val)
         elif 'kcn' in param_name:
             # Coordination number parameters - can be positive or negative
-            if default_val >= 0:
-                # Positive kcn: typical range 0.01–10               min_val = max(0.01, default_val * 0.5               max_val = min(1.0, default_val * 1.5)
+            if default_val == 0.0:
+                # Special case for zero kcn: allow small positive range
+                return (0.0, 0.1)
+            elif default_val > 0:
+                # Positive kcn: typical range 0.01–1.0
                 min_val = max(0.01, default_val * 0.5)
                 max_val = min(1.0, default_val * 1.5)
+                return (min_val, max_val)
             else:
                 # Negative kcn: allow variation around negative value
                 margin = abs(default_val) * 0.3
@@ -230,7 +234,7 @@ class BaseOptimizer(ABC):
                 # Ensure bounds are reasonable
                 min_val = max(-1.0, min_val)
                 max_val = min(-0.001, max_val)
-            return (min_val, max_val)
+                return (min_val, max_val)
         elif 'kpair' in param_name:
             # Pair parameters - must be positive, typical range 0.5–1.5
             min_val = max(0.5, default_val * 0.8)
