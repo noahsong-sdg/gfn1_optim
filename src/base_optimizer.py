@@ -163,7 +163,7 @@ class BaseOptimizer(ABC):
             },
             'Si2': {
                 'hamiltonian.xtb.kpair.Si-Si': (0.8, 1.2),  # Tighter, must be positive
-                'hamiltonian.xtb.kpol': (20.5, 3.5),        # Tighter around default ~2.85
+                'hamiltonian.xtb.kpol': (2.5, 3.5),        # Tighter around default ~2.85
                 'hamiltonian.xtb.enscale': (-0.015, 0.002), # Tighter around default ~0.6
                 'element.Si.gam': (0.35, 0.55),             # Tighter around default 0.438
                 'element.Si.zeff': (15.5, 18.5),            # Tighter around default 16.9
