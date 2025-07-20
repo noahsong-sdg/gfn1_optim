@@ -244,6 +244,12 @@ class GeneralParameterBayesian(BaseOptimizer):
             'dimension_names': self.dimension_names
         })
         
+        # Exclude optimization_result from checkpointing as it contains unpicklable functions
+        # The optimization_result will be regenerated when resuming
+        if 'optimization_result' in state:
+            del state['optimization_result']
+            logger.debug("Excluded optimization_result from checkpoint to avoid pickling issues")
+        
         # Debug: check for any function references in the state
         def check_for_functions(obj, path=""):
             if callable(obj):
@@ -263,6 +269,10 @@ class GeneralParameterBayesian(BaseOptimizer):
         self.call_count = state.get('call_count', 0)
         self.config = state.get('config', self.config)
         self.dimension_names = state.get('dimension_names', self.dimension_names)
+        
+        # Reset optimization_result as it's not included in checkpoints
+        self.optimization_result = None
+        logger.debug("Reset optimization_result during state restoration")
 
 
 def main():
