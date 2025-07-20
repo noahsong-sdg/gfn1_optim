@@ -74,11 +74,12 @@ class TBLiteASECalculator(Calculator):
     
     def _run_tblite_calculation(self, tmpdir: str, coord_file: Path) -> tuple:
         """Run TBLite calculation and parse results"""
-        # Build TBLite command
+        # Build TBLite command with enhanced convergence parameters
         cmd = [
             "tblite", "run",
             "--method", self.method,
             "--param", str(self.param_file.resolve()),
+            "--iterations", "500",  # Increased iterations for better convergence
             "--etemp", str(self.electronic_temperature),
             "--grad", "tblite.txt",  # Output gradient to file
             str(coord_file)
@@ -90,27 +91,83 @@ class TBLiteASECalculator(Calculator):
         if self.spin > 0:
             cmd.extend(["--spin", str(self.spin)])
         
-        # Run TBLite
-        try:
-            result = subprocess.run(
-                cmd,
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+        # Run TBLite with convergence handling
+        result = subprocess.run(
+            cmd,
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if result.returncode != 0:
+            # Check if it's a convergence issue
+            stderr_lower = result.stderr.lower()
+            if "convergence" in stderr_lower or "scf" in stderr_lower or "iterations" in stderr_lower:
+                # Try with more relaxed convergence
+                logger.warning(f"SCF convergence failed, trying with relaxed parameters...")
+                cmd_relaxed = [
+                    "tblite", "run",
+                    "--method", self.method,
+                    "--param", str(self.param_file.resolve()),
+                    "--iterations", "1000",  # More iterations
+                    "--etemp", str(self.electronic_temperature),
+                    "--grad", "tblite.txt",
+                    str(coord_file)
+                ]
+                
+                result_relaxed = subprocess.run(
+                    cmd_relaxed,
+                    cwd=tmpdir,
+                    capture_output=True,
+                    text=True,
+                    check=False)
+                
+                if result_relaxed.returncode == 0:
+                    logger.info(f"Calculation succeeded with relaxed convergence")
+                    energy = self._parse_energy(result_relaxed.stdout)
+                    forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+                    return energy, forces, stress
+                else:
+                    # If still failing, try with even more relaxed parameters
+                    logger.warning(f"Still failing, trying with very relaxed convergence...")
+                    cmd_very_relaxed = [
+                        "tblite", "run",
+                        "--method", self.method,
+                        "--param", str(self.param_file.resolve()),
+                        "--iterations", "2000",  # Many more iterations
+                        "--etemp", str(self.electronic_temperature),
+                        "--grad", "tblite.txt",
+                        str(coord_file)
+                    ]
+                    
+                    result_very_relaxed = subprocess.run(
+                        cmd_very_relaxed,
+                        cwd=tmpdir,
+                        capture_output=True,
+                        text=True,
+                        check=False)
+                    
+                    if result_very_relaxed.returncode == 0:
+                        logger.info(f"Calculation succeeded with very relaxed convergence")
+                        energy = self._parse_energy(result_very_relaxed.stdout)
+                        forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+                        return energy, forces, stress
             
-            # Parse results
-            energy = self._parse_energy(result.stdout)
-            forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
-            
-            return energy, forces, stress
-            
-        except subprocess.CalledProcessError as e:
-            logger.error(f"TBLite calculation failed: {e}")
-            logger.error(f"stdout: {e.stdout}")
-            logger.error(f"stderr: {e.stderr}")
-            raise RuntimeError(f"TBLite calculation failed: {e}")
+            # If all attempts failed, raise error with detailed information
+            error_msg = f"TBLite calculation failed with exit code {result.returncode}\n"
+            error_msg += f"Command: {' '.join(cmd)}\n"
+            error_msg += f"Working directory: {tmpdir}\n"
+            error_msg += f"Parameter file: {self.param_file}\n"
+            error_msg += f"STDOUT:\n{result.stdout}\n"
+            error_msg += f"STDERR:\n{result.stderr}"
+            raise RuntimeError(error_msg)
+        
+        # Parse results from successful calculation
+        energy = self._parse_energy(result.stdout)
+        forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+        
+        return energy, forces, stress
     
     def _parse_energy(self, stdout: str) -> float:
         """Parse energy from TBLite output"""

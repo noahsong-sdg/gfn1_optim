@@ -554,7 +554,9 @@ class BaseOptimizer(ABC):
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)
                 # Optimize lattice constants
-                a_opt, c_opt, _ = generator.optimize_lattice_constants()
+                result_df = generator.optimize_lattice_constants()
+                a_opt = result_df['a'].iloc[0]
+                c_opt = result_df['c'].iloc[0]
                 # Reference values
                 a_ref = self.system_config.lattice_params["a"]
                 c_ref = self.system_config.lattice_params["c"]
@@ -621,7 +623,9 @@ class BaseOptimizer(ABC):
                 )
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)
-                a_opt, c_opt, _ = generator.optimize_lattice_constants()
+                result_df = generator.optimize_lattice_constants()
+                a_opt = result_df['a'].iloc[0]
+                c_opt = result_df['c'].iloc[0]
                 a_ref = self.system_config.lattice_params["a"]
                 c_ref = self.system_config.lattice_params["c"]
                 a_error = abs(a_opt - a_ref)
