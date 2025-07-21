@@ -170,22 +170,27 @@ class TBLiteASECalculator(Calculator):
         return energy, forces, stress
     
     def _parse_energy(self, output):
-        # DEBUG: Robust parsing with error logging
+        # DEBUG: Extract energy from the summary 'total energy' line (not the cycle table)
         for line in output.splitlines():
-            tokens = line.split()
-            if not tokens:
-                continue
-            last_token = tokens[-1]
-            try:
-                return float(last_token)
-            except ValueError:
-                # DEBUG: Log the problematic line and output for debugging
-                print(f"[DEBUG] Could not parse energy from line: '{line}'")
-                print(f"[DEBUG] Full output was:\n{output}")
-                raise ValueError(f"[DEBUG] Could not convert to float: '{last_token}' in line: '{line}'")
+            if 'total energy' in line.lower():
+                tokens = line.split()
+                # Find the first token after 'total energy' that can be parsed as a float
+                for i, token in enumerate(tokens):
+                    if token.lower() == 'energy':
+                        # Look for the next token that can be parsed as a float
+                        for next_token in tokens[i+1:]:
+                            try:
+                                return float(next_token)
+                            except ValueError:
+                                continue
+                # Fallback: try the last token
+                try:
+                    return float(tokens[-2])  # -2 because last is 'Eh'
+                except Exception:
+                    pass
         # DEBUG: If no valid energy found, log and raise
-        print(f"[DEBUG] No valid energy found in output:\n{output}")
-        raise ValueError("[DEBUG] No valid energy found in output.")
+        print(f"[DEBUG] No valid summary 'total energy' found in output:\n{output}")
+        raise ValueError("[DEBUG] No valid summary 'total energy' found in output.")
     
     def _parse_gradient(self, grad_file: Path) -> tuple:
         """Parse forces and stress from gradient file"""
