@@ -67,7 +67,8 @@ class GeneralParameterCMA2(BaseOptimizer):
                  base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
                  config: CMA2Config = CMA2Config(),
-                 train_fraction: float = 0.8):
+                 train_fraction: float = 0.8,
+                 spin: int = 0):
         """Initialize pycma CMA-ES optimizer"""
         
         #if not HAS_PYCMA:
@@ -83,7 +84,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         self.failed_evaluations = 0
         
         # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction)
+        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
         
 
     
