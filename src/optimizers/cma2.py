@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import time
 import copy
 from base_optimizer import BaseOptimizer
+from parameter_bounds import ParameterBounds
 
 import cma
 
@@ -84,34 +85,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction)
         
-    def apply_bounds(self, parameters: Dict[str, float]) -> Dict[str, float]:
-        """Apply parameter bounds by clamping values"""
-        bounded_params = {}
-        for param_name, value in parameters.items():
-            bound = next((b for b in self.parameter_bounds if b.name == param_name), None)
-            if bound:
-                bounded_value = max(bound.min_val, min(bound.max_val, value))
-                
-                # Extra safety check for Slater exponents and other critical parameters
-                if 'slater' in param_name:
-                    bounded_value = max(0.5, bounded_value)  # Absolute minimum for safety
-                elif 'kpair' in param_name:
-                    bounded_value = max(0.1, bounded_value)  # Pair parameters must be positive
-                elif 'kcn' in param_name:
-                    bounded_value = max(0.01, bounded_value)  # Coordination numbers must be positive
-                elif 'gam' in param_name and not param_name.endswith('lgam'):
-                    bounded_value = max(0.1, min(1.0, bounded_value))  # Gamma parameters reasonable range
-                elif 'zeff' in param_name:
-                    bounded_value = max(1.0, bounded_value)  # Effective charge must be positive
-                elif 'arep' in param_name:
-                    bounded_value = max(0.5, bounded_value)  # Repulsion parameters must be positive
-                elif 'en' in param_name and not param_name.endswith('zen'):
-                    bounded_value = max(0.5, bounded_value)  # Electronegativity must be positive
-                
-                bounded_params[param_name] = float(bounded_value)
-            else:
-                bounded_params[param_name] = float(value)
-        return bounded_params
+
     
     def evaluate_cma_fitness(self, x: np.ndarray) -> float:
         """Evaluate fitness for pycma CMA-ES (minimizes RMSE directly)"""
@@ -153,43 +127,28 @@ class GeneralParameterCMA2(BaseOptimizer):
         param_names = [bound.name for bound in self.parameter_bounds]
         initial_mean = np.array([bound.default_val for bound in self.parameter_bounds])
 
-        # Validate parameter bounds before proceeding
-        if not self._validate_parameter_bounds():
+        # Validate parameter bounds using centralized system
+        validation_errors = self.bounds_manager.validate_parameters(
+            {bound.name: bound.default_val for bound in self.parameter_bounds}, 
+            self.parameter_bounds
+        )
+        if validation_errors:
+            logger.error("Parameter validation errors:")
+            for error in validation_errors:
+                logger.error(f"  {error}")
             raise ValueError("Invalid parameter bounds detected. Check the log for details.")
 
         # Prepare bounds for pycma in correct format: [lower_bounds, upper_bounds]
         lower_bounds = np.array([bound.min_val for bound in self.parameter_bounds])
         upper_bounds = np.array([bound.max_val for bound in self.parameter_bounds])
         
-        # Debug: Check bounds validity
-        logger.info("Bounds validation:")
-        for i, (name, lb, ub) in enumerate(zip(param_names, lower_bounds, upper_bounds)):
-            logger.info(f"  {name}: [{lb}, {ub}]")
-            if lb >= ub:
-                logger.error(f"  ERROR: Lower bound ({lb}) >= Upper bound ({ub}) for {name}")
-            if lb == ub:
-                logger.warning(f"  WARNING: Lower bound equals upper bound for {name}")
-
-        # Check for any invalid bounds
-        invalid_bounds = lower_bounds >= upper_bounds
-        if np.any(invalid_bounds):
-            invalid_indices = np.where(invalid_bounds)[0]
-            logger.error(f"Invalid bounds found for parameters: {[param_names[i] for i in invalid_indices]}")
-            raise ValueError(f"Lower bounds must be less than upper bounds. Invalid parameters: {[param_names[i] for i in invalid_indices]}")
+        # Log bounds summary using centralized system
+        self.bounds_manager.log_bounds_summary(self.parameter_bounds, self.system_name)
 
         # Format bounds for pycma: [lower_bounds, upper_bounds]
         bounds = [lower_bounds, upper_bounds]
 
-        # Debug: Print all parameter defaults for verification
-        logger.info("Parameter defaults at CMA-ES initialization:")
-        for name, val in zip(param_names, initial_mean):
-            logger.info(f"  {name}: {val}")
-            if val == 0.5:
-                logger.warning(f"  WARNING: Default value for {name} is 0.5. This may indicate a TOML extraction bug.")
 
-        logger.info(f"Parameter summary:")
-        for i, bound in enumerate(self.parameter_bounds):
-            logger.info(f"  {bound.name}: default={bound.default_val:.4f}, range=[{bound.min_val:.4f}, {bound.max_val:.4f}]")
 
         # Initialize CMA-ES with bounds
         self.es = cma.CMAEvolutionStrategy(

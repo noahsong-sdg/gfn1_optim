@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import time
 import copy
 from base_optimizer import BaseOptimizer
+from parameter_bounds import ParameterBounds
 
 # External CMA-ES library
 try:
@@ -86,35 +87,6 @@ class GeneralParameterCMA(BaseOptimizer):
         
         # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction)
-        
-    def apply_bounds(self, parameters: Dict[str, float]) -> Dict[str, float]:
-        """Apply parameter bounds by clamping values"""
-        bounded_params = {}
-        for param_name, value in parameters.items():
-            bound = next((b for b in self.parameter_bounds if b.name == param_name), None)
-            if bound:
-                bounded_value = max(bound.min_val, min(bound.max_val, value))
-                
-                # Extra safety check for Slater exponents and other critical parameters
-                if 'slater' in param_name:
-                    bounded_value = max(0.5, bounded_value)  # Absolute minimum for safety
-                elif 'kpair' in param_name:
-                    bounded_value = max(0.1, bounded_value)  # Pair parameters must be positive
-                elif 'kcn' in param_name:
-                    bounded_value = max(0.01, bounded_value)  # Coordination numbers must be positive
-                elif 'gam' in param_name and not param_name.endswith('lgam'):
-                    bounded_value = max(0.1, min(1.0, bounded_value))  # Gamma parameters reasonable range
-                elif 'zeff' in param_name:
-                    bounded_value = max(1.0, bounded_value)  # Effective charge must be positive
-                elif 'arep' in param_name:
-                    bounded_value = max(0.5, bounded_value)  # Repulsion parameters must be positive
-                elif 'en' in param_name and not param_name.endswith('zen'):
-                    bounded_value = max(0.5, bounded_value)  # Electronegativity must be positive
-                
-                bounded_params[param_name] = float(bounded_value)
-            else:
-                bounded_params[param_name] = float(value)
-        return bounded_params
     
     def evaluate_cma_fitness(self, parameters: Dict[str, float]) -> float:
         """Evaluate fitness for CMA-ES (minimizes RMSE directly)"""

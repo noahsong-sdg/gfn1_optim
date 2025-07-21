@@ -12,6 +12,7 @@ import logging
 import pandas as pd
 
 from base_optimizer import BaseOptimizer
+from parameter_bounds import ParameterBounds
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,6 @@ class GeneralParameterGA(BaseOptimizer):
         if parameters is None:
             parameters = {}
             for bound in self.parameter_bounds:
-                if bound.max_val <= bound.min_val:
-                    parameters[bound.name] = bound.default_val
-                    continue
-                
                 if random.random() < 0.8:  # 80% chance to stay near default
                     range_size = bound.max_val - bound.min_val
                     std = max(range_size * 0.1, 1e-6)
@@ -82,8 +79,11 @@ class GeneralParameterGA(BaseOptimizer):
                 else:
                     value = random.uniform(bound.min_val, bound.max_val)
                 
-                value = max(bound.min_val, min(bound.max_val, value))
+                # Use centralized bounds application
                 parameters[bound.name] = value
+            
+            # Apply bounds using centralized system
+            parameters = self.apply_bounds(parameters)
         
         return Individual(parameters)
     
@@ -120,16 +120,12 @@ class GeneralParameterGA(BaseOptimizer):
         for param_name in individual.parameters:
             if random.random() < self.config.mutation_rate:
                 bound = next(b for b in self.parameter_bounds if b.name == param_name)
-                if bound.max_val < bound.min_val:
-                    print("bruh")
                 mutation_std = (bound.max_val - bound.min_val) * self.config.mutation_strength
                 mutation = np.random.normal(0, mutation_std)
                 individual.parameters[param_name] += mutation
-                
-                # Apply bounds
-                individual.parameters[param_name] = max(
-                    bound.min_val, min(bound.max_val, individual.parameters[param_name])
-                )
+        
+        # Apply bounds using centralized system
+        individual.parameters = self.apply_bounds(individual.parameters)
     
     def evolve_generation(self):
         """Evolve one generation"""

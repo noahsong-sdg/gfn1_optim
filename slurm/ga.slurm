@@ -20,4 +20,4 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
-python src/ga.py CdS
+python src/cli.py ga CdS config/gfn1-base.toml --output results/ga

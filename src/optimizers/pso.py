@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass
 import pandas as pd
 from base_optimizer import BaseOptimizer
+from parameter_bounds import ParameterBounds
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +60,8 @@ class Particle:
     def update_position(self):
         """Update particle position"""
         for param_name in self.position:
-            bound = next(b for b in self.parameter_bounds if b.name == param_name)
-            
             # Update position
             self.position[param_name] += self.velocity[param_name]
-            
-            # Apply bounds
-            self.position[param_name] = max(bound.min_val, min(bound.max_val, self.position[param_name]))
     
     def update_best(self):
         """Update personal best if current fitness is better"""
@@ -102,10 +98,6 @@ class GeneralParameterPSO(BaseOptimizer):
         if parameters is None:
             parameters = {}
             for bound in self.parameter_bounds:
-                if bound.max_val <= bound.min_val:
-                    parameters[bound.name] = bound.default_val
-                    continue
-                
                 if np.random.random() < 0.8:  # 80% chance to stay near default
                     range_size = bound.max_val - bound.min_val
                     std = max(range_size * 0.1, 1e-6)
@@ -113,8 +105,10 @@ class GeneralParameterPSO(BaseOptimizer):
                 else:
                     value = np.random.uniform(bound.min_val, bound.max_val)
                 
-                value = max(bound.min_val, min(bound.max_val, value))
                 parameters[bound.name] = value
+            
+            # Apply bounds using centralized system
+            parameters = self.apply_bounds(parameters)
         
         return Particle(parameters, self.parameter_bounds)
     
@@ -218,6 +212,8 @@ class GeneralParameterPSO(BaseOptimizer):
                         self.config.c2
                     )
                     particle.update_position()
+                    # Apply bounds using centralized system
+                    particle.position = self.apply_bounds(particle.position)
         
         total_time = time.time() - start_time
         logger.info(f"Optimization completed in {total_time:.2f}s")

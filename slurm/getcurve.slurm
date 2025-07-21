@@ -27,4 +27,4 @@ module load anaconda
 # Default: Generate Si2 CCSD data (change as needed)
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
-python src/calc.py --system Si2 --method CCSD --output results/curves/si2_ccsd_500.csv 
+python -m src.calculators.calc --system Si2 --method CCSD --output results/curves/si2_ccsd_500.csv 

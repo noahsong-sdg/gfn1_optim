@@ -20,4 +20,4 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
-python src/cma2.py Si2 
+python src/cli.py cma2 Si2 config/gfn1-base.toml --output results/cma2 
