@@ -51,10 +51,6 @@ class GeneralParameterBayesian(BaseOptimizer):
                  spin: int = 0):
         """Initialize Bayesian optimizer"""
         
-        if not HAS_SKOPT:
-            raise ImportError("scikit-optimize is required for Bayesian optimization. "
-                            "Install with: pip install scikit-optimize")
-        
         # Bayesian-specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
         
