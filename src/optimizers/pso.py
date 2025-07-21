@@ -1,12 +1,14 @@
 """Particle Swarm Optimization for TBLite parameter optimization."""
 
 import numpy as np
-import copy
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 import pandas as pd
 from base_optimizer import BaseOptimizer
-from parameter_bounds import ParameterBounds
+from utils.parameter_bounds import ParameterBounds
+import logging
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class PSOConfig:
@@ -146,7 +148,6 @@ class GeneralParameterPSO(BaseOptimizer):
     def optimize(self) -> Dict[str, float]:
         """Run PSO optimization"""
         logger.info(f"Starting PSO optimization for {self.system_name}")
-        start_time = time.time()
         
         # Initialize swarm
         self.initialize_swarm()
@@ -206,8 +207,6 @@ class GeneralParameterPSO(BaseOptimizer):
                     # Apply bounds using centralized system
                     particle.position = self.apply_bounds(particle.position)
         
-        total_time = time.time() - start_time
-        logger.info(f"Optimization completed in {total_time:.2f}s")
         
         # Set best parameters for base class
         if self.global_best_position is not None:

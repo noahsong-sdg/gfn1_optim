@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import time
 import copy
 from base_optimizer import BaseOptimizer
-from parameter_bounds import ParameterBounds
+from utils.parameter_bounds import ParameterBounds
 
 # External CMA-ES library
 try:
@@ -42,8 +42,8 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
 
 # Import project modules
-from calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
-from data_extraction import GFN1ParameterExtractor
+from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
+from utils.data_extraction import GFN1ParameterExtractor
 from config import get_system_config, SystemConfig
 
 # Configuration files
