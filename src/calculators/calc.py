@@ -358,7 +358,7 @@ class CrystalGenerator:
             atoms.calc = TBLite(method="GFN1-xTB", electronic_temperature=self.calculator.calc_config.elec_temp)
         elif self.calculator.calc_config.method == CalcMethod.XTB_CUSTOM:
             # Use custom TBLite ASE calculator for parameter optimization
-            from tblite_ase_calculator import TBLiteASECalculator
+            from calculators.tblite_ase_calculator import TBLiteASECalculator
             atoms.calc = TBLiteASECalculator(
                 param_file=self.calculator.calc_config.param_file,
                 method="gfn1",

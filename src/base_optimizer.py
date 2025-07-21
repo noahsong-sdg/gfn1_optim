@@ -14,6 +14,7 @@ import pickle
 import random
 
 from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
+from calculators.tblite_ase_calculator import TBLiteASECalculator
 from utils.data_extraction import extract_system_parameters
 from config import get_system_config, CalculationType
 from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds
