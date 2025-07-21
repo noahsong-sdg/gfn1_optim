@@ -221,6 +221,12 @@ class BaseOptimizer(ABC):
             return np.sqrt(np.mean((ref_relative - calc_relative)**2))
             
         except Exception as e:
+            # DEBUG: Log the exception for debugging failed evaluations
+            import traceback
+            print(f"[DEBUG] Exception in evaluate_fitness: {e}")
+            traceback.print_exc()
+            if hasattr(self, 'logger'):
+                self.logger.error(f"[DEBUG] Exception in evaluate_fitness: {e}")
             self.failed_evaluations += 1
             return 1000.0
     
