@@ -187,6 +187,9 @@ class BaseOptimizer(ABC):
 
     
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
+        if self.failed_evaluations > 10:
+            raise ValueError("Too many failed evaluations")
+        
         try:
             parameters = self.apply_bounds(parameters)
             param_file = self.create_param_file(parameters)
@@ -195,7 +198,7 @@ class BaseOptimizer(ABC):
                 calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)
-                result_df = generator.optimize_lattice_constants()
+                result_df = generator.compute_stuff()
                 a_opt, c_opt = result_df['a'].iloc[0], result_df['c'].iloc[0]
                 a_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["c"]
                 loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2
@@ -233,6 +236,7 @@ class BaseOptimizer(ABC):
             if hasattr(self, 'logger'):
                 self.logger.error(f"[DEBUG] Exception in evaluate_fitness: {e}")
             self.failed_evaluations += 1
+            print(f"[DEBUG] Parameters for failed evaluation: {parameters}")
             return 1000.0
     
     def evaluate_test_performance(self, parameters: Dict[str, float]) -> Dict[str, float]:
@@ -244,7 +248,7 @@ class BaseOptimizer(ABC):
                 calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)
-                result_df = generator.optimize_lattice_constants()
+                result_df = generator.compute_stuff()
                 a_opt, c_opt = result_df['a'].iloc[0], result_df['c'].iloc[0]
                 a_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["c"]
                 a_error, c_error = abs(a_opt - a_ref), abs(c_opt - c_ref)

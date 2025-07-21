@@ -336,8 +336,15 @@ class CrystalGenerator:
     
     def __init__(self, calculator: GeneralCalculator):
         self.calculator = calculator
-    
-    def optimize_lattice_constants(self, a_guess: Optional[float] = None, 
+    def get_bandgap(self) -> float:
+        # https://wiki.fysik.dtu.dk/ase/ase/dft/bandgap.html
+        from ase.dft.bandgap import bandgap
+        gap, p1, p2 = bandgap(self.calculator.atoms, direct=True,kpts=(1, 1, 1))
+        return gap
+    def getElastic(self) -> float:
+        # need to implement
+        return 0.0
+    def compute_stuff(self, a_guess: Optional[float] = None, 
                                   c_guess: Optional[float] = None) -> pd.DataFrame:        
         system_config = self.calculator.system_config
         
@@ -374,13 +381,15 @@ class CrystalGenerator:
         opt.run(fmax=0.01)  # Convergence criterion
 
         df = pd.DataFrame({
-            'a': atoms.cell.cellpar()[0],
-            'b': atoms.cell.cellpar()[1],
-            'c': atoms.cell.cellpar()[2],
-            'alpha': atoms.cell.cellpar()[3],
-            'beta': atoms.cell.cellpar()[4],
-            'gamma': atoms.cell.cellpar()[5],
-            'Energy': atoms.get_potential_energy() * 0.0367493  # Convert to Hartree
+            'a': [atoms.cell.cellpar()[0]],
+            'b': [atoms.cell.cellpar()[1]],
+            'c': [atoms.cell.cellpar()[2]],
+            'alpha': [atoms.cell.cellpar()[3]],
+            'beta': [atoms.cell.cellpar()[4]],
+            'gamma': [atoms.cell.cellpar()[5]],
+            'Energy': [atoms.get_potential_energy() * 0.0367493],  # Convert to Hartree
+            #'bandgap': self.get_bandgap(),
+            #'elastic': self.getElastic()
         })
         
         return df
@@ -409,7 +418,7 @@ class GeneralStudyManager:
                 )
             elif self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
                 generator = CrystalGenerator(calculator)
-                self.results[name] = generator.optimize_lattice_constants()
+                self.results[name] = generator.compute_stuff()
             else:
                 raise NotImplementedError(f"Calculation type {self.system_config.calculation_type} not implemented yet")
     
