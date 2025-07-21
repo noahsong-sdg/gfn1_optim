@@ -19,7 +19,7 @@ except ImportError:
     HAS_SKOPT = False
 
 from base_optimizer import BaseOptimizer
-from parameter_bounds import ParameterBounds
+from utils.parameter_bounds import ParameterBounds
 
 logger = logging.getLogger(__name__)
 
@@ -302,58 +302,4 @@ class GeneralParameterBayesian(BaseOptimizer):
         logger.debug("Reset optimization_result during state restoration")
 
 
-def main():
-    """Example usage with different systems"""
-    import sys
-    import argparse
-    from pathlib import Path
-    
-    if not HAS_SKOPT:
-        print("Error: scikit-optimize is required for Bayesian optimization")
-        print("Install with: pip install scikit-optimize")
-        sys.exit(1)
-    
-    parser = argparse.ArgumentParser(description='Run Bayesian optimization for TBLite parameters')
-    parser.add_argument('system_name', nargs='?', default='H2', 
-                       help='System name (default: H2)')
-    parser.add_argument('--fresh-start', action='store_true',
-                       help='Start fresh optimization, ignoring any existing checkpoints')
-    
-    args = parser.parse_args()
-    
-    PROJECT_ROOT = Path.cwd()
-    CONFIG_DIR = PROJECT_ROOT / "config"
-    BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-    
-    print(f"Running Bayesian optimization for {args.system_name}")
-    
-    if args.fresh_start:
-        # Remove checkpoint file if it exists
-        checkpoint_path = Path(f"{args.system_name.lower()}_bayesian_checkpt.pkl")
-        if checkpoint_path.exists():
-            checkpoint_path.unlink()
-            print(f"Removed existing checkpoint: {checkpoint_path}")
-        print("Starting fresh optimization (checkpointing disabled)")
-    else:
-        print("Note: Checkpointing is enabled - optimization can be resumed if interrupted")
-    
-    config = BayesianConfig()
-    bayes = GeneralParameterBayesian(args.system_name, str(BASE_PARAM_FILE), config=config)
-    best_parameters = bayes.optimize()
-    
-    # Save results using method-specific filenames
-    bayes.save_best_parameters()  # Will use si2_bayes.toml instead of si2_optimized.toml
-    bayes.save_fitness_history()  # Will use si2_bayes_fitness_history.csv
-    
-    # Save Bayesian-specific result with method name
-    result_file = bayes.get_optimized_params_filename().replace('.toml', '_result.pkl')
-    bayes.save_optimization_result(result_file)
-    
-    if best_parameters:
-        print(f"\nBest Parameters for {args.system_name}:")
-        for param_name, value in best_parameters.items():
-            print(f"  {param_name}: {value:.6f}")
 
-
-if __name__ == "__main__":
-    main()

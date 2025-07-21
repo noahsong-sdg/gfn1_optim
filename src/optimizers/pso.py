@@ -1,22 +1,15 @@
-"""
-Particle Swarm Optimization for TBLite parameter optimization - Refactored to use BaseOptimizer
-"""
+"""Particle Swarm Optimization for TBLite parameter optimization."""
 
 import numpy as np
 import copy
-import time
-import logging
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 import pandas as pd
 from base_optimizer import BaseOptimizer
 from parameter_bounds import ParameterBounds
 
-logger = logging.getLogger(__name__)
-
 @dataclass
 class PSOConfig:
-    """Configuration for Particle Swarm Optimization"""
     swarm_size: int = 40
     max_iterations: int = 100
     w: float = 0.7  # Inertia weight
@@ -30,8 +23,6 @@ class PSOConfig:
 
 
 class Particle:
-    """Represents a particle in the PSO swarm"""
-    
     def __init__(self, position: Dict[str, float], parameter_bounds):
         self.position = position.copy()
         self.velocity = {name: 0.0 for name in position.keys()}
@@ -245,35 +236,4 @@ class GeneralParameterPSO(BaseOptimizer):
         self.config = state.get('config', self.config)
 
 
-def main():
-    """Example usage with different systems"""
-    import sys
-    from pathlib import Path
-    
-    PROJECT_ROOT = Path.cwd()
-    CONFIG_DIR = PROJECT_ROOT / "config"
-    BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-    
-    if len(sys.argv) > 1:
-        system_name = sys.argv[1]
-    else:
-        system_name = "H2"
-    
-    print(f"Running PSO optimization for {system_name}")
-    
-    config = PSOConfig()
-    pso = GeneralParameterPSO(system_name, str(BASE_PARAM_FILE), config=config)
-    best_parameters = pso.optimize()
-    
-    # Save results using method-specific filenames
-    pso.save_best_parameters()  # Will use si2_pso.toml instead of si2_optimized.toml
-    pso.save_fitness_history()  # Will use si2_pso_fitness_history.csv
-    
-    if best_parameters:
-        print(f"\nBest Parameters for {system_name}:")
-        for param_name, value in best_parameters.items():
-            print(f"  {param_name}: {value:.6f}")
-
-
-if __name__ == "__main__":
-    main() 
+ 

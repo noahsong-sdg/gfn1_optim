@@ -268,40 +268,4 @@ class GeneralParameterCMA(BaseOptimizer):
             self.optimizer.generation = cma_state['generation']
 
 
-def main():
-    """Example usage with different systems"""
-    import sys
-    from pathlib import Path
-    
-    if not HAS_CMAES:
-        print("Error: cmaes library is required for CMA-ES optimization")
-        print("Install with: pip install cmaes")
-        sys.exit(1)
-    
-    PROJECT_ROOT = Path.cwd()
-    CONFIG_DIR = PROJECT_ROOT / "config"
-    BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-    
-    if len(sys.argv) > 1:
-        system_name = sys.argv[1]
-    else:
-        system_name = "H2"
-    
-    print(f"Running CMA-ES optimization for {system_name}")
-    
-    config = CMAConfig()
-    cma = GeneralParameterCMA(system_name, str(BASE_PARAM_FILE), config=config)
-    best_parameters = cma.optimize()
-    
-    # Save results using method-specific filenames
-    cma.save_best_parameters()  # Will use si2_cma.toml instead of si2_optimized.toml
-    cma.save_fitness_history()  # Will use si2_cma_fitness_history.csv
-    
-    if best_parameters:
-        print(f"\nBest Parameters for {system_name}:")
-        for param_name, value in best_parameters.items():
-            print(f"  {param_name}: {value:.6f}")
-
-
-if __name__ == "__main__":
-    main() 
+ 

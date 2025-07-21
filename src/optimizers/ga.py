@@ -1,20 +1,14 @@
-"""
-v3 - refactored with base optimizer class
-"""
+"""Genetic Algorithm optimizer for TBLite parameter optimization."""
 
 import numpy as np
 import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import time
-import logging
 import pandas as pd
 
 from base_optimizer import BaseOptimizer
-from parameter_bounds import ParameterBounds
-
-logger = logging.getLogger(__name__)
+from utils.parameter_bounds import ParameterBounds
 
 @dataclass
 class GAConfig:
@@ -31,8 +25,6 @@ class GAConfig:
 
 
 class Individual:
-    """ a single parameter set (genome) """
-    
     def __init__(self, parameters: Dict[str, float], fitness: float = 0.0):
         self.parameters = parameters.copy()
         self.fitness = fitness
@@ -46,29 +38,18 @@ class Individual:
 
 
 class GeneralParameterGA(BaseOptimizer):
-    """Genetic Algorithm optimizer inheriting from BaseOptimizer"""
-    
-    def __init__(self, 
-                 system_name: str,
-                 base_param_file: str,
+    def __init__(self, system_name: str, base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
-                 config: GAConfig = GAConfig(),
-                 train_fraction: float = 0.8):
-        """Initialize GA optimizer"""
+                 config: GAConfig = GAConfig(), train_fraction: float = 0.8):
         
-        # GA-specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
-        
-        # GA-specific state
         self.population = []
         self.best_individual = None
         self.generation = 0
         
-        # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction)
         
     def create_individual(self, parameters: Optional[Dict[str, float]] = None) -> Individual:
-        """Create a new individual with given or random parameters"""
         if parameters is None:
             parameters = {}
             for bound in self.parameter_bounds:
@@ -78,22 +59,17 @@ class GeneralParameterGA(BaseOptimizer):
                     value = np.random.normal(bound.default_val, std)
                 else:
                     value = random.uniform(bound.min_val, bound.max_val)
-                
-                # Use centralized bounds application
                 parameters[bound.name] = value
             
-            # Apply bounds using centralized system
             parameters = self.apply_bounds(parameters)
         
         return Individual(parameters)
     
     def evaluate_individual_fitness(self, individual: Individual) -> float:
-        """Evaluate fitness of an individual (wrapper around base class method)"""
         rmse = self.evaluate_fitness(individual.parameters)
         return 1.0 / (1.0 + rmse)  # Convert RMSE to fitness (higher is better)
     
     def tournament_selection(self, population: List[Individual]) -> Individual:
-        """Tournament selection"""
         tournament = random.sample(population, self.config.tournament_size)
         return max(tournament, key=lambda x: x.fitness)
     
@@ -186,36 +162,25 @@ class GeneralParameterGA(BaseOptimizer):
         self.config = state.get('config', self.config)
     
     def optimize(self) -> Dict[str, float]:
-        """Run the genetic algorithm optimization"""
-        logger.info(f"Starting genetic algorithm optimization for {self.system_name}")
-        start_time = time.time()
+        import time
         
-        # Initialize population only if not resuming
         if not self.population:
             default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
             self.population = [self.create_individual(default_params)]
             for _ in range(self.config.population_size - 1):
                 self.population.append(self.create_individual())
         
-        # Resume from self.generation if checkpoint loaded
         for generation in range(self.generation, self.config.generations):
             self.generation = generation
-            logger.info(f"Generation {generation + 1}/{self.config.generations}")
             
-            # Always evaluate fitness at the start of each generation
-            # (even when resuming, to ensure fresh fitness values)
             for individual in self.population:
                 individual.fitness = self.evaluate_individual_fitness(individual)
             
             best_fitness = max(ind.fitness for ind in self.population)
-            logger.info(f"  Best fitness: {best_fitness:.6f}")
             
-            # Early stopping if all fitness values are 0
             if best_fitness == 0.0:
-                logger.error("All individuals have zero fitness - stopping optimization")
                 break
             
-            # Check convergence
             if len(self.fitness_history) >= 2:
                 recent_improvement = abs(
                     self.fitness_history[-1]['best_fitness'] - 
@@ -223,57 +188,17 @@ class GeneralParameterGA(BaseOptimizer):
                 )
                 if recent_improvement < self.config.convergence_threshold:
                     if self.convergence_counter >= self.config.patience:
-                        logger.info(f"Converged at generation {generation + 1}")
                         break
             
-            # Evolve
             self.evolve_generation()
-            
-            # Save checkpoint after each generation
             self.save_checkpoint()
         
-        total_time = time.time() - start_time
-        logger.info(f"Optimization completed in {total_time:.2f}s")
-        
-        # Set best parameters for base class
         if self.best_individual is not None:
             self.best_parameters = self.best_individual.parameters.copy()
-            # Convert GA fitness back to RMSE for base class consistency
             ga_fitness = self.best_individual.fitness
             self.best_fitness = (1.0 / ga_fitness) - 1.0 if ga_fitness > 0 else float('inf')
         
         return self.best_parameters
 
 
-def main():
-    """Example usage with different systems"""
-    import sys
-    from pathlib import Path
-    
-    PROJECT_ROOT = Path.cwd()
-    CONFIG_DIR = PROJECT_ROOT / "config"
-    BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-    
-    if len(sys.argv) > 1:
-        system_name = sys.argv[1]
-    else:
-        system_name = "H2"
-    
-    print(f"Running GA optimization for {system_name}")
-    
-    config = GAConfig()
-    ga = GeneralParameterGA(system_name, str(BASE_PARAM_FILE), config=config)
-    best_parameters = ga.optimize()
-    
-    # Save results using method-specific filenames
-    ga.save_best_parameters()  # Will use si2_ga.toml instead of si2_optimized.toml
-    ga.save_fitness_history()  # Will use si2_ga_fitness_history.csv
-    
-    if best_parameters:
-        print(f"\nBest Parameters for {system_name}:")
-        for param_name, value in best_parameters.items():
-            print(f"  {param_name}: {value:.6f}")
 
-
-if __name__ == "__main__":
-    main()

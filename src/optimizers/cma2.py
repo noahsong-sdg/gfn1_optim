@@ -236,32 +236,4 @@ class GeneralParameterCMA2(BaseOptimizer):
                 self.es = None
 
 
-def main():
-    import sys
-    from pathlib import Path
-    
-    PROJECT_ROOT = Path.cwd()
-    CONFIG_DIR = PROJECT_ROOT / "config"
-    BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-    
-    if len(sys.argv) > 1:
-        system_name = sys.argv[1]
-    
-    
-    config = CMA2Config()
-    
-    cma2 = GeneralParameterCMA2(system_name, str(BASE_PARAM_FILE), config=config)
-    best_parameters = cma2.optimize()
-    
-    # Save results using method-specific filenames
-    cma2.save_best_parameters()  
-    cma2.save_fitness_history()  
-    
-    if best_parameters:
-        print(f"\nBest Parameters for {system_name}:")
-        for param_name, value in best_parameters.items():
-            print(f"  {param_name}: {value:.6f}")
-
-
-if __name__ == "__main__":
-    main() 
+ 
