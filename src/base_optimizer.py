@@ -210,6 +210,10 @@ class BaseOptimizer(ABC):
             calc_data = generator.generate_curve(self.train_distances)
             os.unlink(param_file)
             
+            # DEBUG: Print calc_data and reference_data for inspection before converting to float arrays
+            print("[DEBUG] reference_data['Energy']:", self.reference_data['Energy'])
+            print("[DEBUG] calc_data['Energy']:", calc_data['Energy'])
+
             ref_energies = self.reference_data['Energy'].values
             calc_energies = calc_data['Energy'].values
             
