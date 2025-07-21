@@ -169,15 +169,23 @@ class TBLiteASECalculator(Calculator):
         
         return energy, forces, stress
     
-    def _parse_energy(self, stdout: str) -> float:
-        """Parse energy from TBLite output"""
-        # Look for "total energy" line in stdout
-        for line in stdout.split('\n'):
-            if 'total energy' in line.lower():
-                # Extract the last number on the line (the energy value)
-                return float(line.split()[-1])
-        
-        raise ValueError("Could not parse energy from TBLite output")
+    def _parse_energy(self, output):
+        # DEBUG: Robust parsing with error logging
+        for line in output.splitlines():
+            tokens = line.split()
+            if not tokens:
+                continue
+            last_token = tokens[-1]
+            try:
+                return float(last_token)
+            except ValueError:
+                # DEBUG: Log the problematic line and output for debugging
+                print(f"[DEBUG] Could not parse energy from line: '{line}'")
+                print(f"[DEBUG] Full output was:\n{output}")
+                raise ValueError(f"[DEBUG] Could not convert to float: '{last_token}' in line: '{line}'")
+        # DEBUG: If no valid energy found, log and raise
+        print(f"[DEBUG] No valid energy found in output:\n{output}")
+        raise ValueError("[DEBUG] No valid energy found in output.")
     
     def _parse_gradient(self, grad_file: Path) -> tuple:
         """Parse forces and stress from gradient file"""
