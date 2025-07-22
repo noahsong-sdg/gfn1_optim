@@ -16,17 +16,17 @@ logger = logging.getLogger(__name__)
 
 class ParameterType(Enum):
     """Enumeration of parameter types for scientific bounds management"""
-    ENERGY_LEVEL = "energy_level"           # Atomic energy levels (can be negative)
-    SLATER_EXPONENT = "slater_exponent"     # Slater exponents (positive)
-    COORDINATION = "coordination"           # Coordination numbers (positive)
-    PAIR_INTERACTION = "pair_interaction"   # Pair interaction parameters (positive)
+    ENERGY_LEVEL = "energy_level"           # Atomic self-energies (array of reals)
+    SLATER_EXPONENT = "slater_exponent"     # slater exponents of basis functions (array of reals)
+    E_SHIFT = "coordination"           # CN dependent self-energy shift
+    SHELL_HARDNESS = "pair_interaction"   # Pair interaction parameters (array of reals)
     GAMMA = "gamma"                         # Gamma parameters (0.1-1.0)
     EFFECTIVE_CHARGE = "effective_charge"   # Effective nuclear charge (positive)
     REPULSION = "repulsion"                 # Repulsion parameters (positive)
     ELECTRONEGATIVITY = "electronegativity" # Electronegativity (positive)
     POLARIZATION = "polarization"           # Polarization parameters (2.5-3.5)
     ENERGY_SCALE = "energy_scale"           # Energy scaling (-0.015 to 0.002)
-    SHELL_PARAMETER = "shell_parameter"     # Shell parameters (positive)
+    POLY_PARAMETER = "poly_parameter"     # Shell parameters (positive)
     UNKNOWN = "unknown"                     # Unknown parameter type
 
 @dataclass
@@ -56,94 +56,105 @@ class ParameterBounds:
         if not (self.min_val <= self.default_val <= self.max_val):
             raise ValueError(f"Default value {self.default_val} for {self.name} not within bounds [{self.min_val}, {self.max_val}]")
 
+# not optimizing:
+    # refocc (reference occupation of atom)
+    # zeff 
+    # dkernel everything is zero
+    # same for qkernel and mpvcn and mprad
+
 class ParameterBoundsManager:
     """
     Centralized parameter bounds management system.
-    
-    This class provides a scientific, consistent approach to managing parameter bounds
-    across all optimizers. It replaces the scattered bounds logic with a single
-    source of truth.
     """
-    
-    # Scientific parameter constraints based on physical principles
     PARAMETER_CONSTRAINTS = {
+        # levels array
         ParameterType.ENERGY_LEVEL: ParameterConstraint(
             param_type=ParameterType.ENERGY_LEVEL,
-            min_val=-50.0,  # Energy levels can be significantly negative
-            max_val=10.0,   # But not extremely positive
-            description="Atomic energy levels (can be negative)",
+            min_val= -40.0,  # min: -31.395426999999
+            max_val= 2.0,   # max: 1.487984
+            description=" negative)",
             physical_justification="Energy levels represent atomic orbital energies, which are typically negative for bound states"
         ),
+        # slater array
         ParameterType.SLATER_EXPONENT: ParameterConstraint(
             param_type=ParameterType.SLATER_EXPONENT,
-            min_val=0.1,    # Must be positive for physical meaning
-            max_val=5.0,    # Reasonable upper limit
+            min_val= 0.1,    # min: 0.532658
+            max_val= 5.0,    # 3.520683
             description="Slater exponents (positive)",
             physical_justification="Slater exponents control orbital decay and must be positive"
         ),
-        ParameterType.COORDINATION: ParameterConstraint(
-            param_type=ParameterType.COORDINATION,
-            min_val=0.01,   # Small positive value
-            max_val=10.0,   # Reasonable upper limit
-            description="Coordination numbers (positive)",
-            physical_justification="Coordination parameters must be positive for physical meaning"
+        # shpoly array
+        ParameterType.POLY_PARAMETER: ParameterConstraint(
+            param_type=ParameterType.POLY_PARAMETER,
+            min_val= -0.5,    # min: -0.44208463
+            max_val= 0.5,    # max: 0.4567976
+            description="Poly parameters (positive)",
+            physical_justification="Poly parameters must be positive for physical meaning"
         ),
-        ParameterType.PAIR_INTERACTION: ParameterConstraint(
-            param_type=ParameterType.PAIR_INTERACTION,
-            min_val=0.1,    # Must be positive
-            max_val=2.0,    # Reasonable upper limit
-            description="Pair interaction parameters (positive)",
-            physical_justification="Pair interactions represent bonding strength and must be positive"
+        # kcn array
+        ParameterType.E_SHIFT: ParameterConstraint(
+            param_type=ParameterType.E_SHIFT,
+            min_val=-0.1,   
+            max_val=0.1,   # Reasonable upper limit
+            description="CN dependent self-energy shift",
+            physical_justification="CN dependent self-energy shift parameters must be positive for physical meaning"
         ),
+        # gam
         ParameterType.GAMMA: ParameterConstraint(
             param_type=ParameterType.GAMMA,
-            min_val=0.1,    # Lower bound for stability
-            max_val=1.0,    # Upper bound for reasonable values
-            description="Gamma parameters (0.1-1.0)",
+            min_val= 0.01,    # min: 0.075735
+            max_val= 2.0,    # max: 1.441379
+            description="Gamma parameters (0.01-2.0)",
             physical_justification="Gamma parameters control orbital overlap and should be in reasonable range"
         ),
-        ParameterType.EFFECTIVE_CHARGE: ParameterConstraint(
-            param_type=ParameterType.EFFECTIVE_CHARGE,
-            min_val=1.0,    # Must be at least 1 for any element
-            max_val=100.0,  # Upper limit for heavy elements
-            description="Effective nuclear charge (positive)",
-            physical_justification="Effective nuclear charge must be positive and typically >= 1"
+        # lgam
+        ParameterType.SHELL_HARDNESS: ParameterConstraint(
+            param_type=ParameterType.SHELL_HARDNESS,
+            min_val= 0.01, #0.1198637
+            max_val=2.5, # 2.1522018
+            description="Shell hardness parameters (0.01-2.5)",
+            physical_justification="Shell hardness parameters represent the hardness of the shell and must be positive"
         ),
+        # gam3 
+        ParameterType.GAMMA_DERIVATIVE: ParameterConstraint(
+            param_type=ParameterType.GAMMA_DERIVATIVE,
+            min_val= -0.01,    # min: -0.0860502
+            max_val= 0.25,    # max: 0.1615037
+            description="Gamma derivative parameters (0.01-0.2)",
+            physical_justification="Gamma derivative parameters control orbital overlap and should be in reasonable range"
+        ),
+        # arep
         ParameterType.REPULSION: ParameterConstraint(
             param_type=ParameterType.REPULSION,
-            min_val=0.1,    # Must be positive
-            max_val=2.0,    # Reasonable upper limit
-            description="Repulsion parameters (positive)",
-            physical_justification="Repulsion parameters must be positive for physical meaning"
+            min_val= 0.1,    # min: 0.554032
+            max_val= 4.0,    # max: 3.038727
+            description="Repulsion parameters (0.1-4.0)",
+            physical_justification="Repulsion parameters represent the repulsion between atoms and must be positive"
         ),
+        # xbond
+        ParameterType.XBOND: ParameterConstraint(
+            param_type=ParameterType.XBOND,
+            min_val= 0.0,    # min: 0.0
+            max_val= 0.05,    # max: 0.0381742
+            description="Bonding parameters (0.0-0.05)",
+            physical_justification="Bonding parameters represent the bonding strength and must be positive"
+        ),
+        # en
         ParameterType.ELECTRONEGATIVITY: ParameterConstraint(
             param_type=ParameterType.ELECTRONEGATIVITY,
-            min_val=0.1,    # Must be positive
-            max_val=5.0,    # Reasonable upper limit
-            description="Electronegativity (positive)",
-            physical_justification="Electronegativity must be positive for physical meaning"
+            min_val= 0.1,    # min: 0.79
+            max_val= 5.5,    # max: 4.5
+            description="Electronegativity parameters (0.1-4.0)",
+            physical_justification="Electronegativity parameters represent the electronegativity of the atom and must be positive"
         ),
-        ParameterType.POLARIZATION: ParameterConstraint(
-            param_type=ParameterType.POLARIZATION,
-            min_val=2.5,    # Lower bound for stability
-            max_val=3.5,    # Upper bound for stability
-            description="Polarization parameters (2.5-3.5)",
-            physical_justification="Polarization parameters have narrow range for numerical stability"
-        ),
-        ParameterType.ENERGY_SCALE: ParameterConstraint(
-            param_type=ParameterType.ENERGY_SCALE,
-            min_val=-0.015, # Lower bound for stability
-            max_val=0.002,  # Upper bound for stability
-            description="Energy scaling (-0.015 to 0.002)",
-            physical_justification="Energy scaling has narrow range for numerical stability"
-        ),
-        ParameterType.SHELL_PARAMETER: ParameterConstraint(
-            param_type=ParameterType.SHELL_PARAMETER,
-            min_val=0.1,    # Must be positive
-            max_val=2.0,    # Reasonable upper limit
-            description="Shell parameters (positive)",
-            physical_justification="Shell parameters must be positive for physical meaning"
-        )
+        # kpair
+        ParameterType.PAIR: ParameterConstraint(
+            param_type=ParameterType.PAIR,
+            min_val=0.5,    
+            max_val=1.5,    
+            description="Pair interaction parameters",
+            physical_justification="Pair interactions represent bonding strength and must be positive"
+        ),      
     }
     
     def __init__(self):
@@ -166,27 +177,32 @@ class ParameterBoundsManager:
         
         # Classification rules based on parameter name patterns
         if 'levels[' in param_name:
-            param_type = ParameterType.ENERGY_LEVEL
+            param_type = ParameterType.ENERGY_LEVEL # levels
         elif 'slater[' in param_name:
-            param_type = ParameterType.SLATER_EXPONENT
+            param_type = ParameterType.SLATER_EXPONENT #slater
+        elif 'shpoly[' in param_name:
+            param_type = ParameterType.POLY_PARAMETER #shpoly
         elif 'kcn[' in param_name:
-            param_type = ParameterType.COORDINATION
+            param_type = ParameterType.E_SHIFT #kcn
         elif 'kpair' in param_name:
-            param_type = ParameterType.PAIR_INTERACTION
+            param_type = ParameterType.PAIR #kpair
         elif 'gam' in param_name and not param_name.endswith('lgam'):
-            param_type = ParameterType.GAMMA
-        elif 'zeff' in param_name:
-            param_type = ParameterType.EFFECTIVE_CHARGE
+            param_type = ParameterType.GAMMA #gam
+        elif 'lgam' in param_name:
+            param_type = ParameterType.SHELL_HARDNESS #lgam
+        elif 'gam3' in param_name:
+            param_type = ParameterType.GAMMA_DERIVATIVE #gam3
         elif 'arep' in param_name:
-            param_type = ParameterType.REPULSION
+            param_type = ParameterType.REPULSION #arep
         elif 'en' in param_name and not param_name.endswith('zen'):
-            param_type = ParameterType.ELECTRONEGATIVITY
+            param_type = ParameterType.ELECTRONEGATIVITY #en
         elif 'kpol' in param_name:
-            param_type = ParameterType.POLARIZATION
+            param_type = ParameterType.POLARIZATION #kpol
         elif 'enscale' in param_name:
-            param_type = ParameterType.ENERGY_SCALE
+            param_type = ParameterType.ENERGY_SCALE #enscale
         elif any(shell in param_name for shell in ['ss', 'pp', 'sp']):
-            param_type = ParameterType.SHELL_PARAMETER
+            param_type = ParameterType.SHELL_PARAMETER 
+
         else:
             param_type = ParameterType.UNKNOWN
         
@@ -261,31 +277,27 @@ class ParameterBoundsManager:
         
         return min_val, max_val
     
-    def create_parameter_bounds(self, param_name: str, default_val: float, 
-                               margin_factor: float = 0.15) -> ParameterBounds:
+    def create_static_parameter_bounds(self, param_name: str, default_val: float) -> ParameterBounds:
         """
-        Create a ParameterBounds object with scientific validation.
-        
-        Args:
-            param_name: Parameter name
-            default_val: Default value
-            margin_factor: Factor for calculating bounds
-            
-        Returns:
-            ParameterBounds: The parameter bounds object
+        Create ParameterBounds using only static min/max from PARAMETER_CONSTRAINTS.
+        Change this method if you want dynamic bounds in the future.
         """
-        param_type = self.classify_parameter(param_name)
         constraint = self.get_parameter_constraint(param_name)
-        min_val, max_val = self.calculate_bounds(param_name, default_val, margin_factor)
-        
         return ParameterBounds(
             name=param_name,
-            min_val=min_val,
-            max_val=max_val,
+            min_val=constraint.min_val,
+            max_val=constraint.max_val,
             default_val=default_val,
-            param_type=param_type,
+            param_type=constraint.param_type,
             description=constraint.description
         )
+
+    # DEPRECATED: Use create_static_parameter_bounds instead if you want static bounds only.
+    def create_parameter_bounds(self, param_name: str, default_val: float, margin_factor: float = 0.15) -> ParameterBounds:
+        """
+        DEPRECATED: This method uses dynamic bounds. Use create_static_parameter_bounds for static bounds.
+        """
+        return self.create_static_parameter_bounds(param_name, default_val)
     
     def validate_parameters(self, parameters: Dict[str, float], 
                           bounds: List[ParameterBounds]) -> List[str]:

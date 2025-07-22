@@ -1,7 +1,6 @@
 """
 CMA-ES (Covariance Matrix Adaptation Evolution Strategy) for TBLite parameter optimization - Refactored to use BaseOptimizer
 """
-
 import numpy as np
 import pandas as pd
 import logging
@@ -12,14 +11,7 @@ from dataclasses import dataclass
 import time
 import copy
 from base_optimizer import BaseOptimizer
-from utils.parameter_bounds import ParameterBounds
-
-# External CMA-ES library
-try:
-    from cmaes import CMA
-    HAS_CMAES = True
-except ImportError:
-    HAS_CMAES = False
+from cmaes import CMA
 
 # Set up logging with better control
 logging.basicConfig(
@@ -28,11 +20,10 @@ logging.basicConfig(
     datefmt='%H:%M:%S'
 )
 
-# Control verbosity of external libraries
+# shut up
 logging.getLogger('cmaes').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('numpy').setLevel(logging.WARNING)
-
 logger = logging.getLogger(__name__)
 
 # Portable paths - automatically finds project root from current working directory
@@ -40,15 +31,7 @@ PROJECT_ROOT = Path.cwd()
 CONFIG_DIR = PROJECT_ROOT / "config"
 RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
-
-# Import project modules
-from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
-from utils.data_extraction import GFN1ParameterExtractor
-from config import get_system_config, SystemConfig
-
-# Configuration files
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-
 
 @dataclass
 class CMAConfig:
@@ -61,10 +44,7 @@ class CMAConfig:
     patience: int = 20  # 
     bounds_handling: str = "penalty"  #  "repair" or "penalty"
 
-
 class GeneralParameterCMA(BaseOptimizer):
-    """CMA-ES optimizer inheriting from BaseOptimizer"""
-    
     def __init__(self, 
                  system_name: str,
                  base_param_file: str,
@@ -72,16 +52,7 @@ class GeneralParameterCMA(BaseOptimizer):
                  config: CMAConfig = CMAConfig(),
                  train_fraction: float = 0.8,
                  spin: int = 0):
-        """Initialize CMA-ES optimizer"""
-        
-        if not HAS_CMAES:
-            raise ImportError("cmaes library is required for CMA-ES optimization. "
-                            "Install with: pip install cmaes")
-        
-        # CMA-ES specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
-        
-        # CMA-ES specific state
         self.optimizer = None
         self.generation = 0
         self.failed_evaluations = 0
@@ -107,7 +78,6 @@ class GeneralParameterCMA(BaseOptimizer):
                     if bound and (value < bound.min_val or value > bound.max_val):
                         penalty += 1000.0  # Large penalty for constraint violation
                 rmse += penalty
-            
             return rmse  # CMA-ES minimizes directly
             
         except Exception as e:
@@ -267,6 +237,3 @@ class GeneralParameterCMA(BaseOptimizer):
             self.optimizer.sigma = cma_state['sigma']
             self.optimizer.population_size = cma_state['population_size']
             self.optimizer.generation = cma_state['generation']
-
-
- 

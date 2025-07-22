@@ -1,8 +1,6 @@
 """
 CMA-ES (Covariance Matrix Adaptation Evolution Strategy) using pycma library
-Refactored to use BaseOptimizer with official pycma implementation
 """
-
 import numpy as np
 import pandas as pd
 import logging
@@ -14,8 +12,6 @@ from dataclasses import dataclass
 import time
 import copy
 from base_optimizer import BaseOptimizer
-from utils.parameter_bounds import ParameterBounds
-
 import cma
 
 logging.basicConfig(
@@ -34,13 +30,7 @@ PROJECT_ROOT = Path.cwd()
 CONFIG_DIR = PROJECT_ROOT / "config"
 RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
-
-from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CalcConfig, CalcMethod
-from utils.data_extraction import GFN1ParameterExtractor
-from config import get_system_config, SystemConfig
-
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
-
 
 @dataclass
 class CMA2Config:
@@ -58,10 +48,8 @@ class CMA2Config:
     maxiter: int = 1000  # Maximum iterations
     bounds_handling: str = "penalty"  # "repair" or "penalty"
 
-
 class GeneralParameterCMA2(BaseOptimizer):
     """pycma CMA-ES optimizer inheriting from BaseOptimizer"""
-    
     def __init__(self, 
                  system_name: str,
                  base_param_file: str,
@@ -70,12 +58,6 @@ class GeneralParameterCMA2(BaseOptimizer):
                  train_fraction: float = 0.8,
                  spin: int = 0):
         """Initialize pycma CMA-ES optimizer"""
-        
-        #if not HAS_PYCMA:
-        #    raise ImportError("pycma library is required for CMA-ES optimization. "
-        #                    "Install with: pip install cma")
-        
-        # pycma specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
         
         # pycma specific state
@@ -85,8 +67,6 @@ class GeneralParameterCMA2(BaseOptimizer):
         
         # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
-        
-
     
     def evaluate_cma_fitness(self, x: np.ndarray) -> float:
         """Evaluate fitness for pycma CMA-ES (minimizes RMSE directly)"""
@@ -94,7 +74,6 @@ class GeneralParameterCMA2(BaseOptimizer):
             # Convert numpy array to parameter dictionary
             param_names = [bound.name for bound in self.parameter_bounds]
             parameters = {param_names[i]: float(x[i]) for i in range(len(param_names))}
-            # No need to apply bounds or penalty: pycma enforces bounds natively
             rmse = self.evaluate_fitness(parameters)
             return rmse  # pycma minimizes directly
             
@@ -148,8 +127,6 @@ class GeneralParameterCMA2(BaseOptimizer):
 
         # Format bounds for pycma: [lower_bounds, upper_bounds]
         bounds = [lower_bounds, upper_bounds]
-
-
 
         # Initialize CMA-ES with bounds
         self.es = cma.CMAEvolutionStrategy(
@@ -235,6 +212,3 @@ class GeneralParameterCMA2(BaseOptimizer):
             except Exception as e:
                 logger.warning(f"Failed to restore pycma state: {e}")
                 self.es = None
-
-
- 

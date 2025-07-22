@@ -1,5 +1,4 @@
 """Base optimizer class for TBLite parameter optimization."""
-
 import numpy as np
 import pandas as pd
 import toml
@@ -18,7 +17,7 @@ from calculators.tblite_ase_calculator import TBLiteASECalculator
 from utils.data_extraction import extract_system_parameters
 from config import get_system_config, CalculationType
 from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds
-from common import setup_logging, RESULTS_DIR
+from common import setup_logging, RESULTS_DIR, RANDOM_SEED
 
 logger = setup_logging(module_name="base_optimizer")
 
@@ -27,7 +26,6 @@ class BaseConfig:
     convergence_threshold: float = 1e-6
     patience: int = 20
     max_workers: int = 4
-
 
 class BaseOptimizer(ABC):
     def __init__(self, system_name: str, base_param_file: str, 
@@ -72,7 +70,8 @@ class BaseOptimizer(ABC):
         
         for param_name, default_val in system_defaults.items():
             try:
-                bound = self.bounds_manager.create_parameter_bounds(param_name, default_val)
+                # Use static bounds from PARAMETER_CONSTRAINTS. Change to create_parameter_bounds for dynamic bounds.
+                bound = self.bounds_manager.create_static_parameter_bounds(param_name, default_val)
                 bounds.append(bound)
             except ValueError:
                 continue
@@ -126,7 +125,7 @@ class BaseOptimizer(ABC):
         n_total = len(full_distances)
         n_train = int(n_total * self.train_fraction)
         
-        np.random.seed(42)
+        np.random.seed(RANDOM_SEED)
         indices = np.random.permutation(n_total)
         train_indices, test_indices = indices[:n_train], indices[n_train:]
         
@@ -183,9 +182,7 @@ class BaseOptimizer(ABC):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
             toml.dump(params, f)
             return f.name
-    
-
-    
+     
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
         if self.failed_evaluations > 10:
             raise ValueError("Too many failed evaluations")
@@ -199,9 +196,9 @@ class BaseOptimizer(ABC):
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)
                 result_df = generator.compute_stuff()
-                a_opt, c_opt = result_df['a'].iloc[0], result_df['c'].iloc[0]
+                a_opt, c_opt, gap = result_df['a'].iloc[0], result_df['c'].iloc[0], result_df['bandgap'].iloc[0]
                 a_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["c"]
-                loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2
+                loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2 + (gap - 0.0) ** 2
                 os.unlink(param_file)
                 return loss
 

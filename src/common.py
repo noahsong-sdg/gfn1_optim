@@ -13,6 +13,7 @@ PROJECT_ROOT = Path.cwd()
 CONFIG_DIR = PROJECT_ROOT / "config"
 RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
+RANDOM_SEED = 42
 
 def setup_logging(level: str = "INFO", 
                  format_str: Optional[str] = None,

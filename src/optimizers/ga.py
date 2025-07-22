@@ -4,11 +4,8 @@ import numpy as np
 import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import pandas as pd
-
 from base_optimizer import BaseOptimizer
-from utils.parameter_bounds import ParameterBounds
 
 @dataclass
 class GAConfig:
@@ -200,6 +197,3 @@ class GeneralParameterGA(BaseOptimizer):
             self.best_fitness = (1.0 / ga_fitness) - 1.0 if ga_fitness > 0 else float('inf')
         
         return self.best_parameters
-
-
-
