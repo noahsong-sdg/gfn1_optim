@@ -18,9 +18,13 @@ class ParameterType(Enum):
     """Enumeration of parameter types for scientific bounds management"""
     ENERGY_LEVEL = "energy_level"           # Atomic self-energies (array of reals)
     SLATER_EXPONENT = "slater_exponent"     # slater exponents of basis functions (array of reals)
-    E_SHIFT = "coordination"           # CN dependent self-energy shift
-    SHELL_HARDNESS = "pair_interaction"   # Pair interaction parameters (array of reals)
+    E_SHIFT = "e_shift"           # CN dependent self-energy shift
+    SHELL_HARDNESS = "shell_hardness"   # Pair interaction parameters (array of reals)
     GAMMA = "gamma"                         # Gamma parameters (0.1-1.0)
+    SHELL_PARAMETER = "shell_parameter"     # Shell parameters (positive)
+    XBOND = "xbond"                         # Bonding parameters (0.0-0.05)
+    GAMMA_DERIVATIVE = "gamma_derivative"   # Gamma derivative parameters (0.01-0.2)
+    PAIR = "pair"                           # Pair interaction parameters (0.5-1.5)
     EFFECTIVE_CHARGE = "effective_charge"   # Effective nuclear charge (positive)
     REPULSION = "repulsion"                 # Repulsion parameters (positive)
     ELECTRONEGATIVITY = "electronegativity" # Electronegativity (positive)
