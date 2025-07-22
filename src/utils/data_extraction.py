@@ -163,13 +163,13 @@ def extract_system_parameters(elements: List[str]) -> Dict[str, float]:
             elem = extractor.params['element'][element]
             
             # Array parameters
-            for array_name in ['levels', 'slater', 'kcn']:
+            for array_name in ['levels', 'slater', 'shpoly','kcn']:
                 if array_name in elem:
                     for i, value in enumerate(elem[array_name]):
                         defaults[f'element.{element}.{array_name}[{i}]'] = value
             
             # Single parameters  
-            for param in ['gam', 'zeff', 'arep', 'en']:
+            for param in ['gam', 'lgam', 'gam3''zeff', 'arep', 'en']:
                 if param in elem:
                     defaults[f'element.{element}.{param}'] = elem[param]
     

@@ -16,7 +16,7 @@ from calculators.calc import GeneralCalculator, DissociationCurveGenerator, Crys
 from calculators.tblite_ase_calculator import TBLiteASECalculator
 from utils.data_extraction import extract_system_parameters
 from config import get_system_config, CalculationType
-from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds
+from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, create_10p_parameter_bounds
 from common import setup_logging, RESULTS_DIR, RANDOM_SEED
 
 logger = setup_logging(module_name="base_optimizer")
@@ -44,7 +44,11 @@ class BaseOptimizer(ABC):
         self.spin = spin
         
         self.bounds_manager = ParameterBoundsManager()
-        self.parameter_bounds = self._define_parameter_bounds()
+        # this the static
+        #self.parameter_bounds = self._define_parameter_bounds()
+        # this the 10%
+        system_defaults = extract_system_parameters(self.system_config.elements)
+        self.parameter_bounds = create_10p_parameter_bounds(system_defaults)
         
         self.full_reference_data = reference_data or self._load_or_generate_reference_data()
         self._split_train_test_data()

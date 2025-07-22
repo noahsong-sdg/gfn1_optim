@@ -419,3 +419,36 @@ class ParameterBoundsManager:
         
         for param_type, examples in type_examples.items():
             logger.info(f"  {param_type}: {', '.join(examples)}") 
+
+
+def create_10p_parameter_bounds(defaults: Dict[str, float]) -> List[ParameterBounds]:
+    """
+    Create ParameterBounds for each parameter with bounds set to ±10% of the default value,
+    but not exceeding the absolute min/max for that parameter type as defined in ParameterBoundsManager.
+
+    Args:
+        defaults: Dict of parameter names to their default values.
+    Returns:
+        List[ParameterBounds]: List of ParameterBounds objects with 10% bounds, clamped to absolute limits.
+    """
+    manager = ParameterBoundsManager()
+    bounds_list = []
+    for param_name, default_val in defaults.items():
+        constraint = manager.get_parameter_constraint(param_name)
+        margin = abs(default_val) * 0.10
+        min_val = max(constraint.min_val, default_val - margin)
+        max_val = min(constraint.max_val, default_val + margin)
+        # Validate
+        if min_val >= max_val:
+            min_val = constraint.min_val
+            max_val = constraint.max_val
+        bounds = ParameterBounds(
+            name=param_name,
+            min_val=min_val,
+            max_val=max_val,
+            default_val=default_val,
+            param_type=constraint.param_type,
+            description=constraint.description
+        )
+        bounds_list.append(bounds)
+    return bounds_list 
