@@ -98,8 +98,8 @@ class ParameterBoundsManager:
         # kcn array
         ParameterType.E_SHIFT: ParameterConstraint(
             param_type=ParameterType.E_SHIFT,
-            min_val=-0.1,   
-            max_val=0.1,   # Reasonable upper limit
+            min_val= -0.1,  # -0.054806925  
+            max_val= 0.2,   # 0.188372562
             description="CN dependent self-energy shift",
             physical_justification="CN dependent self-energy shift parameters must be positive for physical meaning"
         ),
