@@ -143,6 +143,7 @@ def extract_system_parameters(elements: List[str]) -> Dict[str, float]:
                     defaults[f'hamiltonian.xtb.kpair.{pair}'] = xtb['kpair'][pair]
     
     # Key global parameters that affect bonding
+    """
     if 'hamiltonian' in extractor.params and 'xtb' in extractor.params['hamiltonian']:
         xtb = extractor.params['hamiltonian']['xtb']
         if 'kpol' in xtb:
@@ -155,7 +156,7 @@ def extract_system_parameters(elements: List[str]) -> Dict[str, float]:
             for param in ['ss', 'pp', 'sp']:
                 if param in xtb['shell']:
                     defaults[f'hamiltonian.xtb.shell.{param}'] = xtb['shell'][param]
-    
+    """
     # Element parameters for each element in the system
     for element in elements:
         if 'element' in extractor.params and element in extractor.params['element']:
