@@ -188,7 +188,7 @@ class BaseOptimizer(ABC):
             return f.name
      
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
-        if self.failed_evaluations > 10:
+        if self.failed_evaluations > 50:
             raise ValueError("Too many failed evaluations")
         
         try:
