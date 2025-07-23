@@ -22,16 +22,6 @@ module load anaconda
 # Set up environment
 cd /projects/noso3320/work/gfn1_optim
 
-# Set environment variables for parallel processing
-export OMP_NUM_THREADS=16
-export MKL_NUM_THREADS=16
-export OPENBLAS_NUM_THREADS=16
-export NUMEXPR_NUM_THREADS=16
-
-# PySCF specific optimizations
-export PYSCF_MAX_MEMORY=4000
-export PYSCF_NUM_THREADS=16
-
 conda activate /projects/noso3320/software/gfn_env
 
 PYTHONPATH=src 

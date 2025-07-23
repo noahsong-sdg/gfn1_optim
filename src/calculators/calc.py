@@ -208,7 +208,7 @@ class GeneralCalculator:
                     "--method", "gfn1",
                     "--param", str(param_file_abs),
                     "--iterations", "1000",  # More iterations
-                    "--etemp", str(self.calc_config.elec_temp) + 150,
+                    "--etemp", str(self.calc_config.elec_temp) + 300,
                     # "--spin", str(self.calc_config.spin),
                     # "--charge", str(self.calc_config.charge),
                     coord_file
