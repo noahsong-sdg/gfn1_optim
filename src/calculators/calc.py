@@ -183,8 +183,10 @@ class GeneralCalculator:
             "tblite", "run",
             "--method", "gfn1",
             "--param", str(param_file_abs),
-            "--iterations", "500",  # Increased from default 250
+            "--iterations", "350",  # Increased from default 250
             "--etemp", str(self.calc_config.elec_temp),
+            # "--spin", str(self.calc_config.spin),
+            # "--charge", str(self.calc_config.charge),
             coord_file
         ]
         
@@ -206,7 +208,9 @@ class GeneralCalculator:
                     "--method", "gfn1",
                     "--param", str(param_file_abs),
                     "--iterations", "1000",  # More iterations
-                    "--etemp", str(self.calc_config.elec_temp),
+                    "--etemp", str(self.calc_config.elec_temp) + 150,
+                    # "--spin", str(self.calc_config.spin),
+                    # "--charge", str(self.calc_config.charge),
                     coord_file
                 ]
                 
@@ -220,6 +224,15 @@ class GeneralCalculator:
                 if result_relaxed.returncode == 0:
                     logger.info(f"Calculation succeeded with relaxed convergence for {param_file_abs.name}")
                     return self._parse_tblite_e(result_relaxed.stdout)
+                else:
+                    error_msg = f"TBLite command failed with exit code {result_relaxed.returncode}\n"
+                error_msg += f"Command: {' '.join(cmd)}\n"
+                error_msg += f"Working directory: {tmpdir}\n"
+                error_msg += f"Parameter file: {param_file_abs}\n"
+                error_msg += f"STDOUT:\n{result_relaxed.stdout}\n"
+                error_msg += f"STDERR:\n{result_relaxed.stderr}"
+                raise RuntimeError(error_msg)
+                """
                 else:
                     # If still failing, try with even more relaxed parameters
                     logger.warning(f"Still failing, trying with very relaxed convergence...")
@@ -242,7 +255,7 @@ class GeneralCalculator:
                     if result_very_relaxed.returncode == 0:
                         logger.info(f"Calculation succeeded with very relaxed convergence for {param_file_abs.name}")
                         return self._parse_tblite_e(result_very_relaxed.stdout)
-            
+                """
             # If all attempts failed, raise error with detailed information
             error_msg = f"TBLite command failed with exit code {result.returncode}\n"
             error_msg += f"Command: {' '.join(cmd)}\n"
