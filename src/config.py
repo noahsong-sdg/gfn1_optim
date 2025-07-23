@@ -90,7 +90,7 @@ SYSTEM_CONFIGS = {
         crystal_system="wurtzite",
         lattice_params={"a": 4.17, "c": 6.78},  # Experimental values from literature
         num_points=50,  # Number of lattice parameter variations to test
-        spin=0
+        spin_multiplicity=0
     )
 }
 
