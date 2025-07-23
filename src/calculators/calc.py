@@ -226,40 +226,16 @@ class GeneralCalculator:
                     return self._parse_tblite_e(result_relaxed.stdout)
                 else:
                     error_msg = f"TBLite command failed with exit code {result_relaxed.returncode}\n"
-                error_msg += f"Command: {' '.join(cmd)}\n"
-                error_msg += f"Working directory: {tmpdir}\n"
-                error_msg += f"Parameter file: {param_file_abs}\n"
-                error_msg += f"STDOUT:\n{result_relaxed.stdout}\n"
-                error_msg += f"STDERR:\n{result_relaxed.stderr}"
-                raise RuntimeError(error_msg)
-                """
-                else:
-                    # If still failing, try with even more relaxed parameters
-                    logger.warning(f"Still failing, trying with very relaxed convergence...")
-                    cmd_very_relaxed = [
-                        "tblite", "run",
-                        "--method", "gfn1",
-                        "--param", str(param_file_abs),
-                        "--iterations", "2000",  # Many more iterations
-                        "--etemp", str(self.calc_config.elec_temp),
-                        coord_file
-                    ]
-                    
-                    result_very_relaxed = subprocess.run(
-                        cmd_very_relaxed,
-                        cwd=tmpdir,
-                        capture_output=True,
-                        text=True,
-                        check=False)
-                    
-                    if result_very_relaxed.returncode == 0:
-                        logger.info(f"Calculation succeeded with very relaxed convergence for {param_file_abs.name}")
-                        return self._parse_tblite_e(result_very_relaxed.stdout)
-                """
+                    error_msg += f"Command: {' '.join(cmd)}\n"
+                    error_msg += f"Working directory: {tmpdir}\n"
+                    error_msg += f"Parameter file: {param_file_abs}\n"
+                    error_msg += f"STDOUT:\n{result_relaxed.stdout}\n"
+                    error_msg += f"STDERR:\n{result_relaxed.stderr}"
+                    raise RuntimeError(error_msg)
+
             # If all attempts failed, raise error with detailed information
             error_msg = f"TBLite command failed with exit code {result.returncode}\n"
             error_msg += f"Command: {' '.join(cmd)}\n"
-            error_msg += f"Working directory: {tmpdir}\n"
             error_msg += f"Parameter file: {param_file_abs}\n"
             error_msg += f"STDOUT:\n{result.stdout}\n"
             error_msg += f"STDERR:\n{result.stderr}"
@@ -294,7 +270,7 @@ class GeneralCalculator:
             'H': 1,   
             'Si': 2,  
             'Cd': 0,  
-            'S': 2,   
+            'S': 0,   
             'Zn': 0,  
             'Ga': 1, 
         }
