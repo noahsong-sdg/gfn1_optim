@@ -34,4 +34,4 @@ export PYSCF_NUM_THREADS=16
 
 conda activate /projects/noso3320/software/gfn_env
 
-python -m src.tests.bandgap --test --method pbe --output test_band_gaps_fast.csv
+PYTHONPATH=src python -m src/tests/bandgap --test --method pbe --output test_band_gaps_fast.csv
