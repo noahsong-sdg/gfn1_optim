@@ -76,6 +76,9 @@ def run_optimization(algorithm: str,
     
     # Run optimization
     best_params = optimizer.optimize()
+    logger.info(f"Best fitness: {best_params.get('fitness', 'N/A')}")
+    logger.info(f"Number of failed evaluations: {optimizer.failed_evaluations}")
+    logger.info(f"Number of successful evaluations: {optimizer.success_evaluations}")
     
     # Save results
     if output_dir:

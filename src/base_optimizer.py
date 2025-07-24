@@ -59,6 +59,7 @@ class BaseOptimizer(ABC):
         self.convergence_counter = 0
         self.fitness_history = []
         self.failed_evaluations = 0
+        self.success_evaluations = 0
         
         self.method_name = method_name or self.__class__.__name__.replace('GeneralParameter', '').replace('BaseOptimizer', '').lower()
         
@@ -188,8 +189,8 @@ class BaseOptimizer(ABC):
             return f.name
      
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
-        if self.failed_evaluations > 100:
-            raise ValueError("Too many failed evaluations")
+        #if self.failed_evaluations > 100:
+           # raise ValueError("Too many failed evaluations")
         
         try:
             parameters = self.apply_bounds(parameters)
@@ -206,6 +207,7 @@ class BaseOptimizer(ABC):
                 #loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2 #+ (gap - 0.0) ** 2
                 loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2 
                 os.unlink(param_file)
+                self.success_evaluations += 1
                 return loss
 
             # Molecular fitting
