@@ -202,10 +202,9 @@ class BaseOptimizer(ABC):
                 generator = CrystalGenerator(calculator)
                 result_df = generator.compute_stuff()
                 #a_opt, c_opt, gap = result_df['a'].iloc[0], result_df['c'].iloc[0], result_df['bandgap'].iloc[0]
-                a_opt, c_opt = result_df['a'].iloc[0], result_df['c'].iloc[0]
-                a_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["c"]
-                #loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2 #+ (gap - 0.0) ** 2
-                loss = (a_opt - a_ref) ** 2 + (c_opt - c_ref) ** 2 
+                a_opt, b_opt, c_opt = result_df['a'].iloc[0], result_df['b'].iloc[0], result_df['c'].iloc[0]
+                a_ref, b_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["b"], self.system_config.lattice_params["c"]
+                loss = (a_opt - a_ref) ** 2 + (b_opt - b_ref) ** 2 + (c_opt - c_ref) ** 2 
                 os.unlink(param_file)
                 self.success_evaluations += 1
                 return loss
@@ -254,11 +253,11 @@ class BaseOptimizer(ABC):
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)
                 result_df = generator.compute_stuff()
-                a_opt, c_opt = result_df['a'].iloc[0], result_df['c'].iloc[0]
-                a_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["c"]
-                a_error, c_error = abs(a_opt - a_ref), abs(c_opt - c_ref)
+                a_opt, b_opt, c_opt = result_df['a'].iloc[0], result_df['b'].iloc[0], result_df['c'].iloc[0]
+                a_ref, b_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["b"], self.system_config.lattice_params["c"]
+                a_error, b_error, c_error = abs(a_opt - a_ref), abs(b_opt - b_ref), abs(c_opt - c_ref)
                 os.unlink(param_file)
-                return {'test_a_error': a_error, 'test_c_error': c_error, 'test_total_error': a_error + c_error}
+                return {'test_a_error': a_error, 'test_b_error': b_error, 'test_c_error': c_error, 'test_total_error': a_error + b_error + c_error}
 
             # Molecular test evaluation
             calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)
