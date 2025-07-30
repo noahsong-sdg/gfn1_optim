@@ -13,7 +13,7 @@ import logging
 from ase import Atoms
 from ase.build import bulk
 from ase.optimize import BFGS
-from ase.constraints import UnitCellFilter
+from ase.filters import UnitCellFilter
 from tblite.ase import TBLite
 import tempfile
 import subprocess
