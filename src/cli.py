@@ -29,7 +29,7 @@ def create_optimizer(algorithm: str,
         'ga': (GeneralParameterGA, GAConfig),
         'pso': (GeneralParameterPSO, PSOConfig),
         'bayes': (GeneralParameterBayesian, BayesianConfig),
-        'cma': (GeneralParameterCMA, CMAConfig),
+        'cma1': (GeneralParameterCMA, CMAConfig),
         'cma2': (GeneralParameterCMA2, CMA2Config)
     }
     
