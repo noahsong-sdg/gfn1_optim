@@ -79,7 +79,7 @@ def run_optimization(algorithm: str,
     logger.info(f"Best fitness: {best_params.get('fitness', 'N/A')}")
     logger.info(f"Number of failed evaluations: {optimizer.failed_evaluations}")
     logger.info(f"Number of successful evaluations: {optimizer.success_evaluations}")
-    
+
     # Save results
     if output_dir:
         output_path = Path(output_dir)
@@ -112,7 +112,7 @@ Examples:
     
     # Required arguments
     parser.add_argument('algorithm', 
-                       choices=['ga', 'pso', 'bayes', 'cma', 'cma2'],
+                       choices=['ga', 'pso', 'bayes', 'cma1', 'cma2'],
                        help='Optimization algorithm to use')
     parser.add_argument('system_name',
                        help='Name of the system to optimize (e.g., H2, Si2, CdS)')
