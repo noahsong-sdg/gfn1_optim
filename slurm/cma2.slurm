@@ -3,12 +3,12 @@
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
-#SBATCH --job-name=cma_si2
+#SBATCH --job-name=cma2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --output=cma_%j.out
-#SBATCH --error=cma_%j.err
+#SBATCH --output=cma2_%j.out
+#SBATCH --error=cma2_%j.err
 
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=noso3320@colorado.edu
