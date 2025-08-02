@@ -3,7 +3,7 @@
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
-#SBATCH --job-name=gad_cds
+#SBATCH --job-name=ga_cds
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
@@ -20,4 +20,4 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
-python src/cli.py gad CdS config/gfn1-base.toml --output results/gad
+python src/cli.py ga CdS config/gfn1-base.toml --output results/ga
