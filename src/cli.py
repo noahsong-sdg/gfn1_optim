@@ -11,6 +11,7 @@ from typing import Optional
 from common import setup_logging, PROJECT_ROOT, CONFIG_DIR, RESULTS_DIR
 from base_optimizer import BaseOptimizer
 from optimizers.ga import GeneralParameterGA, GAConfig
+from optimizers.gad import PyGADOptimizer, PyGADConfig
 from optimizers.pso import GeneralParameterPSO, PSOConfig
 from optimizers.bayes_h import GeneralParameterBayesian, BayesianConfig
 from optimizers.cma1 import GeneralParameterCMA, CMAConfig
@@ -27,6 +28,7 @@ def create_optimizer(algorithm: str,
     
     optimizer_map = {
         'ga': (GeneralParameterGA, GAConfig),
+        'gad': (PyGADOptimizer, PyGADConfig),
         'pso': (GeneralParameterPSO, PSOConfig),
         'bayes': (GeneralParameterBayesian, BayesianConfig),
         'cma1': (GeneralParameterCMA, CMAConfig),
@@ -112,7 +114,7 @@ Examples:
     
     # Required arguments
     parser.add_argument('algorithm', 
-                       choices=['ga', 'pso', 'bayes', 'cma1', 'cma2'],
+                       choices=['ga', 'gad','pso', 'bayes', 'cma1', 'cma2'],
                        help='Optimization algorithm to use')
     parser.add_argument('system_name',
                        help='Name of the system to optimize (e.g., H2, Si2, CdS)')
