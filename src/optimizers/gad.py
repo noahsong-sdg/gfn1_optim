@@ -163,18 +163,7 @@ class PyGADOptimizer(BaseOptimizer):
             "crossover_probability": self.config.crossover_rate
         }
         
-        # Configure selection
-        if self.config.selection_type == "tournament":
-            selection_kwargs = {
-                "selection_type": "tournament",
-                "tournament_size": self.config.tournament_size
-            }
-        else:
-            selection_kwargs = {
-                "selection_type": self.config.selection_type
-            }
-        
-        # Create GA instance
+        # Create GA instance with correct PyGAD parameters
         self.ga_instance = pygad.GA(
             num_generations=self.config.generations,
             num_parents_mating=self.config.population_size // 2,
@@ -187,7 +176,6 @@ class PyGADOptimizer(BaseOptimizer):
             random_mutation_max_val=self.config.mutation_strength,
             **mutation_kwargs,
             **crossover_kwargs,
-            **selection_kwargs,
             random_seed=RANDOM_SEED,
             parallel_processing=["thread", self.config.max_workers] if self.config.max_workers > 1 else None
         )
