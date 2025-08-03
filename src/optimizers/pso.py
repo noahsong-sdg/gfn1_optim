@@ -20,8 +20,9 @@ class PSOConfig:
     w_min: float = 0.1  # Minimum inertia weight
     w_max: float = 0.9  # Maximum inertia weight
     use_adaptive_inertia: bool = True
-    convergence_threshold: float = 1e-6
-    patience: int = 20
+    convergence_threshold: float = 1e-8  # Much stricter convergence threshold
+    patience: int = 50  # Much higher patience
+    min_iterations: int = 20  # Minimum iterations before allowing convergence
 
 
 class Particle:
@@ -183,15 +184,20 @@ class GeneralParameterPSO(BaseOptimizer):
                 break
             
             # Check convergence
-            if len(self.fitness_history) >= 2:
+            if len(self.fitness_history) >= 2 and iteration >= self.config.min_iterations:
                 recent_improvement = abs(
                     self.fitness_history[-1]['best_fitness'] - 
                     self.fitness_history[-2]['best_fitness']
                 )
+                
+                # More stringent convergence criteria
                 if recent_improvement < self.config.convergence_threshold:
+                    self.convergence_counter += 1
                     if self.convergence_counter >= self.config.patience:
-                        logger.info(f"Converged at iteration {iteration + 1}")
+                        logger.info(f"Converged at iteration {iteration + 1} after {self.convergence_counter} iterations without improvement")
                         break
+                else:
+                    self.convergence_counter = 0
             
             # Update particles
             if self.global_best_position is not None:
