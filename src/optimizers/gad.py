@@ -21,7 +21,7 @@ class PyGADConfig:
     tournament_size: int = 3
     elitism_rate: float = 0.1
     mutation_strength: float = 0.05
-    max_workers: int = 4
+    max_workers: int = 8
     convergence_threshold: float = 1e-6
     patience: int = 20
     # PyGAD specific parameters
