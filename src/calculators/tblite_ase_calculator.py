@@ -17,7 +17,7 @@ class TBLiteASECalculator(Calculator):
     def __init__(self, 
                  param_file: str,
                  method: str = "gfn1",
-                 electronic_temperature: float = 300.0,
+                 electronic_temperature: float = 500.0,
                  charge: float = 0.0,
                  spin: int = 0,
                  **kwargs):
@@ -111,7 +111,7 @@ class TBLiteASECalculator(Calculator):
                     "--method", self.method,
                     "--param", str(self.param_file.resolve()),
                     "--iterations", "1000",  # More iterations
-                    "--etemp", str(self.electronic_temperature + 300),
+                    "--etemp", str(self.electronic_temperature + 150),
                     "--grad", "tblite.txt",
                     str(coord_file)
                 ]

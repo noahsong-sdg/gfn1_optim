@@ -203,11 +203,21 @@ class BaseOptimizer(ABC):
                 result_df = generator.compute_stuff()
                 #a_opt, c_opt, gap = result_df['a'].iloc[0], result_df['c'].iloc[0], result_df['bandgap'].iloc[0]
                 a_opt, b_opt, c_opt = result_df['a'].iloc[0], result_df['b'].iloc[0], result_df['c'].iloc[0]
+                alpha_opt, beta_opt, gamma_opt = result_df['alpha'].iloc[0], result_df['beta'].iloc[0], result_df['gamma'].iloc[0]
                 a_ref, b_ref, c_ref = self.system_config.lattice_params["a"], self.system_config.lattice_params["b"], self.system_config.lattice_params["c"]
-                loss = (a_opt - a_ref) ** 2 + (b_opt - b_ref) ** 2 + (c_opt - c_ref) ** 2 
+                
+                # Target angles for wurtzite structure
+                alpha_ref, beta_ref, gamma_ref = self.system_config.lattice_params["alpha"], self.system_config.lattice_params["beta"], self.system_config.lattice_params["gamma"]
+                
+                # Combined loss: lattice parameters + angles
+                lattice_loss = (a_opt - a_ref) ** 2 + (b_opt - b_ref) ** 2 + (c_opt - c_ref) ** 2
+                angle_loss = (alpha_opt - alpha_ref) ** 2 + (beta_opt - beta_ref) ** 2 + (gamma_opt - gamma_ref) ** 2
+                
+                total_loss = lattice_loss + angle_loss
+                
                 os.unlink(param_file)
                 self.success_evaluations += 1
-                return loss
+                return total_loss
 
             # Molecular fitting
             calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)

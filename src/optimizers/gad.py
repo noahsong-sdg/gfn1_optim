@@ -219,18 +219,14 @@ class PyGADOptimizer(BaseOptimizer):
         best_solution, best_fitness, _ = self.ga_instance.best_solution()
         best_parameters = self._parameters_to_dict(best_solution)
         
-        # Convert fitness back to RMSE for consistency with other optimizers
-        if best_fitness > 0:
-            self.best_fitness = (1.0 / best_fitness) - 1.0
-        else:
-            self.best_fitness = float('inf')
-        
+        # Set the final best parameters and fitness for reporting
         self.best_parameters = best_parameters
+        self.best_fitness = self.best_rmse  # Use the tracked RMSE value
         
         optimization_time = time.time() - start_time
         
         logger.info(f"PyGAD optimization completed in {optimization_time:.2f} seconds")
-        logger.info(f"Best fitness: {best_fitness:.6f}")
+        logger.info(f"Best PyGAD fitness: {best_fitness:.6f}")
         logger.info(f"Best RMSE: {self.best_fitness:.6f}")
         logger.info(f"Total failed evaluations: {self.failed_evaluations}")
         

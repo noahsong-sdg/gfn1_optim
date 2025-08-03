@@ -10,6 +10,9 @@ from ase.optimize import BFGS
 from ase.filters import UnitCellFilter
 import pandas as pd
 
+# pixi run python tests/lattice_results.py
+
+
 def get_params(calculator):
     atoms = bulk("CdS", "wurtzite", a = 4.17, c = 6.78)
     atoms.calc = calculator
@@ -31,28 +34,28 @@ def get_params(calculator):
     
 def main():
     pso_calc = TBLiteASECalculator(
-        param_file="../results/parameters/CdS_pso.toml",
+        param_file="../results/pso/CdS_pso.toml",
         method="gfn1",
-        electronic_temperature=300.0,
+        electronic_temperature=400.0,
         charge=0.0,
         spin=0,
     )
     ga_calc = TBLiteASECalculator(
-        param_file="../results/parameters/CdS_ga.toml",
+        param_file="../results/ga/CdS_ga.toml",
         method="gfn1",
-        electronic_temperature=300.0,
+        electronic_temperature=400.0,
         charge=0.0,
         spin=0,
     )
     bayes_calc = TBLiteASECalculator(
         param_file="../results/bayes/CdS_bayes.toml",
         method="gfn1",
-        electronic_temperature=300.0,
+        electronic_temperature=400.0,
         charge=0.0,
         spin=0,
     )
 
-    default_df = get_params(TBLite(method="GFN1-xTB", electronic_temperature=300.0))
+    default_df = get_params(TBLite(method="GFN1-xTB", electronic_temperature=400.0))
     print("Default")
     print(default_df)
     pso_df = get_params(pso_calc)
