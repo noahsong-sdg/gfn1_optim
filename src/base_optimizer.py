@@ -240,7 +240,12 @@ class BaseOptimizer(ABC):
             ref_relative = ref_energies - np.min(ref_energies)
             calc_relative = calc_energies - np.min(calc_energies)
             
-            return np.sqrt(np.mean((ref_relative - calc_relative)**2))
+            rmse = np.sqrt(np.mean((ref_relative - calc_relative)**2))
+            
+            # Convert RMSE to fitness (higher is better)
+            fitness = 1.0 / (1.0 + rmse)
+            
+            return fitness
             
         except Exception as e:
             # DEBUG: Log the exception for debugging failed evaluations
@@ -251,7 +256,7 @@ class BaseOptimizer(ABC):
                 self.logger.error(f"[DEBUG] Exception in evaluate_fitness: {e}")
             self.failed_evaluations += 1
             print(f"[DEBUG] Parameters for failed evaluation: {parameters}")
-            return 1000.0
+            return 0.0  # Return very low fitness for failed evaluations
     
     def evaluate_test_performance(self, parameters: Dict[str, float]) -> Dict[str, float]:
         try:
@@ -320,11 +325,11 @@ class BaseOptimizer(ABC):
         return self.get_method_specific_filename(self.system_config.fitness_history_file)
     
     def log_best_rmse(self):
-        """Log the best RMSE achieved during optimization"""
+        """Log the best fitness achieved during optimization"""
         if self.best_fitness is not None and self.best_fitness != float('inf'):
-            logger.info(f"Best RMSE: {self.best_fitness:.6f}")
+            logger.info(f"Best fitness: {self.best_fitness:.6f}")
         else:
-            logger.info("Best RMSE: N/A (no valid optimization completed)")
+            logger.info("Best fitness: N/A (no valid optimization completed)")
     
     def save_best_parameters(self, filename: Optional[str] = None):
         if self.best_parameters is None:

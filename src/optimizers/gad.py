@@ -64,16 +64,13 @@ class PyGADOptimizer(BaseOptimizer):
     def fitness_function(self, ga_instance, solution, solution_idx):
         """
         PyGAD fitness function. Converts solution array to parameter dict and evaluates.
-        Note: PyGAD maximizes fitness, so we return negative RMSE.
+        Note: PyGAD maximizes fitness, so we return fitness directly.
         """
         try:
             param_dict = self._parameters_to_dict(solution)
-            rmse = self.evaluate_fitness(param_dict)
+            fitness = self.evaluate_fitness(param_dict)
             
-            # Convert RMSE to fitness (PyGAD maximizes, so return negative RMSE)
-            fitness = 1.0 / (1.0 + rmse)
-            
-            # Update best parameters if this is better
+            # Update best parameters if this is better (higher fitness)
             if fitness > self.best_fitness:
                 self.best_parameters = param_dict.copy()
                 self.best_fitness = fitness
@@ -221,7 +218,7 @@ class PyGADOptimizer(BaseOptimizer):
         
         # Set the final best parameters and fitness for reporting
         self.best_parameters = best_parameters
-        self.best_fitness = self.best_rmse  # Use the tracked RMSE value
+        self.best_fitness = self.best_fitness  # Use the tracked fitness value
         
         optimization_time = time.time() - start_time
         

@@ -109,8 +109,7 @@ class GeneralParameterPSO(BaseOptimizer):
     
     def evaluate_particle_fitness(self, particle: Particle) -> float:
         """Evaluate fitness of a particle (wrapper around base class method)"""
-        rmse = self.evaluate_fitness(particle.position)
-        return 1.0 / (1.0 + rmse)  # Convert RMSE to fitness (higher is better)
+        return self.evaluate_fitness(particle.position)  # Now returns fitness directly
     
     def initialize_swarm(self):
         """Initialize the swarm"""

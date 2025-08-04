@@ -67,8 +67,9 @@ class GeneralParameterCMA(BaseOptimizer):
             if self.config.bounds_handling == "repair":
                 parameters = self.apply_bounds(parameters)
             
-            # Evaluate fitness using base class method
-            rmse = self.evaluate_fitness(parameters)
+            # Evaluate fitness using base class method and convert to RMSE algebraically using the inverse transformation.
+            fitness = self.evaluate_fitness(parameters)
+            rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
             
             # Apply penalty for out-of-bounds parameters if using penalty method
             if self.config.bounds_handling == "penalty":

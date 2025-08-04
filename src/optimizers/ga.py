@@ -64,8 +64,7 @@ class GeneralParameterGA(BaseOptimizer):
         return Individual(parameters)
     
     def evaluate_individual_fitness(self, individual: Individual) -> float:
-        rmse = self.evaluate_fitness(individual.parameters)
-        return 1.0 / (1.0 + rmse)  # Convert RMSE to fitness (higher is better)
+        return self.evaluate_fitness(individual.parameters)  # Now returns fitness directly
     
     def tournament_selection(self, population: List[Individual]) -> Individual:
         tournament = random.sample(population, self.config.tournament_size)

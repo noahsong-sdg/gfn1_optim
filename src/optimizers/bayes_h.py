@@ -102,8 +102,9 @@ class GeneralParameterBayesian(BaseOptimizer):
         # Convert parameter vector to dictionary
         parameters = {name: value for name, value in zip(self.dimension_names, x)}
         
-        # Evaluate fitness using base class method
-        rmse = self.evaluate_fitness(parameters)
+        # Evaluate fitness using base class method and convert to RMSE
+        fitness = self.evaluate_fitness(parameters)
+        rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
         
         # Handle failed evaluations (infinity values) by returning a large finite penalty
         if not np.isfinite(rmse):
@@ -121,7 +122,7 @@ class GeneralParameterBayesian(BaseOptimizer):
         if self.call_count % 10 == 0 or rmse < self.best_fitness:
             logger.info(f"Call {self.call_count}/{self.config.n_calls}: RMSE = {rmse:.6f}")
         
-        # Update best if improved
+        # Update best if improved (lower RMSE is better)
         if rmse < self.best_fitness:
             self.best_fitness = rmse
             self.best_parameters = parameters.copy()

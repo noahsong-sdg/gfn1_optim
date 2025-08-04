@@ -74,7 +74,10 @@ class GeneralParameterCMA2(BaseOptimizer):
             # Convert numpy array to parameter dictionary
             param_names = [bound.name for bound in self.parameter_bounds]
             parameters = {param_names[i]: float(x[i]) for i in range(len(param_names))}
-            rmse = self.evaluate_fitness(parameters)
+            
+            # Evaluate fitness using base class method and convert to RMSE
+            fitness = self.evaluate_fitness(parameters)
+            rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
             return rmse  # pycma minimizes directly
             
         except Exception as e:
