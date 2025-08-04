@@ -421,9 +421,9 @@ class ParameterBoundsManager:
             logger.info(f"  {param_type}: {', '.join(examples)}") 
 
 
-def create_10p_parameter_bounds(defaults: Dict[str, Any]) -> List[ParameterBounds]:
+def init_dynamic_bounds(defaults: Dict[str, Any]) -> List[ParameterBounds]:
     """
-    Create ParameterBounds for each parameter with bounds set to ±10% of the default value,
+    Create ParameterBounds for each parameter with bounds set to ±25% of the default value,
     but not exceeding the absolute min/max for that parameter type as defined in ParameterBoundsManager.
     Handles both scalar and array-valued parameters.
 
@@ -439,7 +439,7 @@ def create_10p_parameter_bounds(defaults: Dict[str, Any]) -> List[ParameterBound
         if isinstance(default_val, (list, tuple, np.ndarray)):
             for i, v in enumerate(default_val):
                 constraint = manager.get_parameter_constraint(f"{param_name}[{i}]")
-                margin = abs(v) * 0.10
+                margin = abs(v) * 0.25
                 min_val = max(constraint.min_val, v - margin)
                 max_val = min(constraint.max_val, v + margin)
                 if min_val >= max_val:
@@ -456,7 +456,7 @@ def create_10p_parameter_bounds(defaults: Dict[str, Any]) -> List[ParameterBound
                 bounds_list.append(bounds)
         else:
             constraint = manager.get_parameter_constraint(param_name)
-            margin = abs(default_val) * 0.10
+            margin = abs(default_val) * 0.25
             min_val = max(constraint.min_val, default_val - margin)
             max_val = min(constraint.max_val, default_val + margin)
             if min_val >= max_val:

@@ -16,7 +16,7 @@ from calculators.calc import GeneralCalculator, DissociationCurveGenerator, Crys
 from calculators.tblite_ase_calculator import TBLiteASECalculator
 from utils.data_extraction import extract_system_parameters
 from config import get_system_config, CalculationType
-from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, create_10p_parameter_bounds
+from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, init_dynamic_bounds
 from common import setup_logging, RESULTS_DIR, RANDOM_SEED
 
 logger = setup_logging(module_name="base_optimizer")
@@ -48,7 +48,7 @@ class BaseOptimizer(ABC):
         #self.parameter_bounds = self._define_parameter_bounds()
         # this the 10%
         system_defaults = extract_system_parameters(self.system_config.elements)
-        self.parameter_bounds = create_10p_parameter_bounds(system_defaults)
+        self.parameter_bounds = init_dynamic_bounds(system_defaults)
         
         self.full_reference_data = reference_data or self._load_or_generate_reference_data()
         self._split_train_test_data()
@@ -319,6 +319,13 @@ class BaseOptimizer(ABC):
     def get_fitness_history_filename(self) -> str:
         return self.get_method_specific_filename(self.system_config.fitness_history_file)
     
+    def log_best_rmse(self):
+        """Log the best RMSE achieved during optimization"""
+        if self.best_fitness is not None and self.best_fitness != float('inf'):
+            logger.info(f"Best RMSE: {self.best_fitness:.6f}")
+        else:
+            logger.info("Best RMSE: N/A (no valid optimization completed)")
+    
     def save_best_parameters(self, filename: Optional[str] = None):
         if self.best_parameters is None:
             raise ValueError("No optimization has been run")
@@ -333,6 +340,7 @@ class BaseOptimizer(ABC):
             toml.dump(params, f)
         
         logger.info(f"Best parameters saved to {filename}")
+        self.log_best_rmse()  # Log the best RMSE
     
     def save_fitness_history(self, filename: Optional[str] = None):
         if not self.fitness_history:

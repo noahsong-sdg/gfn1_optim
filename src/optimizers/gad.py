@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PyGADConfig:
-    population_size: int = 40
-    generations: int = 150
+    population_size: int = 50
+    generations: int = 20
     mutation_rate: float = 0.1
     crossover_rate: float = 0.8
     tournament_size: int = 3
