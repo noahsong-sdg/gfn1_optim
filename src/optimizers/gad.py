@@ -179,21 +179,23 @@ class PyGADOptimizer(BaseOptimizer):
     
     def get_state(self) -> dict:
         state = super().get_state()
-        if self.ga_instance is not None:
-            state.update({
-                'ga_instance': self.ga_instance,
-                'parameter_names': self.parameter_names,
-                'parameter_bounds_list': self.parameter_bounds_list,
-                'config': self.config
-            })
+        state.update({
+            'parameter_names': self.parameter_names,
+            'parameter_bounds_list': self.parameter_bounds_list,
+            'config': self.config
+        })
+        # Exclude ga_instance from checkpointing as it contains unpicklable functions
+        logger.debug("Excluded ga_instance from checkpoint to avoid pickling issues")
         return state
 
     def set_state(self, state: dict):
         super().set_state(state)
-        self.ga_instance = state.get('ga_instance')
         self.parameter_names = state.get('parameter_names', [])
         self.parameter_bounds_list = state.get('parameter_bounds_list', [])
         self.config = state.get('config', self.config)
+        # Reset ga_instance as it's not included in checkpoints
+        self.ga_instance = None
+        logger.debug("Reset ga_instance during state restoration")
     
     def optimize(self) -> Dict[str, float]:
         """Run PyGAD optimization"""
