@@ -88,7 +88,7 @@ SYSTEM_CONFIGS = {
         calculation_type=CalculationType.LATTICE_CONSTANTS,
         elements=["Cd", "S"],
         crystal_system="wurtzite",
-        lattice_params={"a": 4.17, "b": 4.17, "c": 6.78, "alpha": 90, "beta": 90, "gamma": 120},  # Experimental values from literature
+        lattice_params={"a": 4.17, "b": 4.17, "c": 6.78, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},  # Experimental values from literature
         num_points=50,  # Number of lattice parameter variations to test
         spin_multiplicity=0
     )

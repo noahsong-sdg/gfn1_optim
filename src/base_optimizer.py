@@ -209,15 +209,36 @@ class BaseOptimizer(ABC):
                 # Target angles for wurtzite structure
                 alpha_ref, beta_ref, gamma_ref = self.system_config.lattice_params["alpha"], self.system_config.lattice_params["beta"], self.system_config.lattice_params["gamma"]
                 
-                # Combined loss: lattice parameters + angles
-                lattice_loss = (a_opt - a_ref) ** 2 + (b_opt - b_ref) ** 2 + (c_opt - c_ref) ** 2
-                angle_loss = (alpha_opt - alpha_ref) ** 2 + (beta_opt - beta_ref) ** 2 + (gamma_opt - gamma_ref) ** 2
+                # Combined loss: lattice parameters + angles + energy
+                # Normalize each component to [0,1] range and apply weights
                 
-                total_loss = lattice_loss + angle_loss
+                # Lattice parameter errors (normalized by typical scale ~0.1 Å)
+                lattice_scale = 0.1  # typical error scale in Å
+                lattice_loss = ((a_opt - a_ref) ** 2 + (b_opt - b_ref) ** 2 + (c_opt - c_ref) ** 2) / (3 * lattice_scale ** 2)
+                
+                # Angle errors (normalized by typical scale ~1 degree)
+                angle_scale = 1.0  # typical error scale in degrees
+                angle_loss = ((alpha_opt - alpha_ref) ** 2 + (beta_opt - beta_ref) ** 2 + (gamma_opt - gamma_ref) ** 2) / (3 * angle_scale ** 2)
+                
+                # Energy error (normalized by typical scale ~1 eV)
+                energy_scale = 1.0  # typical error scale in eV
+                energy_loss = (result_df['energy'].iloc[0] - self.system_config.lattice_params["energy"]) ** 2 / (energy_scale ** 2)
+                
+                # Weighted combination (energy is most important)
+                lattice_weight = 0.3    # 30% importance
+                angle_weight = 0.1      # 10% importance  
+                energy_weight = 0.6     # 60% importance (most important)
+                
+                total_loss = (lattice_weight * lattice_loss + 
+                             angle_weight * angle_loss + 
+                             energy_weight * energy_loss)
+                
+                # Convert to fitness (higher is better)
+                fitness = 1.0 / (1.0 + total_loss)
                 
                 os.unlink(param_file)
                 self.success_evaluations += 1
-                return total_loss
+                return fitness
 
             # Molecular fitting
             calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)

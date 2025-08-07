@@ -376,7 +376,7 @@ class CrystalGenerator:
             'alpha': [atoms.cell.cellpar()[3]],
             'beta': [atoms.cell.cellpar()[4]],
             'gamma': [atoms.cell.cellpar()[5]],
-            'Energy': [atoms.get_potential_energy() * 0.0367493],  # Convert to Hartree
+            'energy': [atoms.get_potential_energy() * 0.0367493],  # Convert to Hartree
             #'bandgap': self.get_bandgap(),
             #'elastic': self.getElastic()
         })
