@@ -15,7 +15,7 @@ import random
 from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
 from calculators.tblite_ase_calculator import TBLiteASECalculator
 from calculators.bulk_calculator import BulkCalculator, create_bulk_calculator
-from src.utils.extract_default import extract_system_parameters
+from utils.extract_default import extract_system_parameters
 from config import get_system_config, CalculationType
 from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, init_dynamic_bounds
 from common import setup_logging, RESULTS_DIR, RANDOM_SEED
