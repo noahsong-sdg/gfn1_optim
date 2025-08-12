@@ -3,7 +3,7 @@ Tests package for TBLite optimization.
 Contains comparison and validation tools.
 """
 
-from .compare import MethodComparisonAnalyzer
+from .compare_diss import MethodComparisonAnalyzer
 from .bandgap import BandgapCalculator
 from .bulk_materials_validator import BulkMaterialsValidator
 

@@ -7,6 +7,7 @@ import pandas as pd
 from base_optimizer import BaseOptimizer
 from utils.parameter_bounds import ParameterBounds
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -150,10 +151,18 @@ class GeneralParameterPSO(BaseOptimizer):
         """Run PSO optimization"""
         logger.info(f"Starting PSO optimization for {self.system_name}")
         
-        # Initialize swarm
-        self.initialize_swarm()
+        # Try to load checkpoint if exists
+        checkpoint_path = self.get_checkpoint_path()
+        if os.path.exists(checkpoint_path):
+            logger.info(f"Loading checkpoint from {checkpoint_path}")
+            self.load_checkpoint()
+            logger.info(f"Resuming from iteration {self.iteration}")
+        else:
+            logger.info("No checkpoint found, starting fresh optimization")
+            # Initialize swarm
+            self.initialize_swarm()
         
-        for iteration in range(self.config.max_iterations):
+        for iteration in range(self.iteration, self.config.max_iterations):
             self.iteration = iteration
             logger.info(f"Iteration {iteration + 1}/{self.config.max_iterations}")
             
@@ -176,6 +185,11 @@ class GeneralParameterPSO(BaseOptimizer):
                 'avg_fitness': avg_fitness,
                 'std_fitness': np.std([p.fitness for p in self.swarm])
             })
+            
+            # Save checkpoint every 10 iterations
+            if iteration % 10 == 0:
+                self.save_checkpoint()
+                logger.debug(f"Checkpoint saved at iteration {iteration}")
             
             # Early stopping if all fitness values are 0
             if best_fitness == 0.0:
@@ -218,6 +232,10 @@ class GeneralParameterPSO(BaseOptimizer):
         if self.global_best_position is not None:
             self.best_parameters = self.global_best_position.copy()
             self.best_fitness = self.global_best_fitness
+        
+        # Save final checkpoint
+        self.save_checkpoint()
+        logger.info("Final checkpoint saved")
         
         return self.best_parameters
 
