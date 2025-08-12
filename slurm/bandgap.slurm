@@ -24,4 +24,4 @@ cd /projects/noso3320/work/gfn1_optim
 
 conda activate /projects/noso3320/software/gfn_env
 # try def2-TZVP and def2-SVP
-python tests/bandgap.py --test --method pbe --basis sto-3g --output test_band_gaps_fast.csv
+python src/tests/bandgap.py --test --method pbe --basis sto-3g --output test_band_gaps_fast.csv
