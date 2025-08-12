@@ -2,9 +2,10 @@
 """
 Streamlined band gap calculation using PySCF.
 Uses proper band structure API for gamma point calculations.
+
+ai generated!!!
 """
 
-import sys
 import os
 import argparse
 import time
@@ -17,43 +18,29 @@ import pandas as pd
 import ase.io
 from ase import Atoms
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-# PySCF imports
 import pyscf
 import pyscf.pbc.gto
 import pyscf.pbc.dft
 from pyscf.pbc import dft as pbc_dft
 
+logger = logging.getLogger(__name__)
 
 def atoms_to_pyscf_cell(atoms: Atoms, basis: str = 'sto-3g') -> pyscf.pbc.gto.Cell:
     """Convert ASE atoms to PySCF cell for periodic calculations"""
-    cell_params = atoms.get_cell()
-    positions = atoms.get_positions()
-    symbols = atoms.get_chemical_symbols()
-    
     cell = pyscf.pbc.gto.Cell()
-    cell.a = cell_params
+    cell.a = atoms.get_cell()
     cell.unit = 'Angstrom'
     cell.basis = basis
     cell.verbose = 0
     
-    # Add atoms
-    for symbol, pos in zip(symbols, positions):
+    for symbol, pos in zip(atoms.get_chemical_symbols(), atoms.get_positions()):
         cell.atom.append([symbol, pos.tolist()])
     
     cell.build()
     return cell
 
-
 def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') -> Dict[str, float]:
-    """
-    Calculate band gap using PySCF band structure API, following the canonical examplefromdocs.py pattern.
-    Runs SCF, uses get_bands, and extracts VBM/CBM across all k-points.
-    Returns both direct and indirect band gaps if possible.
-    """
+    """Calculate band gap using PySCF band structure API"""
     try:
         cell = atoms_to_pyscf_cell(atoms, basis)
         if not cell.nbas:
@@ -61,7 +48,10 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') 
         # Use only gamma point for minimal case, but allow for extension
         kpts = np.array([[0, 0, 0]])
         
+        # llm tells me that rks is standard for semiconductors, fine for band gaps
+        # UKS is needed for magnetic materials and open shelled systems (2x expensive)
         mf = pbc_dft.RKS(cell, kpts)
+        # pbe underestimates band gaps by a lot
         if method.lower() == 'pbe':
             mf.xc = 'pbe'
         elif method.lower() == 'pbe0':
@@ -72,10 +62,9 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') 
             mf.exxdiv = 'ewald'
         else:
             mf.xc = method
+            
         mf = mf.density_fit()
-        mf.max_memory = 4000
         mf.conv_tol = 1e-5
-        mf.max_cycle = 100
         mf.kernel()
 
         # For a full band structure, you would use a k-point path. Here, just gamma:
@@ -89,15 +78,14 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') 
         vbm_list = []
         cbm_list = []
         direct_gaps = []
+        
         for en in e_kn:
             occ = en[:nocc]
             unocc = en[nocc:]
             if len(occ) > 0:
-                vbm = np.max(occ)
-                vbm_list.append(vbm)
+                vbm_list.append(np.max(occ))
             if len(unocc) > 0:
-                cbm = np.min(unocc)
-                cbm_list.append(cbm)
+                cbm_list.append(np.min(unocc))
             if len(occ) > 0 and len(unocc) > 0:
                 direct_gaps.append(np.min(unocc) - np.max(occ))
 
@@ -106,6 +94,7 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') 
             global_cbm = np.min(cbm_list)
             indirect_gap = global_cbm - global_vbm
             direct_gap = np.min(direct_gaps) if direct_gaps else indirect_gap
+            
             return {
                 'indirect_gap': indirect_gap,
                 'direct_gap': direct_gap,
@@ -117,46 +106,24 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe', basis: str = 'sto-3g') 
                 'total_energy': mf.e_tot,
                 'error': None
             }
+        
         return {
-            'indirect_gap': 0.0,
-            'direct_gap': 0.0,
-            'global_vbm': 0.0,
-            'global_cbm': 0.0,
-            'method': method,
-            'basis': basis,
-            'converged': mf.converged,
-            'total_energy': mf.e_tot,
-            'error': 'Could not determine band gap'
+            'indirect_gap': 0.0, 'direct_gap': 0.0, 'global_vbm': 0.0, 'global_cbm': 0.0,
+            'method': method, 'basis': basis, 'converged': mf.converged,
+            'total_energy': mf.e_tot, 'error': 'Could not determine band gap'
         }
+        
     except Exception as e:
         return {
-            'indirect_gap': 0.0,
-            'direct_gap': 0.0,
-            'global_vbm': 0.0,
-            'global_cbm': 0.0,
-            'method': method,
-            'basis': basis,
-            'converged': False,
-            'total_energy': 0.0,
-            'error': str(e)
+            'indirect_gap': 0.0, 'direct_gap': 0.0, 'global_vbm': 0.0, 'global_cbm': 0.0,
+            'method': method, 'basis': basis, 'converged': False,
+            'total_energy': 0.0, 'error': str(e)
         }
-
 
 def process_structures(xyz_file: str, output_file: str = None, method: str = 'pbe', 
                      basis: str = 'sto-3g') -> pd.DataFrame:
-    """
-    Process all structures in an XYZ file and compute band gaps
-    
-    Args:
-        xyz_file: Path to XYZ file
-        output_file: Path to output CSV file
-        method: DFT functional to use
-        basis: Basis set
-        
-    Returns:
-        DataFrame with results
-    """
-    print(f"Reading structures from {xyz_file}...")
+    """Process all structures in an XYZ file and compute band gaps"""
+    print(f"Reading {xyz_file}...")
     structures = list(ase.io.read(xyz_file, index=':'))
     print(f"Found {len(structures)} structures")
     
@@ -164,7 +131,7 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
     start_time = time.time()
     
     for i, atoms in enumerate(structures):
-        print(f"Processing structure {i+1}/{len(structures)}: {atoms.get_chemical_formula()}")
+        print(f"Structure {i+1}/{len(structures)}: {atoms.get_chemical_formula()}")
         
         # Get structure info
         structure_info = {
@@ -178,76 +145,53 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
         }
         
         # Calculate band gap
-        calc_start_time = time.time()
+        calc_start = time.time()
         try:
             result = calculate_bandgap(atoms, method, basis)
-            calc_time = time.time() - calc_start_time
+            calc_time = time.time() - calc_start
             
+            if result['converged'] and result['error'] is None:
+                print(f"  Band gap: {result['direct_gap']:.4f} eV ({calc_time/60:.1f} min)")
+            else:
+                print(f"  Failed ({calc_time/60:.1f} min): {result['error']}")
+                
         except Exception as e:
-            calc_time = time.time() - calc_start_time
-            logger.error(f"Calculation failed for structure {i+1}: {e}")
+            calc_time = time.time() - calc_start
+            print(f"  Error ({calc_time/60:.1f} min): {e}")
             result = {
-                'indirect_gap': 0.0,
-                'direct_gap': 0.0,
-                'global_vbm': 0.0,
-                'global_cbm': 0.0,
-                'method': method,
-                'basis': basis,
-                'converged': False,
-                'total_energy': 0.0,
-                'error': str(e)
+                'indirect_gap': 0.0, 'direct_gap': 0.0, 'global_vbm': 0.0, 'global_cbm': 0.0,
+                'method': method, 'basis': basis, 'converged': False,
+                'total_energy': 0.0, 'error': str(e)
             }
         
-        # Combine results
-        combined_result = {**structure_info, **result, 'calculation_time': calc_time}
-        results.append(combined_result)
-        
-        # Print progress
-        if result['converged'] and result['error'] is None:
-            print(f"  Band gap: {result['direct_gap']:.4f} eV (time: {calc_time/60:.1f} min)")
-        else:
-            print(f"  Failed to converge (time: {calc_time/60:.1f} min)")
-            if result['error']:
-                print(f"  Error: {result['error']}")
+        results.append({**structure_info, **result, 'calculation_time': calc_time})
         
         # Save intermediate results every 10 structures
         if (i + 1) % 10 == 0:
-            df_temp = pd.DataFrame(results)
-            temp_file = f"temp_results_{i+1}.csv"
-            df_temp.to_csv(temp_file, index=False)
-            print(f"  Saved intermediate results to {temp_file}")
+            pd.DataFrame(results).to_csv(f"temp_results_{i+1}.csv", index=False)
     
-    # Create final DataFrame
+    # Create final DataFrame and save
     df = pd.DataFrame(results)
-    
-    # Save results
     if output_file is None:
         output_file = f"band_gap_results_{Path(xyz_file).stem}_{method}_{basis}.csv"
     
     df.to_csv(output_file, index=False)
-    print(f"\nResults saved to {output_file}")
     
     # Print summary
     successful = df[df['converged'] == True]
-    failed = df[df['converged'] == False]
-    
     print(f"\n=== SUMMARY ===")
-    print(f"Total structures: {len(structures)}")
-    print(f"Successful calculations: {len(successful)}")
-    print(f"Failed calculations: {len(failed)}")
-    print(f"Success rate: {len(successful)/len(structures)*100:.1f}%")
+    print(f"Success: {len(successful)}/{len(structures)} ({len(successful)/len(structures)*100:.1f}%)")
     
     if len(successful) > 0:
-        band_gaps = successful['direct_gap'].values
-        print(f"Band gap range: {np.min(band_gaps):.3f} - {np.max(band_gaps):.3f} eV")
-        print(f"Mean band gap: {np.mean(band_gaps):.3f} ± {np.std(band_gaps):.3f} eV")
+        gaps = successful['direct_gap'].values
+        print(f"Band gap range: {np.min(gaps):.3f} - {np.max(gaps):.3f} eV")
+        print(f"Mean: {np.mean(gaps):.3f} ± {np.std(gaps):.3f} eV")
     
     total_time = time.time() - start_time
     print(f"Total time: {total_time/3600:.2f} hours")
-    print(f"Average time per structure: {total_time/len(structures)/60:.1f} minutes")
+    print(f"Results saved to: {output_file}")
     
     return df
-
 
 def main():
     """Main function to run band gap calculations"""
@@ -271,14 +215,12 @@ def main():
         structures = list(ase.io.read(args.xyz_file, index=':3'))
         test_file = 'test_structures.xyz'
         ase.io.write(test_file, structures)
-        
         df = process_structures(test_file, args.output, args.method, args.basis)
         os.remove(test_file)
     else:
         df = process_structures(args.xyz_file, args.output, args.method, args.basis)
     
     return df
-
 
 if __name__ == "__main__":
     main() 

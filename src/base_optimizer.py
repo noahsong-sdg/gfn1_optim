@@ -14,7 +14,8 @@ import random
 
 from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
 from calculators.tblite_ase_calculator import TBLiteASECalculator
-from utils.data_extraction import extract_system_parameters
+from calculators.bulk_calculator import BulkCalculator, create_bulk_calculator
+from src.utils.extract_default import extract_system_parameters
 from config import get_system_config, CalculationType
 from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, init_dynamic_bounds
 from common import setup_logging, RESULTS_DIR, RANDOM_SEED
@@ -88,6 +89,32 @@ class BaseOptimizer(ABC):
         return self.bounds_manager.apply_bounds(parameters, self.parameter_bounds)
     
     def _load_or_generate_reference_data(self) -> pd.DataFrame:
+        # Handle bulk materials differently
+        if self.system_config.calculation_type == CalculationType.BULK:
+            # For bulk materials, we need to process the XYZ file
+            # Use system name to determine which XYZ file to use
+            if self.system_name == "BulkMaterials":
+                xyz_file = "trainall.xyz"
+            elif self.system_name == "CompareBulk":
+                xyz_file = "compare_bulk.xyz"  # You can make this configurable
+            else:
+                xyz_file = f"{self.system_name.lower()}.xyz"
+                
+            if not Path(xyz_file).exists():
+                raise FileNotFoundError(f"Bulk materials XYZ file not found: {xyz_file}")
+            
+            # Create bulk calculator and process the file
+            bulk_calc = create_bulk_calculator(self.base_param_file, self.system_config)
+            reference_df, _ = bulk_calc.process_bulk_system(xyz_file, max_structures=self.system_config.num_points)
+            
+            # Save reference data for future use
+            ref_file = Path(self.system_config.reference_data_file)
+            ref_file.parent.mkdir(parents=True, exist_ok=True)
+            reference_df.to_csv(ref_file, index=False)
+            logger.info(f"Saved reference data to {ref_file}")
+            
+            return reference_df
+        
         # Try CCSD data first
         if self.system_name in ["H2", "Si2"]:
             ccsd_file = RESULTS_DIR / "curves" / f"{self.system_name.lower()}_ccsd_500.csv"
@@ -112,11 +139,12 @@ class BaseOptimizer(ABC):
             return generator.generate_curve(save=True, filename=str(ref_file))
     
     def _split_train_test_data(self):
-        if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-            # Dummy values for solids
+        if self.system_config.calculation_type in [CalculationType.LATTICE_CONSTANTS, CalculationType.BULK]:
+            # For solids and bulk materials, use all data (no train/test split needed for energy optimization)
             self.train_distances = self.test_distances = np.array([])
             self.train_energies = self.test_energies = np.array([])
-            self.reference_data = self.test_reference_data = pd.DataFrame()
+            self.reference_data = self.full_reference_data
+            self.test_reference_data = self.full_reference_data
             return
         
         # Split molecular data
@@ -196,7 +224,34 @@ class BaseOptimizer(ABC):
             parameters = self.apply_bounds(parameters)
             param_file = self.create_param_file(parameters)
 
-            if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+            if self.system_config.calculation_type == CalculationType.BULK:
+                # Bulk materials energy optimization
+                bulk_calc = create_bulk_calculator(param_file, self.system_config)
+                
+                # Use system name to determine which XYZ file to use
+                if self.system_name == "BulkMaterials":
+                    xyz_file = "trainall.xyz"
+                elif self.system_name == "CompareBulk":
+                    xyz_file = "compare_bulk.xyz"
+                else:
+                    xyz_file = f"{self.system_name.lower()}.xyz"
+                
+                # Load structures and calculate energies
+                structures = bulk_calc.load_structures_from_xyz(xyz_file, max_structures=self.system_config.num_points)
+                reference_energies = bulk_calc.extract_reference_energies(structures)
+                calculated_energies = bulk_calc.calculate_energies(structures)
+                
+                # Compute RMSE loss
+                rmse = bulk_calc.compute_energy_loss(reference_energies, calculated_energies)
+                
+                # Convert to fitness (higher is better)
+                fitness = 1.0 / (1.0 + rmse)
+                
+                os.unlink(param_file)
+                self.success_evaluations += 1
+                return fitness
+
+            elif self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
                 calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)

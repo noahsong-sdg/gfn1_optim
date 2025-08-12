@@ -91,6 +91,32 @@ SYSTEM_CONFIGS = {
         lattice_params={"a": 4.17, "b": 4.17, "c": 6.78, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},  # Experimental values from literature
         num_points=50,  # Number of lattice parameter variations to test
         spin_multiplicity=0
+    ),
+    
+    "BulkMaterials": SystemConfig(
+        name="BulkMaterials",
+        system_type=SystemType.SOLID_STATE,
+        calculation_type=CalculationType.BULK,
+        elements=["Cd", "S"],  # Will be determined from data
+        crystal_system="bulk",
+        num_points=100,  # Number of structures to process
+        spin_multiplicity=0,
+        reference_data_file=str(RESULTS_DIR / "curves" / "bulk_materials_reference.csv"),
+        optimized_params_file=str(RESULTS_DIR / "parameters" / "bulk_materials_optimized.toml"),
+        fitness_history_file=str(RESULTS_DIR / "fitness" / "bulk_materials_fitness_history.csv")
+    ),
+    
+    "CompareBulk": SystemConfig(
+        name="CompareBulk",
+        system_type=SystemType.SOLID_STATE,
+        calculation_type=CalculationType.BULK,
+        elements=["Cd", "S"],  # Will be determined from data
+        crystal_system="bulk",
+        num_points=50,  # Number of structures to process
+        spin_multiplicity=0,
+        reference_data_file=str(RESULTS_DIR / "curves" / "compare_bulk_reference.csv"),
+        optimized_params_file=str(RESULTS_DIR / "parameters" / "compare_bulk_optimized.toml"),
+        fitness_history_file=str(RESULTS_DIR / "fitness" / "compare_bulk_fitness_history.csv")
     )
 }
 

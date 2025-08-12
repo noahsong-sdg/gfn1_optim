@@ -109,6 +109,8 @@ Examples:
   python src/cli.py ga H2 config/gfn1-base.toml --output results/ga
   python src/cli.py pso Si2 config/gfn1-base.toml --generations 100 --output results/pso
   python src/cli.py bayes CdS config/gfn1-base.toml --n_calls 200 --output results/bayes
+  python src/cli.py pso BulkMaterials config/gfn1-base.toml --max-iterations 50 --output results/bulk
+  python src/cli.py ga CompareBulk config/gfn1-base.toml --generations 100 --output results/compare
         """
     )
     
