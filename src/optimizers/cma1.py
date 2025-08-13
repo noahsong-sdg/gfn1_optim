@@ -1,15 +1,15 @@
 """
 CMA-ES (Covariance Matrix Adaptation Evolution Strategy) for TBLite parameter optimization - Refactored to use BaseOptimizer
+
+ONE SHOT
 """
 import numpy as np
 import pandas as pd
 import logging
-import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 from dataclasses import dataclass
 import time
-import copy
 from base_optimizer import BaseOptimizer
 from cmaes import CMA
 

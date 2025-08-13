@@ -13,15 +13,15 @@
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=noso3320@colorado.edu
 
-# Load required modules
 module purge
 module load gcc
 module load cmake
 module load anaconda
 
-# Set up environment
 cd /projects/noso3320/work/gfn1_optim
 
 conda activate /projects/noso3320/software/gfn_env
+export OMP_NUM_THREADS=16
+
 # try def2-TZVP and def2-SVP
-python src/tests/bandgap.py --test --method pbe --basis sto-3g --output test_band_gaps_fast.csv
+python src/tests/bandgap.py --test --method pbe --basis sto-3g --output test_band_gaps_fast.csv --n-jobs 16
