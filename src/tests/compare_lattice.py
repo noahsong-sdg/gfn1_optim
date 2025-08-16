@@ -144,22 +144,29 @@ def generate_crystal_plots(results_df: pd.DataFrame, save_dir: Path = Path("resu
             print(f"Failed to generate crystal plot for {method_name}: {e}")
 
 def main():
-    pso_calc = TBLiteASECalculator(
+    """pso_calc = TBLiteASECalculator(
         param_file="../results/pso/CdS_pso.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
         spin=0,
-    )
-    ga_calc = TBLiteASECalculator(
+    )"""
+    """ga_calc = TBLiteASECalculator(
         param_file="../results/ga/CdS_ga.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
         spin=0,
-    )
+    )"""
     bayes_calc = TBLiteASECalculator(
         param_file="../results/bayes/CdS_bayes.toml",
+        method="gfn1",
+        electronic_temperature=400.0,
+        charge=0.0,
+        spin=0,
+    )
+    cma_calc = TBLiteASECalculator(
+        param_file="../results/cma1/CdS_cma1.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
@@ -169,22 +176,20 @@ def main():
     default_df = get_params(TBLite(method="GFN1-xTB", electronic_temperature=400.0))
     print("Default")
     print(default_df)
-    pso_df = get_params(pso_calc)
-    print("PSO")
-    print(pso_df)
-    ga_df = get_params(ga_calc)
-    print("GA")
-    print(ga_df)
     bayes_df = get_params(bayes_calc)
     print("Bayes")
     print(bayes_df)    
+    cma1_df = get_params(cma_calc)
+    print("cma1")
+    print(cma1_df) 
     # DEBUG: Concatenate all DataFrames with method name as first column
 
     # Add a column to each DataFrame to indicate the method name
     default_df['Method'] = 'Default'
-    pso_df['Method'] = 'PSO'
-    ga_df['Method'] = 'GA'
+    #pso_df['Method'] = 'PSO'
+    # ga_df['Method'] = 'GA'
     bayes_df['Method'] = 'Bayes'
+    cma1_df['Method'] = 'CMA1'
 
     # Reorder columns so 'Method' is first
     def reorder_columns(df):
@@ -194,12 +199,13 @@ def main():
         return df[cols]
 
     default_df = reorder_columns(default_df)
-    pso_df = reorder_columns(pso_df)
-    ga_df = reorder_columns(ga_df)
+    #pso_df = reorder_columns(pso_df)
+    #ga_df = reorder_columns(ga_df)
     bayes_df = reorder_columns(bayes_df)
+    cma1_df = reorder_columns(cma1_df)
 
     # Concatenate all DataFrames
-    all_results_df = pd.concat([default_df, pso_df, ga_df, bayes_df], ignore_index=True)
+    all_results_df = pd.concat([default_df, bayes_df, cma1_df], ignore_index=True)
     all_results_df.to_csv("lattice_results.csv", index=False)
     print(all_results_df)
     

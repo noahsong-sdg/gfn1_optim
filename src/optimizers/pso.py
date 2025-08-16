@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PSOConfig:
-    swarm_size: int = 40
-    max_iterations: int = 100
+    swarm_size: int = 30
+    max_iterations: int = 80
     w: float = 0.7  # Inertia weight
     c1: float = 1.5  # Cognitive coefficient
     c2: float = 1.5  # Social coefficient
@@ -22,7 +22,7 @@ class PSOConfig:
     w_max: float = 0.9  # Maximum inertia weight
     use_adaptive_inertia: bool = True
     convergence_threshold: float = 1e-8  # Much stricter convergence threshold
-    patience: int = 50  # Much higher patience
+    patience: int = 20  # Much higher patience
     min_iterations: int = 20  # Minimum iterations before allowing convergence
 
 
