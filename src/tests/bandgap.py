@@ -128,7 +128,34 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe') -> Dict[str, float]:
     nelec = cell.nelectron
 
     logger.info(e_kn)
-    return e_kn
+    
+    # Calculate band gap from energy bands
+    # For gamma point calculation, we have only one k-point
+    energies = e_kn[0]  # Shape: (n_bands,)
+    
+    # Find HOMO and LUMO
+    # HOMO is the highest occupied orbital (index nelec//2 - 1 for closed shell)
+    # LUMO is the lowest unoccupied orbital (index nelec//2)
+    homo_idx = nelec // 2 - 1
+    lumo_idx = nelec // 2
+    
+    if homo_idx >= 0 and lumo_idx < len(energies):
+        homo_energy = energies[homo_idx]
+        lumo_energy = energies[lumo_idx]
+        band_gap = lumo_energy - homo_energy
+        converged = True
+    else:
+        homo_energy = lumo_energy = band_gap = float('nan')
+        converged = False
+    
+    return {
+        'homo_energy': float(homo_energy),
+        'lumo_energy': float(lumo_energy), 
+        'direct_gap': float(band_gap),
+        'converged': converged,
+        'n_bands': len(energies),
+        'n_electrons': nelec
+    }
 
 def process_structures(xyz_file: str, output_file: str = None, method: str = 'pbe') -> pd.DataFrame:
     structures = list(ase.io.read(xyz_file, index=':'))
@@ -158,20 +185,32 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
         results.append({**structure_info, **result, 'calculation_time': calc_time})
 
         if (i + 1) % 10 == 0:
-            pd.DataFrame(results).to_csv(f"temp_results_{i+1}.csv", index=False)
+            temp_df = pd.DataFrame(results)
+            temp_df.to_csv(f"temp_results_{i+1}.csv", index=False)
     
     # Create final DataFrame and save
     df = pd.DataFrame(results)    
-    df.to_csv(output_file, index=False)
+    if output_file:
+        df.to_csv(output_file, index=False)
     
+    # Filter successful calculations
     successful = df[df['converged'] == True]
     
     if len(successful) > 0:
         gaps = successful['direct_gap'].values
-        logger.info(f"Mean: {np.mean(gaps):.3f} ± {np.std(gaps):.3f} eV")
+        # Filter out NaN values
+        valid_gaps = gaps[~np.isnan(gaps)]
+        if len(valid_gaps) > 0:
+            logger.info(f"Mean band gap: {np.mean(valid_gaps):.3f} ± {np.std(valid_gaps):.3f} eV")
+        else:
+            logger.info("No valid band gaps calculated")
+    else:
+        logger.info("No successful calculations")
+        
     total_time = time.time() - start_time
     logger.info(f"Total time: {total_time/3600:.2f} hours")
-    logger.info(f"Results saved in {output_file}")
+    if output_file:
+        logger.info(f"Results saved in {output_file}")
     
     return df
 
