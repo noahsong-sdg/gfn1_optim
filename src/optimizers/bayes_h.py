@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.DEBUG)
 @dataclass
 class BayesianConfig:
     """Configuration for Bayesian optimization"""
-    n_calls: int = 200  # Number of function evaluations (increased for better sampling)
+    n_calls: int = 500  # Number of function evaluations (increased for better sampling)
     n_initial_points: int = 20  # Number of random points to start with (increased)
     acq_func: str = "EI"  # Acquisition function: "EI", "LCB", "PI"
     acq_optimizer: str = "auto"  # Acquisition optimizer

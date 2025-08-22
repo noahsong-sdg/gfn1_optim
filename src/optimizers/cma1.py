@@ -37,7 +37,7 @@ BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 class CMAConfig:
     """Configuration for CMA-ES optimization"""
     sigma: float = 0.1  # Initial step size 
-    max_generations: int = 50  # Maximum number of generations 
+    max_generations: int = 100  # Maximum number of generations 
     population_size: Optional[int] = None  # If None, uses CMA-ES default (4 + 3*log(dim))
     seed: Optional[int] = None  
     convergence_threshold: float = 1e-6  # Fitness improvement threshold

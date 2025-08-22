@@ -9,8 +9,8 @@ from base_optimizer import BaseOptimizer
 
 @dataclass
 class GAConfig:
-    population_size: int = 30  
-    generations: int = 80     
+    population_size: int = 10  
+    generations: int = 20     
     mutation_rate: float = 0.1
     crossover_rate: float = 0.8
     tournament_size: int = 3

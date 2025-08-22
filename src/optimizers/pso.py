@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PSOConfig:
-    swarm_size: int = 30
-    max_iterations: int = 80
+    swarm_size: int = 10
+    max_iterations: int = 20
     w: float = 0.7  # Inertia weight
     c1: float = 1.5  # Cognitive coefficient
     c2: float = 1.5  # Social coefficient

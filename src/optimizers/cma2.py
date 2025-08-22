@@ -45,7 +45,7 @@ class CMA2Config:
     verb_disp: int = 1  # Verbosity level (0 = silent, 1 = progress, 2 = detailed)
     tolfun: float = 1e-6  # Function value tolerance
     tolx: float = 1e-6  # Solution tolerance
-    maxiter: int = 1000  # Maximum iterations
+    maxiter: int = 200  # Maximum iterations
     bounds_handling: str = "penalty"  # "repair" or "penalty"
 
 class GeneralParameterCMA2(BaseOptimizer):
