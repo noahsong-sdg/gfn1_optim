@@ -39,6 +39,16 @@ import pyscf
 import pyscf.pbc.gto
 import pyscf.pbc.dft
 from pyscf.pbc import dft as pbc_dft
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+
+# Suppress PySCF warnings about JSON serialization
+logging.getLogger('pyscf').setLevel(logging.WARNING)
 os.environ['OMP_NUM_THREADS'] = "16" 
 logger = logging.getLogger(__name__)
 
@@ -160,10 +170,19 @@ def calculate_bandgap(atoms: Atoms, method: str = 'pbe') -> Dict[str, float]:
 def process_structures(xyz_file: str, output_file: str = None, method: str = 'pbe') -> pd.DataFrame:
     structures = list(ase.io.read(xyz_file, index=':'))
     
+    print(f"\n=== BAND GAP CALCULATION ===")
+    print(f"Input file: {xyz_file}")
+    print(f"Number of structures: {len(structures)}")
+    print(f"Method: {method.upper()}")
+    print(f"Output file: {output_file if output_file else 'None (results only printed)'}")
+    print(f"Temporary files: temp_results_*.csv (every 10 structures)")
+    print("=" * 50)
+    
     results = []
     start_time = time.time()
     
     for i, atoms in enumerate(structures):
+        print(f"Processing structure {i+1}/{len(structures)}: {atoms.get_chemical_formula()}")
         logger.info(f"Structure {i+1}/{len(structures)}: {atoms.get_chemical_formula()}")
         
         # Get structure info
@@ -179,14 +198,31 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
         
         # Calculate band gap
         calc_start = time.time()
-        result = calculate_bandgap(atoms, method)
-        calc_time = time.time() - calc_start
-        
-        results.append({**structure_info, **result, 'calculation_time': calc_time})
+        try:
+            result = calculate_bandgap(atoms, method)
+            calc_time = time.time() - calc_start
+            print(f"  Band gap: {result['direct_gap']:.3f} eV (converged: {result['converged']})")
+            
+            results.append({**structure_info, **result, 'calculation_time': calc_time})
+        except Exception as e:
+            calc_time = time.time() - calc_start
+            print(f"  ERROR: {e}")
+            logger.error(f"Failed to calculate band gap for structure {i+1}: {e}")
+            # Add failed result
+            failed_result = {
+                'homo_energy': float('nan'),
+                'lumo_energy': float('nan'),
+                'direct_gap': float('nan'),
+                'converged': False,
+                'n_bands': 0,
+                'n_electrons': 0
+            }
+            results.append({**structure_info, **failed_result, 'calculation_time': calc_time})
 
         if (i + 1) % 10 == 0:
             temp_df = pd.DataFrame(results)
             temp_df.to_csv(f"temp_results_{i+1}.csv", index=False)
+            print(f"  Saved temporary results to temp_results_{i+1}.csv")
     
     # Create final DataFrame and save
     df = pd.DataFrame(results)    
@@ -196,20 +232,35 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
     # Filter successful calculations
     successful = df[df['converged'] == True]
     
+    print(f"\n=== RESULTS SUMMARY ===")
+    print(f"Total structures processed: {len(df)}")
+    print(f"Successful calculations: {len(successful)}")
+    print(f"Failed calculations: {len(df) - len(successful)}")
+    
     if len(successful) > 0:
         gaps = successful['direct_gap'].values
         # Filter out NaN values
         valid_gaps = gaps[~np.isnan(gaps)]
         if len(valid_gaps) > 0:
-            logger.info(f"Mean band gap: {np.mean(valid_gaps):.3f} ± {np.std(valid_gaps):.3f} eV")
+            mean_gap = np.mean(valid_gaps)
+            std_gap = np.std(valid_gaps)
+            print(f"Mean band gap: {mean_gap:.3f} ± {std_gap:.3f} eV")
+            print(f"Min band gap: {np.min(valid_gaps):.3f} eV")
+            print(f"Max band gap: {np.max(valid_gaps):.3f} eV")
+            logger.info(f"Mean band gap: {mean_gap:.3f} ± {std_gap:.3f} eV")
         else:
+            print("No valid band gaps calculated")
             logger.info("No valid band gaps calculated")
     else:
+        print("No successful calculations")
         logger.info("No successful calculations")
         
     total_time = time.time() - start_time
+    print(f"Total time: {total_time/3600:.2f} hours")
     logger.info(f"Total time: {total_time/3600:.2f} hours")
+    
     if output_file:
+        print(f"Results saved to: {output_file}")
         logger.info(f"Results saved in {output_file}")
     
     return df
