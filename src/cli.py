@@ -41,7 +41,9 @@ def create_optimizer(algorithm: str,
     optimizer_class, config_class = optimizer_map[algorithm]
     
     # Create config with any overrides
-    config = config_class(**{k: v for k, v in kwargs.items() if hasattr(config_class, k)})
+    config_kwargs = {k: v for k, v in kwargs.items() if hasattr(config_class, k)}
+    logger.debug(f"Creating {config_class.__name__} with kwargs: {config_kwargs}")
+    config = config_class(**config_kwargs)
     
     # Load reference data if provided
     ref_data = None
@@ -49,12 +51,18 @@ def create_optimizer(algorithm: str,
         import pandas as pd
         ref_data = pd.read_csv(reference_data)
     
+    # Filter out config parameters from kwargs to avoid passing them to constructor
+    config_params = {k: v for k, v in kwargs.items() if hasattr(config_class, k)}
+    constructor_params = {k: v for k, v in kwargs.items() if k not in ['algorithm', 'system_name', 'base_param_file', 'reference_data'] and k not in config_params}
+    
+    logger.debug(f"Creating {optimizer_class.__name__} with constructor params: {constructor_params}")
+    
     return optimizer_class(
         system_name=system_name,
         base_param_file=base_param_file,
         reference_data=ref_data,
         config=config,
-        **{k: v for k, v in kwargs.items() if k not in ['algorithm', 'system_name', 'base_param_file', 'reference_data']}
+        **constructor_params
     )
 
 def run_optimization(algorithm: str,

@@ -7,8 +7,6 @@ pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_ga.t
 
 pixi run python src/compare.py --system Si2 --ccsd --pure --params results/parameters/si2_ga.toml results/parameters/si2_pso.toml results/parameters/Si2_optimized_bayesian.toml results/parameters/Si2_optimized_cma.toml --names ga pso bayes cma --output results/comparison 
 
-
-
 pixi run python src/compare.py --ccsd --pure --params results/parameters/h2_cma.toml --names h2_cma --output results/comparison
 """
 
