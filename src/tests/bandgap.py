@@ -263,6 +263,35 @@ def process_structures(xyz_file: str, output_file: str = None, method: str = 'pb
         print(f"Results saved to: {output_file}")
         logger.info(f"Results saved in {output_file}")
     
+    # Print detailed energy results
+    logger.info("=== DETAILED ENERGY RESULTS ===")
+    if len(successful) > 0:
+        logger.info(f"Showing results for {len(successful)} successful calculations:")
+        logger.info("-" * 80)
+        logger.info(f"{'ID':<4} {'Formula':<10} {'HOMO (eV)':<12} {'LUMO (eV)':<12} {'Band Gap (eV)':<15} {'Converged':<10}")
+        logger.info("-" * 80)
+        
+        for _, row in successful.iterrows():
+            logger.info(f"{row['structure_id']:<4} {row['formula']:<10} "
+                  f"{row['homo_energy']:<12.3f} {row['lumo_energy']:<12.3f} "
+                  f"{row['direct_gap']:<15.3f} {str(row['converged']):<10}")
+        
+        logger.info("-" * 80)
+        
+        # Print energy statistics
+        logger.info("=== ENERGY STATISTICS ===")
+        logger.info(f"HOMO Energy: {np.mean(successful['homo_energy']):.3f} ± {np.std(successful['homo_energy']):.3f} eV")
+        logger.info(f"LUMO Energy: {np.mean(successful['lumo_energy']):.3f} ± {np.std(successful['lumo_energy']):.3f} eV")
+        logger.info(f"Band Gap: {np.mean(successful['direct_gap']):.3f} ± {np.std(successful['direct_gap']):.3f} eV")
+        
+        # Print range information
+        logger.info(f"HOMO Energy Range: {np.min(successful['homo_energy']):.3f} to {np.max(successful['homo_energy']):.3f} eV")
+        logger.info(f"LUMO Energy Range: {np.min(successful['lumo_energy']):.3f} to {np.max(successful['lumo_energy']):.3f} eV")
+        logger.info(f"Band Gap Range: {np.min(successful['direct_gap']):.3f} to {np.max(successful['direct_gap']):.3f} eV")
+        
+    else:
+        logger.info("No successful calculations to display.")
+    
     return df
 
 def main():
