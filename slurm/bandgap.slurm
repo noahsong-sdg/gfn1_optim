@@ -25,5 +25,5 @@ export OMP_NUM_THREADS=16
 
 # https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
 # for parallelization
-python src/tests/bandgap_gpaw.py --test --method PBE --output test_band_gaps_gpaw.csv
+python src/tests/bandgap_gpaw.py --method PBE --output band_pbe_gpaw.csv
 
