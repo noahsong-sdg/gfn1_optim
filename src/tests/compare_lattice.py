@@ -144,22 +144,22 @@ def generate_crystal_plots(results_df: pd.DataFrame, save_dir: Path = Path("resu
             print(f"Failed to generate crystal plot for {method_name}: {e}")
 
 def main():
-    """pso_calc = TBLiteASECalculator(
+    pso_calc = TBLiteASECalculator(
         param_file="../results/pso/CdS_pso.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
         spin=0,
-    )"""
-    """ga_calc = TBLiteASECalculator(
+    )
+    ga_calc = TBLiteASECalculator(
         param_file="../results/ga/CdS_ga.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
         spin=0,
-    )"""
+    )
     bayes_calc = TBLiteASECalculator(
-        param_file="../results/bayes/CdS_bayes.toml",
+        param_file="../results/bulk/CdS_bayes.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
