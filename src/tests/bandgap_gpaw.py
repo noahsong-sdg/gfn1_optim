@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 band gap calculations using GPAW
+https://gpaw.readthedocs.io/tutorialsexercises/electronic/bandstructures/bandstructures.html#bandstructures
+https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
+
 """
 import argparse
 import logging
@@ -27,7 +30,7 @@ def calculate_bandgap(atoms, method='PBE'):
     )
     
     atoms.calc = calc
-    # atoms.get_potential_energy()
+    atoms.get_potential_energy()
     
     # Get eigenvalues at gamma point
     eigenvalues = calc.get_eigenvalues(kpt=0)
@@ -78,7 +81,7 @@ def main():
                 'band_gap': band_gap,
                 'homo_energy': homo,
                 'lumo_energy': lumo,
-                'bs': bs
+                'bs': 'calculated' if bs is not None else 'None'
             })
         except Exception as e:
             logger.error(f"  Failed: {e}")

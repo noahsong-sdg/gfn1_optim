@@ -159,7 +159,7 @@ def main():
         spin=0,
     )
     bayes_calc = TBLiteASECalculator(
-        param_file="../results/bayes/CdS_bayes.toml",
+        param_file="../results/bulk/CdS_bayes.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
@@ -198,8 +198,6 @@ def main():
     pso_df = get_params(pso_calc)
     print("pso")
     print(pso_df)
-    # DEBUG: Concatenate all DataFrames with method name as first column
-
     # Add a column to each DataFrame to indicate the method name
     default_df['Method'] = 'Default'
     pso_df['Method'] = 'PSO'

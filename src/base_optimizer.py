@@ -11,10 +11,11 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import pickle
 import random
+import ase.io
+from ase import Atoms
 
 from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
 from calculators.tblite_ase_calculator import TBLiteASECalculator
-from calculators.bulk_calculator import BulkCalculator, create_bulk_calculator
 from utils.extract_default import extract_system_parameters
 from config import get_system_config, CalculationType
 from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, init_dynamic_bounds
@@ -92,20 +93,13 @@ class BaseOptimizer(ABC):
         # Handle bulk materials differently
         if self.system_config.calculation_type == CalculationType.BULK:
             # For bulk materials, we need to process the XYZ file
-            # Use system name to determine which XYZ file to use
-            if self.system_name == "BulkMaterials":
-                xyz_file = "trainall.xyz"
-            elif self.system_name == "CompareBulk":
-                xyz_file = "compare_bulk.xyz"  # You can make this configurable
-            else:
-                xyz_file = f"{self.system_name.lower()}.xyz"
-                
+            xyz_file = self._get_bulk_xyz_file()
+            
             if not Path(xyz_file).exists():
                 raise FileNotFoundError(f"Bulk materials XYZ file not found: {xyz_file}")
             
-            # Create bulk calculator and process the file
-            bulk_calc = create_bulk_calculator(self.base_param_file, self.system_config)
-            reference_df, _ = bulk_calc.process_bulk_system(xyz_file, max_structures=self.system_config.num_points)
+            # Process the bulk system directly
+            reference_df, _ = self._process_bulk_system(xyz_file, max_structures=self.system_config.num_points)
             
             # Save reference data for future use
             ref_file = Path(self.system_config.reference_data_file)
@@ -226,23 +220,15 @@ class BaseOptimizer(ABC):
 
             if self.system_config.calculation_type == CalculationType.BULK:
                 # Bulk materials energy optimization
-                bulk_calc = create_bulk_calculator(param_file, self.system_config)
-                
-                # Use system name to determine which XYZ file to use
-                if self.system_name == "BulkMaterials":
-                    xyz_file = "trainall.xyz"
-                elif self.system_name == "CompareBulk":
-                    xyz_file = "compare_bulk.xyz"
-                else:
-                    xyz_file = f"{self.system_name.lower()}.xyz"
+                xyz_file = self._get_bulk_xyz_file()
                 
                 # Load structures and calculate energies
-                structures = bulk_calc.load_structures_from_xyz(xyz_file, max_structures=self.system_config.num_points)
-                reference_energies = bulk_calc.extract_reference_energies(structures)
-                calculated_energies = bulk_calc.calculate_energies(structures)
+                structures = self._load_structures_from_xyz(xyz_file, max_structures=self.system_config.num_points)
+                reference_energies = self._extract_reference_energies(structures)
+                calculated_energies = self._calculate_energies(structures, param_file)
                 
                 # Compute RMSE loss
-                rmse = bulk_calc.compute_energy_loss(reference_energies, calculated_energies)
+                rmse = self._compute_energy_loss(reference_energies, calculated_energies)
                 
                 # Convert to fitness (higher is better)
                 fitness = 1.0 / (1.0 + rmse)
@@ -280,9 +266,9 @@ class BaseOptimizer(ABC):
                 energy_loss = (result_df['energy'].iloc[0] - self.system_config.lattice_params["energy"]) ** 2 / (energy_scale ** 2)
                 
                 # Weighted combination (energy is most important)
-                lattice_weight = 0.3    # 30% importance
-                angle_weight = 0.1      # 10% importance  
-                energy_weight = 0.6     # 60% importance (most important)
+                lattice_weight = 0.10   
+                angle_weight = 0.05     
+                energy_weight = 0.85    
                 
                 total_loss = (lattice_weight * lattice_loss + 
                              angle_weight * angle_loss + 
@@ -496,4 +482,124 @@ class BaseOptimizer(ABC):
         return {bound.name: bound.default_val for bound in self.parameter_bounds}
     
     def get_parameter_bounds_dict(self) -> Dict[str, Tuple[float, float]]:
-        return {bound.name: (bound.min_val, bound.max_val) for bound in self.parameter_bounds} 
+        return {bound.name: (bound.min_val, bound.max_val) for bound in self.parameter_bounds}
+    
+    # Bulk materials calculation methods
+    def _get_bulk_xyz_file(self) -> str:
+        """Get the appropriate XYZ file for bulk materials"""
+        if self.system_name == "BulkMaterials":
+            return "trainall.xyz"
+        elif self.system_name == "CompareBulk":
+            return "compare_bulk.xyz"
+        else:
+            return f"{self.system_name.lower()}.xyz"
+    
+    def _load_structures_from_xyz(self, xyz_file: str, max_structures: Optional[int] = None) -> List[Atoms]:
+        """Load structures from XYZ file"""
+        logger.info(f"Loading structures from {xyz_file}")
+        structures = list(ase.io.read(xyz_file, index=':'))
+        
+        if max_structures:
+            structures = structures[:max_structures]
+            
+        logger.info(f"Loaded {len(structures)} structures")
+        return structures
+    
+    def _extract_reference_energies(self, structures: List[Atoms]) -> List[float]:
+        """Extract reference energies from structure properties"""
+        energies = []
+        for i, atoms in enumerate(structures):
+            if hasattr(atoms, 'info') and 'energy' in atoms.info:
+                energy = atoms.info['energy']
+            elif hasattr(atoms, 'get_potential_energy'):
+                energy = atoms.get_potential_energy()
+            else:
+                logger.warning(f"No energy found for structure {i}, skipping")
+                continue
+            energies.append(energy)
+        
+        logger.info(f"Extracted {len(energies)} reference energies")
+        return energies
+    
+    def _calculate_energies(self, structures: List[Atoms], param_file: str) -> List[float]:
+        """Calculate energies for all structures using TBLite"""
+        energies = []
+        failed = 0
+        
+        for i, atoms in enumerate(structures):
+            try:
+                calc = TBLiteASECalculator(
+                    param_file=param_file,
+                    method="gfn1",
+                    electronic_temperature=400.0,
+                    charge=0.0,
+                    spin=self.spin
+                )
+                
+                energy = calc.get_potential_energy(atoms)
+                energies.append(energy)
+                
+                if i % 10 == 0:
+                    logger.info(f"Processed {i+1}/{len(structures)} structures")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to calculate energy for structure {i}: {e}")
+                failed += 1
+                energies.append(np.nan)
+        
+        logger.info(f"Calculated energies for {len(energies) - failed}/{len(structures)} structures")
+        return energies
+    
+    def _compute_energy_loss(self, reference_energies: List[float], calculated_energies: List[float]) -> float:
+        """Compute RMSE loss between reference and calculated energies"""
+        valid_pairs = [(ref, calc) for ref, calc in zip(reference_energies, calculated_energies) 
+                      if not (np.isnan(ref) or np.isnan(calc))]
+        
+        if not valid_pairs:
+            raise ValueError("No valid energy pairs found")
+        
+        ref_vals, calc_vals = zip(*valid_pairs)
+        ref_vals = np.array(ref_vals)
+        calc_vals = np.array(calc_vals)
+        
+        rmse = np.sqrt(np.mean((ref_vals - calc_vals) ** 2))
+        logger.info(f"Energy RMSE: {rmse:.6f} eV ({len(valid_pairs)} structures)")
+        return rmse
+    
+    def _process_bulk_system(self, xyz_file: str, max_structures: Optional[int] = None) -> Tuple[pd.DataFrame, float]:
+        """Process bulk system: load structures, calculate energies, compute loss"""
+        structures = self._load_structures_from_xyz(xyz_file, max_structures)
+        reference_energies = self._extract_reference_energies(structures)
+        calculated_energies = self._calculate_energies(structures, self.base_param_file)
+        rmse = self._compute_energy_loss(reference_energies, calculated_energies)
+        
+        # Create reference DataFrame
+        data = []
+        for i, (atoms, energy) in enumerate(zip(structures, reference_energies)):
+            if np.isnan(energy):
+                continue
+                
+            formula = atoms.get_chemical_formula()
+            n_atoms = len(atoms)
+            volume = atoms.get_volume()
+            
+            if atoms.cell.any():
+                cell_params = atoms.cell.cellpar()
+                a, b, c = cell_params[0], cell_params[1], cell_params[2]
+                alpha, beta, gamma = cell_params[3], cell_params[4], cell_params[5]
+            else:
+                a = b = c = alpha = beta = gamma = np.nan
+            
+            data.append({
+                'structure_id': i,
+                'formula': formula,
+                'n_atoms': n_atoms,
+                'volume': volume,
+                'a': a, 'b': b, 'c': c,
+                'alpha': alpha, 'beta': beta, 'gamma': gamma,
+                'energy': energy
+            })
+        
+        reference_df = pd.DataFrame(data)
+        logger.info(f"Created reference DataFrame with {len(reference_df)} structures")
+        return reference_df, rmse 
