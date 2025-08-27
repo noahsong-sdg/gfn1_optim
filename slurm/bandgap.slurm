@@ -15,6 +15,7 @@
 
 module purge
 module load gcc
+module load impi
 module load cmake
 module load anaconda
 
