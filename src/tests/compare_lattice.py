@@ -159,14 +159,21 @@ def main():
         spin=0,
     )
     bayes_calc = TBLiteASECalculator(
-        param_file="../results/bulk/CdS_bayes.toml",
+        param_file="../results/bayes/CdS_bayes.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
         spin=0,
     )
-    cma_calc = TBLiteASECalculator(
+    cma1_calc = TBLiteASECalculator(
         param_file="../results/cma1/CdS_cma1.toml",
+        method="gfn1",
+        electronic_temperature=400.0,
+        charge=0.0,
+        spin=0,
+    )
+    cma2_calc = TBLiteASECalculator(
+        param_file="../results/cma2/CdS_cma2.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
@@ -179,17 +186,27 @@ def main():
     bayes_df = get_params(bayes_calc)
     print("Bayes")
     print(bayes_df)    
-    cma1_df = get_params(cma_calc)
+    cma1_df = get_params(cma1_calc)
     print("cma1")
     print(cma1_df) 
+    cma2_df = get_params(cma2_calc)
+    print("cma2")
+    print(cma2_df) 
+    ga_df = get_params(ga_calc)
+    print("ga")
+    print(ga_df)
+    pso_df = get_params(pso_calc)
+    print("pso")
+    print(pso_df)
     # DEBUG: Concatenate all DataFrames with method name as first column
 
     # Add a column to each DataFrame to indicate the method name
     default_df['Method'] = 'Default'
-    #pso_df['Method'] = 'PSO'
-    # ga_df['Method'] = 'GA'
+    pso_df['Method'] = 'PSO'
+    ga_df['Method'] = 'GA'
     bayes_df['Method'] = 'Bayes'
     cma1_df['Method'] = 'CMA1'
+    cma2_df['Method'] = 'CMA2'
 
     # Reorder columns so 'Method' is first
     def reorder_columns(df):
@@ -199,13 +216,14 @@ def main():
         return df[cols]
 
     default_df = reorder_columns(default_df)
-    #pso_df = reorder_columns(pso_df)
-    #ga_df = reorder_columns(ga_df)
+    pso_df = reorder_columns(pso_df)
+    ga_df = reorder_columns(ga_df)
     bayes_df = reorder_columns(bayes_df)
     cma1_df = reorder_columns(cma1_df)
+    cma2_df = reorder_columns(cma2_df)
 
     # Concatenate all DataFrames
-    all_results_df = pd.concat([default_df, bayes_df, cma1_df], ignore_index=True)
+    all_results_df = pd.concat([default_df, bayes_df, cma1_df, cma2_df, ga_df, pso_df], ignore_index=True)
     all_results_df.to_csv("lattice_results.csv", index=False)
     print(all_results_df)
     
