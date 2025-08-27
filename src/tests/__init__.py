@@ -4,7 +4,7 @@ Contains comparison and validation tools.
 """
 
 from .compare_diss import MethodComparisonAnalyzer
-from .bandgap import BandgapCalculator
+from .bandgap_pyscf import BandgapCalculator
 from .bulk_materials_validator import BulkMaterialsValidator
 
 __all__ = [

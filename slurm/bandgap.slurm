@@ -23,5 +23,7 @@ cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
 export OMP_NUM_THREADS=16
 
-# try def2-TZVP and def2-SVP
-python src/tests/bandgap.py --test --method pbe --output test_band_gaps_fast.csv
+# https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
+# for parallelization
+python src/tests/bandgap_gpaw.py --test --method pbe --output test_band_gaps_gpaw.csv
+
