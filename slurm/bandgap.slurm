@@ -23,5 +23,5 @@ cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
 
 # https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
-gpaw -P 8 python src/tests/bandgap_gpaw.py --method PBE --output band_pbe_gpaw.csv
+gpaw -P 8 python src/tests/bandgap_gpaw.py
 

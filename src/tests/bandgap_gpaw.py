@@ -52,7 +52,7 @@ def calculate_bandgap(atoms, method='PBE'):
 def main():
     parser = argparse.ArgumentParser(description='Calculate band gaps using GPAW')
     parser.add_argument('--xyz_file', default='trainall.xyz')
-    parser.add_argument('--output', default='bandgap_results.csv')
+    parser.add_argument('--output', default='bands_pbe.csv')
     parser.add_argument('--method', default='PBE', choices=['PBE', 'PBE0', 'HSE06'])
     parser.add_argument('--test', action='store_true')
     
