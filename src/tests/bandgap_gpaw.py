@@ -5,7 +5,6 @@ https://gpaw.readthedocs.io/tutorialsexercises/electronic/bandstructures/bandstr
 https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
 
 """
-import argparse
 import logging
 import numpy as np
 import pandas as pd
@@ -147,7 +146,7 @@ def main():
         structure_start_time = time.time()
         
         try:
-            band_gap, homo, lumo, bs = calculate_bandgap(atoms, args.method)
+            band_gap, homo, lumo, bs = calculate_bandgap(atoms, method)
             
             if pd.notna(band_gap):
                 logger.info(f"  Band gap: {band_gap:.3f} eV")
@@ -181,8 +180,8 @@ def main():
         results.append(result)
         
         # Save checkpoint after each calculation
-        if checkpoint_file and not args.no_checkpoint:
-            save_checkpoint(results, args.output, checkpoint_file)
+        if checkpoint_file:
+            save_checkpoint(results, output_file, checkpoint_file)
         
         # Progress update
         elapsed = time.time() - start_time
@@ -196,8 +195,8 @@ def main():
     
     # Final save
     df = pd.DataFrame(results)
-    df.to_csv(args.output, index=False)
-    logger.info(f"Results saved to {args.output}")
+    df.to_csv(output_file, index=False)
+    logger.info(f"Results saved to {output_file}")
     
     # Print summary
     valid_gaps = df['band_gap'].dropna()
