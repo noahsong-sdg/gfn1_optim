@@ -16,6 +16,12 @@ import tempfile
 import shutil
 from pathlib import Path
 from gpaw import GPAW, PW, FermiDirac
+
+# Configuration - edit these as needed
+XYZ_FILE = 'trainall.xyz'
+OUTPUT_FILE = 'bands_pbe_gpaw.csv'
+METHOD = 'PBE'  # Options: 'PBE', 'PBE0', 'HSE06'
+TEST_MODE = False  # Set to False for full dataset
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -107,40 +113,25 @@ def get_completed_structure_ids(results):
     return {r['structure_id'] for r in results if pd.notna(r['band_gap'])}
 
 def main():
-    parser = argparse.ArgumentParser(description='Calculate band gaps using GPAW')
-    parser.add_argument('--xyz_file', default='trainall.xyz')
-    parser.add_argument('--output', default='bands_pbe.csv')
-    parser.add_argument('--method', default='PBE', choices=['PBE', 'PBE0', 'HSE06'])
-    parser.add_argument('--test', action='store_true')
-    parser.add_argument('--checkpoint', default=None, help='Checkpoint file path (default: output_file + .checkpoint)')
-    parser.add_argument('--no-checkpoint', action='store_true', help='Disable checkpointing')
-    
-    args = parser.parse_args()
-    
-    # Set up checkpoint file
-    if args.checkpoint is None and not args.no_checkpoint:
-        checkpoint_file = args.output + '.checkpoint'
-    elif args.no_checkpoint:
-        checkpoint_file = None
-    else:
-        checkpoint_file = args.checkpoint
+    # Use global configuration variables
+    xyz_file = XYZ_FILE
+    output_file = OUTPUT_FILE
+    method = METHOD
+    test_mode = TEST_MODE
+    checkpoint_file = output_file + '.checkpoint'
     
     # Read structures
-    if args.test:
-        structures = list(ase.io.read(args.xyz_file, index=':3'))
+    if test_mode:
+        structures = list(ase.io.read(xyz_file, index=':3'))
         logger.info(f"Testing with {len(structures)} structures")
     else:
-        structures = list(ase.io.read(args.xyz_file, index=':'))
+        structures = list(ase.io.read(xyz_file, index=':'))
         logger.info(f"Processing {len(structures)} structures")
     
     # Load existing results if checkpointing is enabled
-    if checkpoint_file and not args.no_checkpoint:
-        results = load_checkpoint(checkpoint_file)
-        completed_ids = get_completed_structure_ids(results)
-        logger.info(f"Resuming from checkpoint: {len(completed_ids)} structures already completed")
-    else:
-        results = []
-        completed_ids = set()
+    results = load_checkpoint(checkpoint_file)
+    completed_ids = get_completed_structure_ids(results)
+    logger.info(f"Resuming from checkpoint: {len(completed_ids)} structures already completed")
     
     # Calculate remaining structures
     start_time = time.time()
