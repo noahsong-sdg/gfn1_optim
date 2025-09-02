@@ -174,7 +174,7 @@ class PyGADOptimizer(BaseOptimizer):
             **mutation_kwargs,
             **crossover_kwargs,
             random_seed=RANDOM_SEED,
-            parallel_processing=["thread", self.config.max_workers] if self.config.max_workers > 1 else None
+            parallel_processing=["process", 8] 
         )
     
     def get_state(self) -> dict:

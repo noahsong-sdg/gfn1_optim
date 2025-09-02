@@ -37,7 +37,7 @@ class SystemConfig:
     
     # For diatomic molecules
     bond_range: Optional[Tuple[float, float]] = None
-    num_points: int = 100
+    num_points: Optional[int] = 100
     spin_multiplicity: int = 0
     
     # For solid state
@@ -89,7 +89,15 @@ SYSTEM_CONFIGS = {
         elements=["Cd", "S"],
         crystal_system="wurtzite",
         lattice_params={"a": 4.17, "b": 4.17, "c": 6.78, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},  # Experimental values from literature
-        num_points=50,  # Number of lattice parameter variations to test
+        spin_multiplicity=0
+    ),
+    "GaN": SystemConfig(
+        name="GaN",
+        system_type=SystemType.SOLID_STATE,
+        calculation_type=CalculationType.LATTICE_CONSTANTS,
+        elements=["Ga", "N"],
+        crystal_system="wurtzite",
+        lattice_params={"a": 3.19, "b": 3.19, "c": 5.19, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},  # Experimental values from literature
         spin_multiplicity=0
     ),
     

@@ -211,33 +211,11 @@ class BaseOptimizer(ABC):
             return f.name
      
     def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
-        #if self.failed_evaluations > 100:
-           # raise ValueError("Too many failed evaluations")
-        
         try:
             parameters = self.apply_bounds(parameters)
             param_file = self.create_param_file(parameters)
 
-            if self.system_config.calculation_type == CalculationType.BULK:
-                # Bulk materials energy optimization
-                xyz_file = self._get_bulk_xyz_file()
-                
-                # Load structures and calculate energies
-                structures = self._load_structures_from_xyz(xyz_file, max_structures=self.system_config.num_points)
-                reference_energies = self._extract_reference_energies(structures)
-                calculated_energies = self._calculate_energies(structures, param_file)
-                
-                # Compute RMSE loss
-                rmse = self._compute_energy_loss(reference_energies, calculated_energies)
-                
-                # Convert to fitness (higher is better)
-                fitness = 1.0 / (1.0 + rmse)
-                
-                os.unlink(param_file)
-                self.success_evaluations += 1
-                return fitness
-
-            elif self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+            if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
                 calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)
                 calculator = GeneralCalculator(calc_config, self.system_config)
                 generator = CrystalGenerator(calculator)

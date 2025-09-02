@@ -96,7 +96,7 @@ def run_optimization(algorithm: str,
         output_path.mkdir(parents=True, exist_ok=True)
         
         # Save optimized parameters
-        param_filename = output_path / f"{system_name}_{algorithm}_optimized.toml"
+        param_filename = output_path / f"{system_name}_{algorithm}.toml"
         optimizer.save_best_parameters(str(param_filename))
         
         # Save fitness history
@@ -127,7 +127,7 @@ Examples:
                        choices=['ga', 'gad','pso', 'bayes', 'cma1', 'cma2'],
                        help='Optimization algorithm to use')
     parser.add_argument('system_name',
-                       help='Name of the system to optimize (e.g., H2, Si2, CdS)')
+                       help='Name of the system to optimize (e.g., H2, Si2, CdS, GaN)')
     parser.add_argument('base_param_file',
                        help='Path to base parameter TOML file')
     

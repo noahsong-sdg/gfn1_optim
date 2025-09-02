@@ -22,4 +22,5 @@ cd /projects/noso3320/work/gfn1_optim
 conda activate /projects/noso3320/software/gfn_env
 python src/cli.py bayes CdS config/gfn1-base.toml --output results/bayes 
 
+
 #python src/cli.py bayes BulkMaterials config/gfn1-base.toml --n-calls 200 --output results/bulk
