@@ -14,7 +14,7 @@ import time
 import tempfile
 import shutil
 from pathlib import Path
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import GPAW, PW, FermiDirac, mpi
 
 # Configuration - edit these as needed
 XYZ_FILE = 'trainall.xyz'

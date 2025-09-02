@@ -26,5 +26,6 @@ conda activate /projects/noso3320/software/gfn_env
 
 # https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
 # for parallelization
-gpaw -P 8 python src/tests/bandgap_gpaw.py
-
+export OMP_NUM_THREADS=4
+# gpaw -P 8 python src/tests/bandgap_gpaw.py
+mpiexec -n 4 gpaw python script.py
