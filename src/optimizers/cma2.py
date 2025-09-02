@@ -64,6 +64,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         self.es = None  # CMAEvolutionStrategy instance
         self.generation = 0
         self.failed_evaluations = 0
+        self.best_fitness = float('inf')  # Initialize for minimization
         
         # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
@@ -149,13 +150,53 @@ class GeneralParameterCMA2(BaseOptimizer):
         
         # Run optimization with pycma's built-in parallelization
         try:
-            result = self.es.optimize(
-                self.evaluate_cma_fitness,
-                iterations=self.config.max_generations,
-                n_jobs=self.config.n_jobs
-            )
+            # Track fitness during optimization
+            generation = 0
+            while generation < self.config.max_generations:
+                # Get solutions for current generation
+                solutions = self.es.ask()
+                
+                # Evaluate fitness for all solutions
+                fitness_values = []
+                for solution in solutions:
+                    fitness = self.evaluate_cma_fitness(solution)
+                    fitness_values.append(fitness)
+                
+                # Tell CMA-ES the results
+                self.es.tell(solutions, fitness_values)
+                
+                # Update generation counter
+                generation += 1
+                
+                # Record fitness statistics for this generation
+                best_rmse_gen = min(fitness_values)  # CMA-ES minimizes RMSE
+                avg_rmse_gen = np.mean(fitness_values)
+                std_rmse_gen = np.std(fitness_values)
+                
+                self.fitness_history.append({
+                    'generation': generation,
+                    'best_fitness': best_rmse_gen,  # Store RMSE (lower is better)
+                    'avg_fitness': avg_rmse_gen,
+                    'std_fitness': std_rmse_gen
+                })
+                
+                # Update best parameters if we have a better solution (lower RMSE is better)
+                if best_rmse_gen < self.best_fitness:
+                    best_idx = np.argmin(fitness_values)
+                    best_solution = solutions[best_idx]
+                    self.best_parameters = {param_names[i]: float(best_solution[i]) for i in range(len(param_names))}
+                    self.best_fitness = best_rmse_gen
+                
+                # Log progress
+                if generation % 5 == 0 or generation == 1:
+                    logger.info(f"Generation {generation}: Best RMSE = {best_rmse_gen:.6f}, Avg = {avg_rmse_gen:.6f}")
+                
+                # Check convergence
+                if self.es.stop():
+                    logger.info(f"CMA-ES converged at generation {generation}")
+                    break
             
-            # Extract best solution
+            # Extract final best solution
             best_x = self.es.result.xbest
             best_fitness = self.es.result.fbest
             
@@ -166,13 +207,6 @@ class GeneralParameterCMA2(BaseOptimizer):
             self.best_parameters = best_params.copy()
             self.best_fitness = best_fitness
             
-            # Record final statistics
-            self.fitness_history.append({
-                'best_fitness': best_fitness,
-                'avg_fitness': np.mean(self.es.fit.fit),
-                'std_fitness': np.std(self.es.fit.fit)
-            })
-            
         except Exception as e:
             logger.error(f"pycma CMA-ES optimization failed: {e}")
             raise RuntimeError(f"pycma CMA-ES optimization failed: {e}") from e
@@ -181,8 +215,32 @@ class GeneralParameterCMA2(BaseOptimizer):
         logger.info(f"Optimization completed in {total_time:.2f}s")
         logger.info(f"Total failed evaluations: {self.failed_evaluations}")
         logger.info(f"Best RMSE: {self.best_fitness:.6f}")
+        logger.info(f"Note: Fitness history stores RMSE values (lower is better)")
+        
+        # Save fitness history to CSV
+        self._save_fitness_history()
         
         return self.best_parameters
+    
+    def _save_fitness_history(self):
+        """Save fitness history to CSV file"""
+        if not self.fitness_history:
+            logger.warning("No fitness history to save")
+            return
+        
+        try:
+            # Create results directory if it doesn't exist
+            fitness_dir = RESULTS_DIR / "fitness"
+            fitness_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Save fitness history
+            fitness_file = fitness_dir / f"{self.system_name}_cma2_history.csv"
+            df = pd.DataFrame(self.fitness_history)
+            df.to_csv(fitness_file, index=False)
+            logger.info(f"Fitness history saved to {fitness_file}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save fitness history: {e}")
     
     def get_state(self) -> dict:
         """Get checkpoint state including pycma-specific state"""
