@@ -52,7 +52,23 @@ class BaseOptimizer(ABC):
         system_defaults = extract_system_parameters(self.system_config.elements)
         self.parameter_bounds = init_dynamic_bounds(system_defaults)
         
-        self.full_reference_data = reference_data or self._load_or_generate_reference_data()
+        # For lattice constants, use experimental values directly; otherwise load/generate reference data
+        if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
+            logger.info(f"Using experimental lattice parameters for {self.system_name}")
+            import pandas as pd
+            self.full_reference_data = pd.DataFrame([{
+                'a': self.system_config.lattice_params['a'],
+                'b': self.system_config.lattice_params['b'], 
+                'c': self.system_config.lattice_params['c'],
+                'alpha': self.system_config.lattice_params['alpha'],
+                'beta': self.system_config.lattice_params['beta'],
+                'gamma': self.system_config.lattice_params['gamma'],
+                'energy': self.system_config.lattice_params['energy']
+            }])
+            logger.info(f"Reference lattice parameters: a={self.system_config.lattice_params['a']:.3f} Å, c={self.system_config.lattice_params['c']:.3f} Å")
+        else:
+            self.full_reference_data = reference_data or self._load_or_generate_reference_data()
+        
         self._split_train_test_data()
         
         # Optimization state
@@ -109,32 +125,26 @@ class BaseOptimizer(ABC):
             
             return reference_df
         
-        # Try CCSD data first
+
+        
+        # Try CCSD data first (for dissociation curves)
         if self.system_name in ["H2", "Si2"]:
             ccsd_file = RESULTS_DIR / "curves" / f"{self.system_name.lower()}_ccsd_500.csv"
             if ccsd_file.exists():
                 return pd.read_csv(ccsd_file)
         
-        # Try system-specific reference file
+        # Try system-specific reference file (for dissociation curves)
         ref_file = Path(self.system_config.reference_data_file)
         if ref_file.exists():
             return pd.read_csv(ref_file)
         
-        # Generate fallback data
+        # Generate fallback data (for dissociation curves)
         logger.warning(f"Generating fallback data for {self.system_name}")
         calc_config = CalcConfig(method=CalcMethod.GFN1_XTB)
         calculator = GeneralCalculator(calc_config, self.system_config)
         
-        if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-            generator = CrystalGenerator(calculator)
-            result_df = generator.compute_stuff()
-            # Save the result
-            result_df.to_csv(ref_file, index=False)
-            logger.info(f"Generated and saved lattice constants data to {ref_file}")
-            return result_df
-        else:
-            generator = DissociationCurveGenerator(calculator)
-            return generator.generate_curve(save=True, filename=str(ref_file))
+        generator = DissociationCurveGenerator(calculator)
+        return generator.generate_curve(save=True, filename=str(ref_file))
     
     def _split_train_test_data(self):
         if self.system_config.calculation_type in [CalculationType.LATTICE_CONSTANTS, CalculationType.BULK]:

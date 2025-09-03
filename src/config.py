@@ -98,7 +98,9 @@ SYSTEM_CONFIGS = {
         elements=["Ga", "N"],
         crystal_system="wurtzite",
         lattice_params={"a": 3.19, "b": 3.19, "c": 5.19, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},  # Experimental values from literature
-        spin_multiplicity=0
+        spin_multiplicity=0,
+        # Use experimental values as reference data
+        reference_data_file=str(RESULTS_DIR / "lattice" / "gan_experimental.csv")
     ),
     
     "BulkMaterials": SystemConfig(
@@ -221,6 +223,39 @@ def print_all_systems():
                 elif system_type == SystemType.SOLID_STATE:
                     crystal_str = config.crystal_system or "N/A"
                     print(f"  {system:8} - {', '.join(config.elements):6} ({crystal_str})")
+
+def create_experimental_reference_data(system_name: str) -> None:
+    """Create experimental reference data files for solid-state systems"""
+    import pandas as pd
+    
+    if system_name not in SYSTEM_CONFIGS:
+        raise ValueError(f"System '{system_name}' not found")
+    
+    config = SYSTEM_CONFIGS[system_name]
+    
+    if config.calculation_type != CalculationType.LATTICE_CONSTANTS:
+        raise ValueError(f"System {system_name} is not a lattice constants system")
+    
+    # Create the reference data from experimental lattice parameters
+    ref_data = pd.DataFrame([{
+        'a': config.lattice_params['a'],
+        'b': config.lattice_params['b'], 
+        'c': config.lattice_params['c'],
+        'alpha': config.lattice_params['alpha'],
+        'beta': config.lattice_params['beta'],
+        'gamma': config.lattice_params['gamma'],
+        'energy': config.lattice_params['energy']
+    }])
+    
+    # Ensure the directory exists
+    ref_file = Path(config.reference_data_file)
+    ref_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Save the reference data
+    ref_data.to_csv(ref_file, index=False)
+    print(f"Created experimental reference data for {system_name} at {ref_file}")
+    
+    return ref_file
 
 if __name__ == "__main__":
     # Demo
