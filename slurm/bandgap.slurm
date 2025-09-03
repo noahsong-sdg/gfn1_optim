@@ -28,4 +28,4 @@ conda activate /projects/noso3320/software/gfn_env
 # for parallelization
 export OMP_NUM_THREADS=4
 # gpaw -P 8 python src/tests/bandgap_gpaw.py
-mpiexec -n 4 gpaw python script.py
+mpiexec -n 4 gpaw python src/tests/bandgap_gpaw.py
