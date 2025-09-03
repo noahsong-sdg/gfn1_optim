@@ -13,22 +13,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # ASE imports for crystal structure visualization
-try:
-    import ase
-    from ase import Atoms
-    from ase.build import bulk
-    from ase.visualize.plot import plot_atoms
-    from ase.geometry.analysis import Analysis
-    ASE_AVAILABLE = True
-except ImportError:
-    ASE_AVAILABLE = False
-    print("Warning: ASE not available. Crystal structure plotting disabled.")
 
-# pixi run python tests/lattice_results.py
+import ase
+from ase import Atoms
+from ase.build import bulk
+from ase.visualize.plot import plot_atoms
+from ase.geometry.analysis import Analysis
 
+# pixi run python src/tests/compare_lattice.py
 
 def get_params(calculator):
-    atoms = bulk("CdS", "wurtzite", a = 4.17, c = 6.78)
+    atoms = bulk("GaN", "wurtzite", a = 3.19, c = 5.19) # CdS: 4.17, 6.78
+    # GaN: 3.19, 5.19
     atoms.calc = calculator
     ucf = UnitCellFilter(atoms)
     opt = BFGS(ucf)
@@ -55,10 +51,6 @@ def plot_wurtzite_cds(lattice_params: dict, method_name: str, save_dir: Path = P
         method_name: Name of the method for file naming
         save_dir: Base directory to save plots
     """
-    
-    if not ASE_AVAILABLE:
-        print("Warning: ASE not available. Cannot plot crystal structures.")
-        return
     
     # Create output directory
     output_dir = save_dir / "crystal_plots"
@@ -117,10 +109,6 @@ def plot_wurtzite_cds(lattice_params: dict, method_name: str, save_dir: Path = P
 
 def generate_crystal_plots(results_df: pd.DataFrame, save_dir: Path = Path("results")) -> None:
     """Generate crystal structure plots for all methods in the results DataFrame"""
-    
-    if not ASE_AVAILABLE:
-        print("Warning: ASE not available. Cannot generate crystal plots.")
-        return
     
     print("Generating crystal structure plots for all methods...")
     
@@ -222,13 +210,13 @@ def main():
 
     # Concatenate all DataFrames
     all_results_df = pd.concat([default_df, bayes_df, cma1_df, cma2_df, ga_df, pso_df], ignore_index=True)
-    all_results_df.to_csv("lattice_results.csv", index=False)
+    all_results_df.to_csv("lattice_results_cdsparams_gan.csv", index=False)
     print(all_results_df)
     
     # Generate crystal structure plots for all methods
-    generate_crystal_plots(all_results_df, Path("results"))
+    # generate_crystal_plots(all_results_df, Path("results"))
     
-    print(f"\nCrystal plots saved to: results/crystal_plots/")
+    #print(f"\nCrystal plots saved to: results/crystal_plots/")
 if __name__ == "__main__":
     main()
 

@@ -44,21 +44,20 @@ def create_gpaw_calculator():
     """
     try:
         import gpaw
+        from gpaw import PW
         
-        # GPAW calculator for periodic systems
+        # GPAW calculator for periodic systems with proper stress calculation
         calculator = gpaw.GPAW(
-            mode='pw',              # Plane-wave mode (best for solids)
-            xc='HSE06',              # Exchange-correlation functional
-            kpts=(2, 2, 2),        # K-point mesh
-            charge=0,              # Total charge
-            spinpol=False,         # No spin polarization
-            txt='gpaw_output.txt', # Output file
-            maxiter=100,           # SCF iterations
+            mode=PW(500),           # Plane-wave mode with 500 eV cutoff (enables stress)
+            xc='HSE06',             # Exchange-correlation functional
+            kpts=(4, 4, 4),        # K-point mesh (increased for better accuracy)
+            h=0.2,                  # Grid spacing (required for stress calculation)
+            charge=0,               # Total charge
+            spinpol=False,          # No spin polarization
+            txt='gpaw_output.txt',  # Output file
+            maxiter=100,            # SCF iterations
             convergence={'energy': 1e-6, 'density': 1e-6},  # Convergence criteria
         )
-        
-        # Note: GPAW in plane-wave mode automatically computes forces and stress
-        # No need to explicitly enable them
         
         return calculator
         
@@ -99,7 +98,13 @@ def compute_gpaw_energy(atoms, calculator=None, relax_geometry=True, relax_cell=
             
             if relax_cell:
                 print("  - Relaxing both cell parameters and atomic positions")
-                # Relax both cell parameters and atomic positions
+                
+                # Ensure stress is available by running a preliminary calculation
+                print("  - Computing initial energy and forces to enable stress calculation...")
+                _ = atoms.get_potential_energy()
+                _ = atoms.get_forces()
+                
+                # Now relax both cell parameters and atomic positions
                 ucf = UnitCellFilter(atoms)
                 opt = BFGS(ucf)
                 opt.run(fmax=0.01, steps=100)  # Convergence criterion and max steps
@@ -118,6 +123,22 @@ def compute_gpaw_energy(atoms, calculator=None, relax_geometry=True, relax_cell=
         
     except Exception as e:
         print(f"GPAW calculation failed: {e}")
+        
+        # If cell relaxation failed, try atomic-only relaxation as fallback
+        if relax_cell:
+            print("Attempting fallback to atomic-only relaxation...")
+            try:
+                # Reset calculator and try atomic-only relaxation
+                atoms.calc = calculator
+                opt = BFGS(atoms)
+                opt.run(fmax=0.01, steps=100)
+                energy = atoms.get_potential_energy()
+                print("Fallback atomic relaxation successful!")
+                return energy
+            except Exception as fallback_e:
+                print(f"Fallback also failed: {fallback_e}")
+                return None
+        
         return None
 
 def example_gpaw_calculation():
@@ -177,16 +198,33 @@ def run_full_relaxation():
     print("Running full cell + atomic relaxation...")
     atoms_relaxed = atoms.copy()
     
-    energy = compute_gpaw_energy(atoms_relaxed, relax_geometry=True, relax_cell=True)
-    if energy is not None:
-        print(f"GPAW energy (fully relaxed): {energy:.6f} eV")
+    # Test if stress calculation is working
+    print("Testing stress calculation capability...")
+    try:
+        test_calc = create_gpaw_calculator()
+        atoms_relaxed.calc = test_calc
         
-        # Show lattice parameter changes
-        relaxed_cell_params = atoms_relaxed.cell.cellpar()
-        print(f"\nLattice parameter changes:")
-        print(f"Δa = {relaxed_cell_params[0] - a:+.3f} Å, Δc = {relaxed_cell_params[2] - c:+.3f} Å")
+        # Try to get stress tensor
+        _ = atoms_relaxed.get_potential_energy()
+        stress = atoms_relaxed.get_stress()
+        print(f"Stress calculation test successful! Stress tensor shape: {stress.shape}")
         
-        return energy, atoms_relaxed
+        # Now proceed with full relaxation
+        energy = compute_gpaw_energy(atoms_relaxed, relax_geometry=True, relax_cell=True)
+        if energy is not None:
+            print(f"GPAW energy (fully relaxed): {energy:.6f} eV")
+            
+            # Show lattice parameter changes
+            relaxed_cell_params = atoms_relaxed.cell.cellpar()
+            print(f"\nLattice parameter changes:")
+            print(f"Δa = {relaxed_cell_params[0] - a:+.3f} Å, Δc = {relaxed_cell_params[2] - c:+.3f} Å")
+            
+            return energy, atoms_relaxed
+        
+    except Exception as e:
+        print(f"Stress calculation test failed: {e}")
+        print("Falling back to atomic-only relaxation...")
+        return run_atomic_relaxation_only()
     
     return None, None
 

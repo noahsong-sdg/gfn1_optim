@@ -127,7 +127,11 @@ class BaseOptimizer(ABC):
         
         if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
             generator = CrystalGenerator(calculator)
-            return generator.generate_lattice_scan(save=True, filename=str(ref_file))
+            result_df = generator.compute_stuff()
+            # Save the result
+            result_df.to_csv(ref_file, index=False)
+            logger.info(f"Generated and saved lattice constants data to {ref_file}")
+            return result_df
         else:
             generator = DissociationCurveGenerator(calculator)
             return generator.generate_curve(save=True, filename=str(ref_file))
