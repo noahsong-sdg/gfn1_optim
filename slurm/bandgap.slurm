@@ -6,7 +6,7 @@
 #SBATCH --job-name=bandgap_calc
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --output=bandgap_%j.out
 #SBATCH --error=bandgap_%j.err
 
@@ -28,4 +28,4 @@ conda activate /projects/noso3320/software/gfn_env
 # for parallelization
 export OMP_NUM_THREADS=4
 # gpaw -P 8 python src/tests/bandgap_gpaw.py
-mpiexec -n 4 gpaw python src/tests/bandgap_gpaw.py
+mpiexec -n 8 gpaw python src/tests/bandgap_gpaw.py

@@ -35,43 +35,63 @@ class BaseOptimizer(ABC):
                  train_fraction: float = 0.8, spin: int = 0,
                  method_name: Optional[str] = None):
         
+        # Core setup
         self.system_name = system_name
         self.system_config = get_system_config(system_name)
-        
-        with open(base_param_file, 'r') as f:
-            self.base_params = toml.load(f)
-        
         self.base_param_file = Path(base_param_file)
         self.train_fraction = train_fraction
         self.spin = spin
         
+        # Load base parameters
+        with open(base_param_file, 'r') as f:
+            self.base_params = toml.load(f)
+        
+        # Setup parameter bounds
         self.bounds_manager = ParameterBoundsManager()
-        # this the static
-        #self.parameter_bounds = self._define_parameter_bounds()
-        # this the 10%
         system_defaults = extract_system_parameters(self.system_config.elements)
         self.parameter_bounds = init_dynamic_bounds(system_defaults)
         
-        # For lattice constants, use experimental values directly; otherwise load/generate reference data
+        # Setup reference data and training split
+        self._setup_reference_data(reference_data)
+        
+        # Initialize optimization state
+        self._init_optimization_state(method_name)
+        
+        # Load checkpoint if exists
+        self._load_checkpoint_if_exists()
+
+    
+    def apply_bounds(self, parameters: Dict[str, float]) -> Dict[str, float]:
+        return self.bounds_manager.apply_bounds(parameters, self.parameter_bounds)
+    
+    def _setup_reference_data(self, reference_data: Optional[pd.DataFrame]):
+        """Setup reference data based on calculation type"""
         if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
-            logger.info(f"Using experimental lattice parameters for {self.system_name}")
-            import pandas as pd
-            self.full_reference_data = pd.DataFrame([{
-                'a': self.system_config.lattice_params['a'],
-                'b': self.system_config.lattice_params['b'], 
-                'c': self.system_config.lattice_params['c'],
-                'alpha': self.system_config.lattice_params['alpha'],
-                'beta': self.system_config.lattice_params['beta'],
-                'gamma': self.system_config.lattice_params['gamma'],
-                'energy': self.system_config.lattice_params['energy']
-            }])
-            logger.info(f"Reference lattice parameters: a={self.system_config.lattice_params['a']:.3f} Å, c={self.system_config.lattice_params['c']:.3f} Å")
+            self._setup_lattice_reference()
         else:
-            self.full_reference_data = reference_data or self._load_or_generate_reference_data()
+            self.full_reference_data = reference_data or self._load_reference_data()
         
         self._split_train_test_data()
+    
+    def _setup_lattice_reference(self):
+        """Setup reference data from experimental lattice parameters"""
+        logger.info(f"Using experimental lattice parameters for {self.system_name}")
+        import pandas as pd
         
-        # Optimization state
+        self.full_reference_data = pd.DataFrame([{
+            'a': self.system_config.lattice_params['a'],
+            'b': self.system_config.lattice_params['b'], 
+            'c': self.system_config.lattice_params['c'],
+            'alpha': self.system_config.lattice_params['alpha'],
+            'beta': self.system_config.lattice_params['beta'],
+            'gamma': self.system_config.lattice_params['gamma'],
+            'energy': self.system_config.lattice_params['energy']
+        }])
+        
+        logger.info(f"Reference: a={self.system_config.lattice_params['a']:.3f} Å, c={self.system_config.lattice_params['c']:.3f} Å")
+    
+    def _init_optimization_state(self, method_name: Optional[str]):
+        """Initialize optimization state variables"""
         self.best_parameters = None
         self.best_fitness = float('inf')
         self.convergence_counter = 0
@@ -80,71 +100,60 @@ class BaseOptimizer(ABC):
         self.success_evaluations = 0
         
         self.method_name = method_name or self.__class__.__name__.replace('GeneralParameter', '').replace('BaseOptimizer', '').lower()
-        
-        # Load checkpoint if exists
+    
+    def _load_checkpoint_if_exists(self):
+        """Load checkpoint if it exists"""
         checkpoint_path = self.get_checkpoint_path()
         if os.path.exists(checkpoint_path):
             logger.info(f"Loading checkpoint from {checkpoint_path}")
             self.load_checkpoint()
-        
-    def _define_parameter_bounds(self) -> List[ParameterBounds]:
-        system_defaults = extract_system_parameters(self.system_config.elements)
-        bounds = []
-        
-        for param_name, default_val in system_defaults.items():
-            try:
-                # Use static bounds from PARAMETER_CONSTRAINTS. Change to create_parameter_bounds for dynamic bounds.
-                bound = self.bounds_manager.create_static_parameter_bounds(param_name, default_val)
-                bounds.append(bound)
-            except ValueError:
-                continue
-        
-        logger.info(f"Generated {len(bounds)} parameter bounds for {self.system_name}")
-        return bounds
     
-    def apply_bounds(self, parameters: Dict[str, float]) -> Dict[str, float]:
-        return self.bounds_manager.apply_bounds(parameters, self.parameter_bounds)
-    
-    def _load_or_generate_reference_data(self) -> pd.DataFrame:
-        # Handle bulk materials differently
+    def _load_reference_data(self) -> pd.DataFrame:
+        """Load reference data for dissociation curves and bulk materials"""
+        # Handle bulk materials
         if self.system_config.calculation_type == CalculationType.BULK:
-            # For bulk materials, we need to process the XYZ file
-            xyz_file = self._get_bulk_xyz_file()
-            
-            if not Path(xyz_file).exists():
-                raise FileNotFoundError(f"Bulk materials XYZ file not found: {xyz_file}")
-            
-            # Process the bulk system directly
-            reference_df, _ = self._process_bulk_system(xyz_file, max_structures=self.system_config.num_points)
-            
-            # Save reference data for future use
-            ref_file = Path(self.system_config.reference_data_file)
-            ref_file.parent.mkdir(parents=True, exist_ok=True)
-            reference_df.to_csv(ref_file, index=False)
-            logger.info(f"Saved reference data to {ref_file}")
-            
-            return reference_df
+            return self._load_bulk_reference_data()
         
-
-        
-        # Try CCSD data first (for dissociation curves)
+        # Try CCSD data for known systems
         if self.system_name in ["H2", "Si2"]:
             ccsd_file = RESULTS_DIR / "curves" / f"{self.system_name.lower()}_ccsd_500.csv"
             if ccsd_file.exists():
                 return pd.read_csv(ccsd_file)
         
-        # Try system-specific reference file (for dissociation curves)
+        # Try system-specific reference file
         ref_file = Path(self.system_config.reference_data_file)
         if ref_file.exists():
             return pd.read_csv(ref_file)
         
-        # Generate fallback data (for dissociation curves)
+        # Generate fallback data as last resort
         logger.warning(f"Generating fallback data for {self.system_name}")
+        return self._generate_fallback_data()
+    
+    def _load_bulk_reference_data(self) -> pd.DataFrame:
+        """Load reference data for bulk materials from XYZ files"""
+        xyz_file = self._get_bulk_xyz_file()
+        
+        if not Path(xyz_file).exists():
+            raise FileNotFoundError(f"Bulk materials XYZ file not found: {xyz_file}")
+        
+        # Process the bulk system directly
+        reference_df, _ = self._process_bulk_system(xyz_file, max_structures=self.system_config.num_points)
+        
+        # Save reference data for future use
+        ref_file = Path(self.system_config.reference_data_file)
+        ref_file.parent.mkdir(parents=True, exist_ok=True)
+        reference_df.to_csv(ref_file, index=False)
+        logger.info(f"Saved reference data to {ref_file}")
+        
+        return reference_df
+    
+    def _generate_fallback_data(self) -> pd.DataFrame:
+        """Generate fallback reference data using GFN1-xTB"""
         calc_config = CalcConfig(method=CalcMethod.GFN1_XTB)
         calculator = GeneralCalculator(calc_config, self.system_config)
         
         generator = DissociationCurveGenerator(calculator)
-        return generator.generate_curve(save=True, filename=str(ref_file))
+        return generator.generate_curve(save=True, filename=str(self.system_config.reference_data_file))
     
     def _split_train_test_data(self):
         if self.system_config.calculation_type in [CalculationType.LATTICE_CONSTANTS, CalculationType.BULK]:

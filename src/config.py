@@ -35,31 +35,41 @@ class SystemConfig:
     calculation_type: CalculationType
     elements: List[str]
     
+    # Core parameters
+    spin_multiplicity: int = 0
+    
     # For diatomic molecules
     bond_range: Optional[Tuple[float, float]] = None
     num_points: Optional[int] = 100
-    spin_multiplicity: int = 0
     
     # For solid state
     crystal_system: Optional[str] = None
     lattice_params: Optional[Dict[str, float]] = None
     
-    # File paths
+    # For bulk materials
+    num_structures: Optional[int] = None
+    
+    # File paths (auto-generated if not specified)
     reference_data_file: Optional[str] = None
     optimized_params_file: Optional[str] = None
     fitness_history_file: Optional[str] = None
     
-    # Optimization settings
-    train_fraction: float = 0.8
-    
     def __post_init__(self):
-        """Set up file paths based on system name"""
+        """Auto-generate file paths if not specified"""
         if self.reference_data_file is None:
-            self.reference_data_file = str(RESULTS_DIR / "curves" / f"{self.name}_reference.csv")
+            if self.calculation_type == CalculationType.LATTICE_CONSTANTS:
+                # Lattice constants don't need reference files
+                pass
+            elif self.calculation_type == CalculationType.BULK:
+                self.reference_data_file = str(RESULTS_DIR / "curves" / f"{self.name.lower()}_reference.csv")
+            else:
+                self.reference_data_file = str(RESULTS_DIR / "curves" / f"{self.name.lower()}_reference.csv")
+        
         if self.optimized_params_file is None:
-            self.optimized_params_file = str(RESULTS_DIR / "parameters" / f"{self.name}_optimized.toml")
+            self.optimized_params_file = str(RESULTS_DIR / "parameters" / f"{self.name.lower()}_optimized.toml")
+        
         if self.fitness_history_file is None:
-            self.fitness_history_file = str(RESULTS_DIR / "fitness" / f"{self.name}_fitness_history.csv")
+            self.fitness_history_file = str(RESULTS_DIR / "fitness" / f"{self.name.lower()}_fitness_history.csv")
 
 # Pre-defined system configurations
 SYSTEM_CONFIGS = {
@@ -97,36 +107,28 @@ SYSTEM_CONFIGS = {
         calculation_type=CalculationType.LATTICE_CONSTANTS,
         elements=["Ga", "N"],
         crystal_system="wurtzite",
-        lattice_params={"a": 3.19, "b": 3.19, "c": 5.19, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},  # Experimental values from literature
-        spin_multiplicity=0,
-        # Use experimental values as reference data
-        reference_data_file=str(RESULTS_DIR / "lattice" / "gan_experimental.csv")
+        lattice_params={"a": 3.19, "b": 3.19, "c": 5.19, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},
+        spin_multiplicity=0
     ),
     
     "BulkMaterials": SystemConfig(
         name="BulkMaterials",
         system_type=SystemType.SOLID_STATE,
         calculation_type=CalculationType.BULK,
-        elements=["Cd", "S"],  # Will be determined from data
+        elements=["Cd", "S"],
         crystal_system="bulk",
-        num_points=100,  # Number of structures to process
-        spin_multiplicity=0,
-        reference_data_file=str(RESULTS_DIR / "curves" / "bulk_materials_reference.csv"),
-        optimized_params_file=str(RESULTS_DIR / "parameters" / "bulk_materials_optimized.toml"),
-        fitness_history_file=str(RESULTS_DIR / "fitness" / "bulk_materials_fitness_history.csv")
+        num_structures=100,
+        spin_multiplicity=0
     ),
     
     "CompareBulk": SystemConfig(
         name="CompareBulk",
         system_type=SystemType.SOLID_STATE,
         calculation_type=CalculationType.BULK,
-        elements=["Cd", "S"],  # Will be determined from data
+        elements=["Cd", "S"],
         crystal_system="bulk",
-        num_points=50,  # Number of structures to process
-        spin_multiplicity=0,
-        reference_data_file=str(RESULTS_DIR / "curves" / "compare_bulk_reference.csv"),
-        optimized_params_file=str(RESULTS_DIR / "parameters" / "compare_bulk_optimized.toml"),
-        fitness_history_file=str(RESULTS_DIR / "fitness" / "compare_bulk_fitness_history.csv")
+        num_structures=50,
+        spin_multiplicity=0
     )
 }
 
@@ -224,38 +226,7 @@ def print_all_systems():
                     crystal_str = config.crystal_system or "N/A"
                     print(f"  {system:8} - {', '.join(config.elements):6} ({crystal_str})")
 
-def create_experimental_reference_data(system_name: str) -> None:
-    """Create experimental reference data files for solid-state systems"""
-    import pandas as pd
-    
-    if system_name not in SYSTEM_CONFIGS:
-        raise ValueError(f"System '{system_name}' not found")
-    
-    config = SYSTEM_CONFIGS[system_name]
-    
-    if config.calculation_type != CalculationType.LATTICE_CONSTANTS:
-        raise ValueError(f"System {system_name} is not a lattice constants system")
-    
-    # Create the reference data from experimental lattice parameters
-    ref_data = pd.DataFrame([{
-        'a': config.lattice_params['a'],
-        'b': config.lattice_params['b'], 
-        'c': config.lattice_params['c'],
-        'alpha': config.lattice_params['alpha'],
-        'beta': config.lattice_params['beta'],
-        'gamma': config.lattice_params['gamma'],
-        'energy': config.lattice_params['energy']
-    }])
-    
-    # Ensure the directory exists
-    ref_file = Path(config.reference_data_file)
-    ref_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Save the reference data
-    ref_data.to_csv(ref_file, index=False)
-    print(f"Created experimental reference data for {system_name} at {ref_file}")
-    
-    return ref_file
+
 
 if __name__ == "__main__":
     # Demo
