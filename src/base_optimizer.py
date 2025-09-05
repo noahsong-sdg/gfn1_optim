@@ -262,9 +262,13 @@ class BaseOptimizer(ABC):
                 angle_scale = 1.0  # typical error scale in degrees
                 angle_loss = ((alpha_opt - alpha_ref) ** 2 + (beta_opt - beta_ref) ** 2 + (gamma_opt - gamma_ref) ** 2) / (3 * angle_scale ** 2)
                 
-                # Energy error (normalized by typical scale ~1 eV)
-                energy_scale = 1.0  # typical error scale in eV
+                # Energy error (normalized by typical scale ~0.1 Hartree)
+                energy_scale = 0.1  # typical error scale in Hartree
                 energy_loss = (result_df['energy'].iloc[0] - self.system_config.lattice_params["energy"]) ** 2 / (energy_scale ** 2)
+                
+                # Debug output to check all values
+                logger.info(f"Lattice comparison: calc a={a_opt:.3f}, b={b_opt:.3f}, c={c_opt:.3f} Å vs ref a={a_ref:.3f}, b={b_ref:.3f}, c={c_ref:.3f} Å")
+                logger.info(f"Energy comparison: calc={result_df['energy'].iloc[0]:.6f} Hartree, ref={self.system_config.lattice_params['energy']:.6f} Hartree, diff={abs(result_df['energy'].iloc[0] - self.system_config.lattice_params['energy']):.6f} Hartree")
                 
                 # Weighted combination (energy is most important)
                 lattice_weight = 0.10   

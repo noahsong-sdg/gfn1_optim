@@ -23,7 +23,7 @@ from ase.geometry.analysis import Analysis
 # pixi run python src/tests/compare_lattice.py
 
 def get_params(calculator):
-    atoms = bulk("GaN", "wurtzite", a = 3.19, c = 5.19) # CdS: 4.17, 6.78
+    atoms = bulk("CdS", "wurtzite", a = 4.17, c = 6.78) # CdS: 4.17, 6.78
     # GaN: 3.19, 5.19
     atoms.calc = calculator
     ucf = UnitCellFilter(atoms)
