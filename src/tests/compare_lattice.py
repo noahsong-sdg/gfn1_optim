@@ -146,13 +146,20 @@ def main():
         charge=0.0,
         spin=0,
     )
-    bayes_calc = TBLiteASECalculator(
-        param_file="../results/bayes/CdS_bayes.toml",
+    gad_calc = TBLiteASECalculator(
+        param_file="../results/gad/CdS_gad.toml",
         method="gfn1",
         electronic_temperature=400.0,
         charge=0.0,
         spin=0,
     )
+    # bayes_calc = TBLiteASECalculator(
+    #     param_file="../results/bayes/CdS_bayes.toml",
+    #     method="gfn1",
+    #     electronic_temperature=400.0,
+    #     charge=0.0,
+    #     spin=0,
+    # )
     cma1_calc = TBLiteASECalculator(
         param_file="../results/cma1/CdS_cma1.toml",
         method="gfn1",
@@ -171,9 +178,9 @@ def main():
     default_df = get_params(TBLite(method="GFN1-xTB", electronic_temperature=400.0))
     print("Default")
     print(default_df)
-    bayes_df = get_params(bayes_calc)
-    print("Bayes")
-    print(bayes_df)    
+    # bayes_df = get_params(bayes_calc)
+    # print("Bayes")
+    # print(bayes_df)    
     cma1_df = get_params(cma1_calc)
     print("cma1")
     print(cma1_df) 
@@ -183,6 +190,9 @@ def main():
     ga_df = get_params(ga_calc)
     print("ga")
     print(ga_df)
+    gad_df = get_params(gad_calc)
+    print("gad")
+    print(gad_df)
     pso_df = get_params(pso_calc)
     print("pso")
     print(pso_df)
@@ -190,7 +200,8 @@ def main():
     default_df['Method'] = 'Default'
     pso_df['Method'] = 'PSO'
     ga_df['Method'] = 'GA'
-    bayes_df['Method'] = 'Bayes'
+    gad_df['Method'] = 'GAD'
+    # bayes_df['Method'] = 'Bayes'
     cma1_df['Method'] = 'CMA1'
     cma2_df['Method'] = 'CMA2'
 
@@ -204,13 +215,14 @@ def main():
     default_df = reorder_columns(default_df)
     pso_df = reorder_columns(pso_df)
     ga_df = reorder_columns(ga_df)
-    bayes_df = reorder_columns(bayes_df)
+    gad_df = reorder_columns(gad_df)
+    # bayes_df = reorder_columns(bayes_df)
     cma1_df = reorder_columns(cma1_df)
     cma2_df = reorder_columns(cma2_df)
 
     # Concatenate all DataFrames
-    all_results_df = pd.concat([default_df, bayes_df, cma1_df, cma2_df, ga_df, pso_df], ignore_index=True)
-    all_results_df.to_csv("lattice_results_cdsparams_gan.csv", index=False)
+    all_results_df = pd.concat([default_df, cma1_df, cma2_df, ga_df, gad_df, pso_df], ignore_index=True)
+    all_results_df.to_csv("lattice_results_v2.csv", index=False)
     print(all_results_df)
     
     # Generate crystal structure plots for all methods
