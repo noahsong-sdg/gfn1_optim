@@ -4,15 +4,14 @@
 ##SBATCH --account=ucb298_peak3 ##  Group allocation that can be swapped in or out. 
 
 ## QoS_type
-#SBATCH --qos=testing
+#SBATCH --qos=normal
 
-## note: this one will be empty for shas nodes
 ## Partition_name
-#SBATCH --partition=atesting ##Testing partition for alpine
-##SBATCH --partition=amilan ##Partition to actually run some jobs
+##SBATCH --partition=atesting ##Testing partition for alpine
+#SBATCH --partition=amilan ##Partition to actually run some jobs
 
 ## Job_name
-#SBATCH --job-name=ZnOWU ## edit here to give job name (4-5 letters should be descriptive).
+#SBATCH --job-name=1bandgaps ## edit here to give job name (4-5 letters should be descriptive).
 
 #SBATCH -o o.%j                 # Name of stdout output file (%j expands to jobId)
 #SBATCH -e e.%j                 # name of error file
