@@ -26,7 +26,7 @@
 #SBATCH --time=1:00:00
 
 #SBATCH --mail-user=noso3320@colorado.edu
-#SBATCH --mail-type=BEGIN     # email me when the job starts, commented out
+##SBATCH --mail-type=BEGIN     # email me when the job starts, commented out
 #SBATCH --mail-type=END       # email me when the job finishes, commented out
 #SBATCH --mail-type=FAIL        # email me if the job fails
 
