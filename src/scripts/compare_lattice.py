@@ -222,7 +222,7 @@ def main():
 
     # Concatenate all DataFrames
     all_results_df = pd.concat([default_df, cma1_df, cma2_df, ga_df, gad_df, pso_df], ignore_index=True)
-    all_results_df.to_csv("lattice_results_v2.csv", index=False)
+    all_results_df.to_csv("lattice_results_v3.csv", index=False)
     print(all_results_df)
     
     # Generate crystal structure plots for all methods

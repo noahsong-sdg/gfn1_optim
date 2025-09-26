@@ -1,6 +1,5 @@
 """
-System configuration module for defining different molecular/material systems.
-Provides a plug-and-play interface for GA, PSO, and other optimization algorithms.
+system config for dissociation curves and lattice stuff
 """
 
 from dataclasses import dataclass
@@ -90,7 +89,7 @@ SYSTEM_CONFIGS = {
         elements=["Si"],
         bond_range=(1.5, 5.0),
         num_points=500,
-        spin_multiplicity=2),  # Triplet)
+        spin_multiplicity=2),  # Triplet?)
     
     "CdS": SystemConfig(
         name="CdS",

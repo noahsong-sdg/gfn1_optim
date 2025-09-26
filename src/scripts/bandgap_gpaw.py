@@ -3,7 +3,6 @@
 band gap calculations using GPAW
 https://gpaw.readthedocs.io/tutorialsexercises/electronic/bandstructures/bandstructures.html#bandstructures
 https://gpaw.readthedocs.io/documentation/parallel_runs/parallel_runs.html 
-
 """
 import logging
 import numpy as np
@@ -20,7 +19,7 @@ from gpaw import GPAW, PW, FermiDirac, mpi
 XYZ_FILE = 'trainall.xyz'
 OUTPUT_FILE = 'bands_pbe_gpaw.csv'
 METHOD = 'PBE'  # Options: 'PBE', 'PBE0', 'HSE06'
-TEST_MODE = False  # Set to False for full dataset
+TEST_MODE = False  
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -50,10 +49,6 @@ def calculate_bandgap(atoms, method='PBE'):
         eigenvalues = calc.get_eigenvalues(kpt=0)
         nelec = calc.get_number_of_electrons()
         
-        # Calculate band structure (optional, can be commented out for speed)
-        # bs = calc.band_structure()
-        # bs.plot(filename='bandstructure.png', show=False, emax=10.0)
-        
         # Find HOMO and LUMO
         homo_idx = int(nelec // 2) - 1
         lumo_idx = int(nelec // 2)
@@ -70,7 +65,6 @@ def calculate_bandgap(atoms, method='PBE'):
     except Exception as e:
         logger.error(f"  SCF calculation failed: {e}")
         return float('nan'), float('nan'), float('nan'), None
-
 
 def save_checkpoint(results, output_file, checkpoint_file):
     """Save results to checkpoint file atomically"""
@@ -94,7 +88,6 @@ def save_checkpoint(results, output_file, checkpoint_file):
         logger.error(f"  Failed to save checkpoint: {e}")
         return False
 
-
 def load_checkpoint(checkpoint_file):
     """Load existing checkpoint if available"""
     if os.path.exists(checkpoint_file):
@@ -105,7 +98,6 @@ def load_checkpoint(checkpoint_file):
         except Exception as e:
             logger.warning(f"Failed to load checkpoint: {e}")
     return []
-
 
 def get_completed_structure_ids(results):
     """Get set of completed structure IDs"""
