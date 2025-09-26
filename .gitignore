@@ -11,3 +11,4 @@ archive/
 *.err
 *.out
 **/sc_experiments/
+vasp_structs/**
