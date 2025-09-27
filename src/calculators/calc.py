@@ -295,6 +295,7 @@ class DissociationCurveGenerator:
             distances = get_calculation_distances(system_config)
         
         # Calculate reference: 2 isolated atoms
+        # bug this fn doesnt exist
         atom_symbol = get_isolated_atom_symbol(system_config)
         atom_energy = self.calculator.calculate_energy(atom_symbol)
         
@@ -326,10 +327,7 @@ class CrystalGenerator:
     def __init__(self, calculator: GeneralCalculator):
         self.calculator = calculator
     def get_bandgap(self) -> float:
-        # https://wiki.fysik.dtu.dk/ase/ase/dft/bandgap.html
-        from ase.dft.bandgap import bandgap
-        gap, p1, p2 = bandgap(self.calculator.atoms, direct=True,kpts=(1, 1, 1))
-        return gap
+        return 0.0
     def getElastic(self) -> float:
         # need to implement
         return 0.0
@@ -380,7 +378,6 @@ class CrystalGenerator:
             #'bandgap': self.get_bandgap(),
             #'elastic': self.getElastic()
         })
-        
         return df
 
 class GeneralStudyManager:

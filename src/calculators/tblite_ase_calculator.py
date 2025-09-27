@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class TBLiteASECalculator(Calculator):
     """ASE Calculator interface for TBLite with custom parameters"""
     
-    implemented_properties = ['energy', 'forces', 'stress']
+    implemented_properties = ['energy', 'forces', 'stress', 'bandgap']
     
     def __init__(self, 
                  param_file: str,
@@ -50,8 +50,8 @@ class TBLiteASECalculator(Calculator):
         
         # Create temporary directory for calculation
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Write coordinates to file
-            coord_file = Path(tmpdir) / "coord.xyz"
+            # Write coordinates to file in $coord format expected by tblite
+            coord_file = Path(tmpdir) / "coord"
             self._write_coordinates(atoms, coord_file)
             
             # Run TBLite calculation
@@ -65,12 +65,39 @@ class TBLiteASECalculator(Calculator):
                 self.results['stress'] = stress
     
     def _write_coordinates(self, atoms: Atoms, coord_file: Path):
-        """Write atomic coordinates to XYZ file"""
+        """Write atomic coordinates to 'coord' file with optional periodic cell.
+
+        TBLite understands a Turbomole-like $coord format. We write positions in Bohr.
+        If periodic, also include $cell and $periodic 3 sections.
+        """
         with open(coord_file, 'w') as f:
-            f.write(f"{len(atoms)}\n")
-            f.write(f"TBLite calculation with {self.method}\n")
-            for atom in atoms:
-                f.write(f"{atom.symbol} {atom.x:.6f} {atom.y:.6f} {atom.z:.6f}\n")
+            f.write("$coord\n")
+            if isinstance(atoms, Atoms):
+                symbols = atoms.get_chemical_symbols()
+                positions = atoms.get_positions()
+                cell = atoms.get_cell()
+                pbc = any(atoms.get_pbc())
+            else:
+                symbols = [a.symbol for a in atoms]
+                positions = [a.position for a in atoms]
+                cell = None
+                pbc = False
+
+            # Write atomic positions (Angstrom -> Bohr)
+            for symbol, pos in zip(symbols, positions):
+                x_bohr = pos[0] * 1.88973
+                y_bohr = pos[1] * 1.88973
+                z_bohr = pos[2] * 1.88973
+                f.write(f"{x_bohr:.10f} {y_bohr:.10f} {z_bohr:.10f} {symbol.lower()}\n")
+            f.write("$end\n")
+
+            if pbc and cell is not None and cell.any():
+                f.write("$cell\n")
+                for i in range(3):
+                    f.write(f"{cell[i, 0]:.10f} {cell[i, 1]:.10f} {cell[i, 2]:.10f}\n")
+                f.write("$end\n")
+                f.write("$periodic 3\n")
+                f.write("$end\n")
     
     def _run_tblite_calculation(self, tmpdir: str, coord_file: Path) -> tuple:
         """Run TBLite calculation and parse results"""
@@ -126,7 +153,10 @@ class TBLiteASECalculator(Calculator):
                 if result_relaxed.returncode == 0:
                     logger.info(f"Calculation succeeded with relaxed convergence")
                     energy = self._parse_energy(result_relaxed.stdout)
+                    gap = self._parse_bandgap(result_relaxed.stdout)
                     forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+                    if gap is not None:
+                        self.results['bandgap'] = gap
                     return energy, forces, stress
                 else:
                     
@@ -142,9 +172,43 @@ class TBLiteASECalculator(Calculator):
         
         # Parse results from successful calculation
         energy = self._parse_energy(result.stdout)
+        gap = self._parse_bandgap(result.stdout)
         forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+        if gap is not None:
+            self.results['bandgap'] = gap
         
         return energy, forces, stress
+
+    def _parse_bandgap(self, output: str) -> Optional[float]:
+        """Parse HOMO-LUMO/band gap from TBLite stdout if available.
+        Returns gap in eV when possible.
+        """
+        text = output.lower()
+        # Try common patterns
+        candidates = []
+        for line in output.splitlines():
+            lower = line.lower()
+            if 'homo' in lower and 'lumo' in lower and 'gap' in lower:
+                candidates.append(line)
+            elif 'band gap' in lower:
+                candidates.append(line)
+        for line in candidates:
+            tokens = line.replace('=', ' ').replace(':', ' ').split()
+            # Look for a float followed by eV or a float alone
+            for i, tok in enumerate(tokens):
+                try:
+                    val = float(tok)
+                    # If unit token next
+                    unit = tokens[i+1].lower() if i + 1 < len(tokens) else ''
+                    if 'ev' in unit:
+                        return val
+                    if 'eh' in unit:
+                        return val * 27.211386245988  # Eh -> eV
+                    # If no unit, assume eV
+                    return val
+                except Exception:
+                    continue
+        return None
     
     def _parse_energy(self, output):
         # DEBUG: Extract energy from the summary 'total energy' line (not the cycle table)

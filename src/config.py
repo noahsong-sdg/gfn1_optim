@@ -18,7 +18,7 @@ class SystemType(Enum):
     """Types of systems that can be optimized"""
     DIATOMIC_MOLECULE = "diatomic"
     SOLID_STATE = "solid"
-    MOLECULE = "molecule"
+    SUPERCELL = "supercell"
 
 class CalculationType(Enum):
     """Types of calculations to perform"""
@@ -57,12 +57,12 @@ class SystemConfig:
         """Auto-generate file paths if not specified"""
         if self.reference_data_file is None:
             if self.calculation_type == CalculationType.LATTICE_CONSTANTS:
-                # Lattice constants don't need reference files
                 pass
             elif self.calculation_type == CalculationType.BULK:
-                self.reference_data_file = str(RESULTS_DIR / "curves" / f"{self.name.lower()}_reference.csv")
+                # Bulk/supercell reference data provided externally
+                self.reference_data_file = str(PROJECT_ROOT / "train_structs" / "results.csv")
             else:
-                self.reference_data_file = str(RESULTS_DIR / "curves" / f"{self.name.lower()}_reference.csv")
+                self.reference_data_file = str(PROJECT_ROOT / "test_structs" / "results.csv")
         
         if self.optimized_params_file is None:
             self.optimized_params_file = str(RESULTS_DIR / "parameters" / f"{self.name.lower()}_optimized.toml")
@@ -109,24 +109,12 @@ SYSTEM_CONFIGS = {
         lattice_params={"a": 3.19, "b": 3.19, "c": 5.19, "alpha": 90, "beta": 90, "gamma": 120, "energy": -12.299729},
         spin_multiplicity=0
     ),
-    
-    "BulkMaterials": SystemConfig(
-        name="BulkMaterials",
-        system_type=SystemType.SOLID_STATE,
+
+    "big": SystemConfig(
+        name="big",
+        system_type=SystemType.SUPERCELL,
         calculation_type=CalculationType.BULK,
         elements=["Cd", "S"],
-        crystal_system="bulk",
-        num_structures=100,
-        spin_multiplicity=0
-    ),
-    
-    "CompareBulk": SystemConfig(
-        name="CompareBulk",
-        system_type=SystemType.SOLID_STATE,
-        calculation_type=CalculationType.BULK,
-        elements=["Cd", "S"],
-        crystal_system="bulk",
-        num_structures=50,
         spin_multiplicity=0
     )
 }
@@ -146,10 +134,6 @@ def get_systems_by_type(system_type: SystemType) -> List[str]:
     """Get systems of a specific type"""
     return [name for name, config in SYSTEM_CONFIGS.items() 
             if config.system_type == system_type]
-
-def add_custom_system(config: SystemConfig):
-    """Add a custom system configuration"""
-    SYSTEM_CONFIGS[config.name] = config
 
 def get_calculation_distances(config: SystemConfig) -> np.ndarray:
     """Get distances for calculation based on system config"""
@@ -175,14 +159,13 @@ def create_molecule_geometry(config: SystemConfig, distance: float) -> List[Tupl
     ]
 
 def get_isolated_atom_symbol(config: SystemConfig) -> str:
-    """Get symbol for isolated atom calculation"""
-    if config.system_type != SystemType.DIATOMIC_MOLECULE:
-        raise ValueError(f"Isolated atom only for diatomic molecules")
-    
-    if len(config.elements) != 1:
-        raise ValueError(f"Diatomic molecule should have 1 element type")
-    
+    """Return the atomic symbol for isolated-atom reference of a diatomic system.
+    For diatomics we assume both atoms share the same element type (config.elements[0]).
+    """
+    if not config.elements:
+        raise ValueError("SystemConfig.elements is empty")
     return config.elements[0]
+
 
 def print_system_info(system_name: str):
     """Print detailed information about a system"""
@@ -205,31 +188,3 @@ def print_system_info(system_name: str):
     print(f"Data points: {config.num_points}")
     print(f"Reference data: {config.reference_data_file}")
     print(f"Output parameters: {config.optimized_params_file}")
-
-def print_all_systems():
-    """Print information about all available systems"""
-    print("Available Systems:")
-    print("=" * 50)
-    
-    for system_type in SystemType:
-        systems = get_systems_by_type(system_type)
-        if systems:
-            print(f"\n{system_type.value.upper()} SYSTEMS:")
-            for system in systems:
-                config = SYSTEM_CONFIGS[system]
-                if system_type == SystemType.DIATOMIC_MOLECULE:
-                    range_str = f"({config.bond_range[0]:.1f}-{config.bond_range[1]:.1f} Å)"
-                    spin_str = f"spin={config.spin_multiplicity}"
-                    print(f"  {system:8} - {', '.join(config.elements):6} {range_str} {spin_str}")
-                elif system_type == SystemType.SOLID_STATE:
-                    crystal_str = config.crystal_system or "N/A"
-                    print(f"  {system:8} - {', '.join(config.elements):6} ({crystal_str})")
-
-
-
-if __name__ == "__main__":
-    # Demo
-    print_all_systems()
-    print("\nExample system details:")
-    print("-" * 30)
-    print_system_info("Si2") 

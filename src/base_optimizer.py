@@ -127,7 +127,7 @@ class BaseOptimizer(ABC):
         
         # Generate fallback data as last resort
         logger.warning(f"Generating fallback data for {self.system_name}")
-        return self._generate_fallback_data()
+        return pd.DataFrame()
     
     def _load_bulk_reference_data(self) -> pd.DataFrame:
         """Load reference data for bulk materials from XYZ files"""
@@ -146,14 +146,6 @@ class BaseOptimizer(ABC):
         logger.info(f"Saved reference data to {ref_file}")
         
         return reference_df
-    
-    def _generate_fallback_data(self) -> pd.DataFrame:
-        """Generate fallback reference data using GFN1-xTB"""
-        calc_config = CalcConfig(method=CalcMethod.GFN1_XTB)
-        calculator = GeneralCalculator(calc_config, self.system_config)
-        
-        generator = DissociationCurveGenerator(calculator)
-        return generator.generate_curve(save=True, filename=str(self.system_config.reference_data_file))
     
     def _split_train_test_data(self):
         if self.system_config.calculation_type in [CalculationType.LATTICE_CONSTANTS, CalculationType.BULK]:
@@ -285,6 +277,54 @@ class BaseOptimizer(ABC):
                 os.unlink(param_file)
                 self.success_evaluations += 1
                 return fitness
+
+            elif self.system_config.calculation_type == CalculationType.BULK:
+                # For bulk/supercell workflows, compute energies and bandgaps for provided
+                # structures and compare to reference properties if available.
+                xyz_file = self._get_bulk_xyz_file()
+                if not Path(xyz_file).exists():
+                    os.unlink(param_file)
+                    raise FileNotFoundError(f"Bulk materials XYZ file not found: {xyz_file}")
+                structures = self._load_structures_from_xyz(xyz_file, max_structures=self.system_config.num_points)
+                # Calculate energies and bandgaps with current parameters
+                energies, bandgaps = self._calculate_energies_and_bandgaps(structures, param_file)
+                os.unlink(param_file)
+                self.success_evaluations += 1
+
+                # Energy component
+                ref_energies = self._extract_reference_energies(structures)
+                valid_mask_e = [not np.isnan(e) for e in energies]
+                calc_e = np.array([e for e, ok in zip(energies, valid_mask_e) if ok], dtype=float)
+                energy_rmse = None
+                if any(not np.isnan(x) for x in ref_energies):
+                    ref_e = np.array([r for r, ok in zip(ref_energies, valid_mask_e) if ok], dtype=float)
+                    # Use relative energies to be robust to absolute offsets
+                    ref_rel = ref_e - np.nanmin(ref_e)
+                    calc_rel = calc_e - np.nanmin(calc_e)
+                    energy_rmse = float(np.sqrt(np.mean((ref_rel - calc_rel) ** 2)))
+                else:
+                    # Without references, prefer lower energies across the dataset (use mean energy as proxy)
+                    mean_e = float(np.nanmean(calc_e))
+                    # Treat mean energy deviation as loss on a scale of its magnitude
+                    energy_rmse = abs(mean_e)
+
+                # Bandgap component
+                ref_bandgaps = self._extract_reference_bandgaps(structures)
+                valid_mask_g = [not np.isnan(g) for g in bandgaps]
+                calc_g = np.array([g for g, ok in zip(bandgaps, valid_mask_g) if ok], dtype=float)
+                gap_rmse = None
+                if any(not np.isnan(x) for x in ref_bandgaps) and len(calc_g) > 0:
+                    ref_g = np.array([r for r, ok in zip(ref_bandgaps, valid_mask_g) if ok], dtype=float)
+                    gap_rmse = float(np.sqrt(np.mean((ref_g - calc_g) ** 2)))
+
+                # Combine losses (normalize with simple scales; energy relative nature already reduces scale issues)
+                energy_weight = 0.7
+                gap_weight = 0.3 if gap_rmse is not None else 0.0
+                total_loss = energy_weight * energy_rmse + gap_weight * (gap_rmse or 0.0)
+                fitness = 1.0 / (1.0 + total_loss)
+
+                return fitness
+
 
             # Molecular fitting
             calc_config = CalcConfig(method=CalcMethod.XTB_CUSTOM, param_file=param_file, spin=self.spin)
@@ -492,12 +532,8 @@ class BaseOptimizer(ABC):
     # Bulk materials calculation methods
     def _get_bulk_xyz_file(self) -> str:
         """Get the appropriate XYZ file for bulk materials"""
-        if self.system_name == "BulkMaterials":
-            return "trainall.xyz"
-        elif self.system_name == "CompareBulk":
-            return "compare_bulk.xyz"
-        else:
-            return f"{self.system_name.lower()}.xyz"
+        # Default dataset for bulk/supercell training
+        return "trainall.xyz"
     
     def _load_structures_from_xyz(self, xyz_file: str, max_structures: Optional[int] = None) -> List[Atoms]:
         """Load structures from XYZ file"""
@@ -508,26 +544,31 @@ class BaseOptimizer(ABC):
             structures = structures[:max_structures]
             
         logger.info(f"Loaded {len(structures)} structures")
+        # Attach reference properties if available
+        try:
+            self._attach_bulk_references(structures)
+        except Exception as e:
+            logger.warning(f"Failed to attach bulk references: {e}")
         return structures
     
     def _extract_reference_energies(self, structures: List[Atoms]) -> List[float]:
-        """Extract reference energies from structure properties"""
+        """Extract reference energies (eV) from structure properties."""
         energies = []
         for i, atoms in enumerate(structures):
-            if hasattr(atoms, 'info') and 'energy' in atoms.info:
-                energy = atoms.info['energy']
-            elif hasattr(atoms, 'get_potential_energy'):
-                energy = atoms.get_potential_energy()
-            else:
-                logger.warning(f"No energy found for structure {i}, skipping")
-                continue
+            energy = np.nan
+            if hasattr(atoms, 'info'):
+                info = atoms.info
+                if 'ref_energy_eV' in info:
+                    try:
+                        energy = float(info['ref_energy_eV'])
+                    except Exception:
+                        energy = np.nan
             energies.append(energy)
-        
-        logger.info(f"Extracted {len(energies)} reference energies")
+        logger.info(f"Collected reference energies for {len(energies)} structures")
         return energies
     
     def _calculate_energies(self, structures: List[Atoms], param_file: str) -> List[float]:
-        """Calculate energies for all structures using TBLite"""
+        """Calculate energies for all structures using TBLite, return in eV."""
         energies = []
         failed = 0
         
@@ -540,8 +581,8 @@ class BaseOptimizer(ABC):
                     charge=0.0,
                     spin=self.spin
                 )
-                
-                energy = calc.get_potential_energy(atoms)
+                # TBLite energy is parsed in Hartree; convert to eV
+                energy = calc.get_potential_energy(atoms) * 27.211386245988
                 energies.append(energy)
                 
                 if i % 10 == 0:
@@ -554,6 +595,87 @@ class BaseOptimizer(ABC):
         
         logger.info(f"Calculated energies for {len(energies) - failed}/{len(structures)} structures")
         return energies
+
+    def _calculate_energies_and_bandgaps(self, structures: List[Atoms], param_file: str) -> Tuple[List[float], List[float]]:
+        """Calculate energies and bandgaps for all structures using TBLite.
+        Bandgaps may be NaN if not available/printed by backend.
+        """
+        energies = []
+        bandgaps = []
+        failed = 0
+        for i, atoms in enumerate(structures):
+            try:
+                calc = TBLiteASECalculator(
+                    param_file=param_file,
+                    method="gfn1",
+                    electronic_temperature=400.0,
+                    charge=0.0,
+                    spin=self.spin
+                )
+                # energy in Hartree -> convert to eV
+                e = calc.get_potential_energy(atoms) * 27.211386245988
+                energies.append(e)
+                bg = np.nan
+                if 'bandgap' in calc.results:
+                    bg = float(calc.results['bandgap'])
+                bandgaps.append(bg)
+                if i % 10 == 0:
+                    logger.info(f"Processed {i+1}/{len(structures)} structures")
+            except Exception as e:
+                logger.warning(f"Failed to calculate properties for structure {i}: {e}")
+                failed += 1
+                energies.append(np.nan)
+                bandgaps.append(np.nan)
+        logger.info(f"Calculated energies for {len(energies) - failed}/{len(structures)} structures")
+        return energies, bandgaps
+
+    def _extract_reference_bandgaps(self, structures: List[Atoms]) -> List[float]:
+        """Extract reference bandgaps from structure properties if present (eV)."""
+        gaps = []
+        for i, atoms in enumerate(structures):
+            g = np.nan
+            if hasattr(atoms, 'info'):
+                info = atoms.info
+                if 'ref_gap_eV' in info:
+                    try:
+                        g = float(info['ref_gap_eV'])
+                    except Exception:
+                        g = np.nan
+            gaps.append(g)
+        return gaps
+
+    def _attach_bulk_references(self, structures: List[Atoms]) -> None:
+        """Attach reference energy/gap (eV) from CSV to each structure.info.
+        Expects CSV at self.system_config.reference_data_file with columns:
+        'Structure', 'Bandgap(eV)', 'FreeEnergy(eV)'.
+        If counts match, rows are aligned to structure order.
+        """
+        ref_path = Path(self.system_config.reference_data_file)
+        if not ref_path.exists():
+            logger.warning(f"Reference CSV not found at {ref_path}")
+            return
+        df = pd.read_csv(ref_path)
+        n_csv = len(df)
+        n_struct = len(structures)
+        if n_csv != n_struct:
+            logger.warning(f"CSV entries ({n_csv}) != structures ({n_struct}); aligning by min length")
+        n = min(n_csv, n_struct)
+        for i in range(n):
+            row = df.iloc[i]
+            atoms = structures[i]
+            if not hasattr(atoms, 'info'):
+                continue
+            atoms.info['ref_structure'] = str(row.get('Structure', f'structure_{i:03d}'))
+            if 'FreeEnergy(eV)' in row:
+                try:
+                    atoms.info['ref_energy_eV'] = float(row['FreeEnergy(eV)'])
+                except Exception:
+                    atoms.info['ref_energy_eV'] = np.nan
+            if 'Bandgap(eV)' in row:
+                try:
+                    atoms.info['ref_gap_eV'] = float(row['Bandgap(eV)'])
+                except Exception:
+                    atoms.info['ref_gap_eV'] = np.nan
     
     def _compute_energy_loss(self, reference_energies: List[float], calculated_energies: List[float]) -> float:
         """Compute RMSE loss between reference and calculated energies"""
