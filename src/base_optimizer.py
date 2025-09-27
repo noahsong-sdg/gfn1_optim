@@ -112,7 +112,16 @@ class BaseOptimizer(ABC):
         """Load reference data for dissociation curves and bulk materials"""
         # Handle bulk materials
         if self.system_config.calculation_type == CalculationType.BULK:
-            return self._load_bulk_reference_data()
+            # Read-only: expect external CSV at self.system_config.reference_data_file
+            ref_file = Path(self.system_config.reference_data_file)
+            if ref_file.exists():
+                logger.info(f"Loading bulk references from {ref_file}")
+                try:
+                    return pd.read_csv(ref_file)
+                except Exception as e:
+                    logger.warning(f"Failed to read bulk reference CSV {ref_file}: {e}")
+            # No in-memory reference table needed for BULK if per-structure info is attached later
+            return pd.DataFrame()
         
         # Try CCSD data for known systems
         if self.system_name in ["H2", "Si2"]:
