@@ -680,15 +680,15 @@ class BaseOptimizer(ABC):
     def _compute_energy_loss(self, reference_energies: List[float], calculated_energies: List[float]) -> float:
         """Compute RMSE loss between reference and calculated energies"""
         valid_pairs = [(ref, calc) for ref, calc in zip(reference_energies, calculated_energies) 
-                      if not (np.isnan(ref) or np.isnan(calc))]
-        
+                      if np.isfinite(ref) and np.isfinite(calc)]
         if not valid_pairs:
-            raise ValueError("No valid energy pairs found")
-        
+            n_ref = sum(np.isfinite(r) for r in reference_energies)
+            n_calc = sum(np.isfinite(c) for c in calculated_energies)
+            logger.warning(f"No valid energy pairs found (ref finite={n_ref}, calc finite={n_calc}); skipping RMSE computation")
+            return float('nan')
         ref_vals, calc_vals = zip(*valid_pairs)
         ref_vals = np.array(ref_vals)
         calc_vals = np.array(calc_vals)
-        
         rmse = np.sqrt(np.mean((ref_vals - calc_vals) ** 2))
         logger.info(f"Energy RMSE: {rmse:.6f} eV ({len(valid_pairs)} structures)")
         return rmse
