@@ -18,7 +18,8 @@ module load gcc
 module load cmake
 module load anaconda
 
-cd /projects/noso3320/work/gfn1_optim
+cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 
-python src/cli.py pso CdS config/gfn1-base.toml --output results/pso
+# python src/cli.py pso CdS config/gfn1-base.toml --output results/pso
+python -m src.cli pso big config/gfn1-base.toml --output-dir results/bayes

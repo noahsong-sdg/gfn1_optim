@@ -18,6 +18,7 @@ module load gcc
 module load cmake
 module load anaconda
 
-cd /projects/noso3320/work/gfn1_optim
+cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
-python src/cli.py cma2 CdS config/gfn1-base.toml --output results/cma2 
+# python src/cli.py cma2 CdS config/gfn1-base.toml --output results/cma2 
+python -m src.cli cma2 big config/gfn1-base.toml --output-dir results/bayes
