@@ -3,7 +3,7 @@
 from ase.io import read, write
 import os
 
-structures = read('../trainall.xyz', index=':')
+structures = read('../val_lind50_eq.xyz', index=':')
 
 for i, atoms in enumerate(structures):
     namedir = f'vasp_structs/structure_{i:03d}'
