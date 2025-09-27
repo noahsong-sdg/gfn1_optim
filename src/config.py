@@ -115,6 +115,7 @@ SYSTEM_CONFIGS = {
         system_type=SystemType.SUPERCELL,
         calculation_type=CalculationType.BULK,
         elements=["Cd", "S"],
+        num_points=200,
         spin_multiplicity=0
     )
 }
