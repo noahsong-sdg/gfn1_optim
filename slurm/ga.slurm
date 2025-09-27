@@ -21,4 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 # python src/cli.py ga CdS config/gfn1-base.toml --output results/ga
-python -m src.cli ga big config/gfn1-base.toml --output-dir results/bayes
+python src/cli ga big config/gfn1-base.toml --output-dir results/bayes
