@@ -1,7 +1,16 @@
-from ase.io import read, write
+from ase.io import read, write, vasp
 
-unit_cell = read('CdS.poscar', format='vasp')
+# cell = vasp.read_vasp("CdS.poscar")
+# supercell = cell * (3, 3, 2)
+# vasp.write_vasp('POSCAR', supercell, vasp5=True, direct=True)
 
-supercell = unit_cell * (3, 3, 2)
+import ase.io
+from ase.build import make_supercell
+unit_cell = ase.io.read('CdS.poscar')
+transformation_matrix = [[3, 0, 0], [0, 3, 0], [0, 0, 2]]
+supercell = make_supercell(unit_cell, transformation_matrix)
+ase.io.write('POSCAR_supercell', supercell, format='vasp')
 
-write('POSCAR_3x3x2', supercell, format='vasp', vasp5=True, direct=True)
+# conversion
+atoms = read('POSCAR_supercell')
+write('pure_72_test.xyz', atoms)

@@ -3,6 +3,8 @@ Evaluate a parameter TOML against bulk/supercell test structures.
 
 Usage:
 pixi run python src/scripts/eval_bulk.py --system big --params config/gfn1-base.toml --xyz val_lind50_eq.xyz --results test_structs/results.csv --out results/base.csv --skip-energy
+pixi run python src/scripts/eval_bulk.py --system big --params config/gfn1-base.toml --xyz pure_72.xyz --results test_structs/results.csv --out results/base.csv --skip-energy
+
 pixi run python src/scripts/eval_bulk.py --system big --params results/pso/big_pso.toml --xyz val_lind50_eq.xyz --results test_structs/results.csv --out results/pso.csv 
 
 This script loads the XYZ, attaches reference targets from results.csv if present,
