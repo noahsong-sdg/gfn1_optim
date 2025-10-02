@@ -1,0 +1,63 @@
+mkdir: created directory '/scratch/alpine/noso3320/18043033'
+'/projects/noso3320/work/gfn/pbeone/INCAR' -> '/scratch/alpine/noso3320/18043033/INCAR'
+'/projects/noso3320/work/gfn/pbeone/KPOINTS' -> '/scratch/alpine/noso3320/18043033/KPOINTS'
+'/projects/noso3320/work/gfn/pbeone/POSCAR' -> '/scratch/alpine/noso3320/18043033/POSCAR'
+'/projects/noso3320/work/gfn/pbeone/POTCAR' -> '/scratch/alpine/noso3320/18043033/POTCAR'
+'/projects/noso3320/work/gfn/pbeone/vasp_run.sbatch' -> '/scratch/alpine/noso3320/18043033/vasp_run.sbatch'
+removed '/projects/noso3320/work/gfn/pbeone/INCAR'
+removed '/projects/noso3320/work/gfn/pbeone/KPOINTS'
+removed '/projects/noso3320/work/gfn/pbeone/POSCAR'
+removed '/projects/noso3320/work/gfn/pbeone/POTCAR'
+removed '/projects/noso3320/work/gfn/pbeone/vasp_run.sbatch'
+
+
+running vasp program...
+vasp done... over and out
+
+Moving results to head node /projects/noso3320/work/gfn/pbeone...
+copied '/scratch/alpine/noso3320/18043033/CHG' -> '/projects/noso3320/work/gfn/pbeone/CHG'
+removed '/scratch/alpine/noso3320/18043033/CHG'
+copied '/scratch/alpine/noso3320/18043033/CHGCAR' -> '/projects/noso3320/work/gfn/pbeone/CHGCAR'
+removed '/scratch/alpine/noso3320/18043033/CHGCAR'
+copied '/scratch/alpine/noso3320/18043033/CONTCAR' -> '/projects/noso3320/work/gfn/pbeone/CONTCAR'
+removed '/scratch/alpine/noso3320/18043033/CONTCAR'
+copied '/scratch/alpine/noso3320/18043033/DOSCAR' -> '/projects/noso3320/work/gfn/pbeone/DOSCAR'
+removed '/scratch/alpine/noso3320/18043033/DOSCAR'
+copied '/scratch/alpine/noso3320/18043033/EIGENVAL' -> '/projects/noso3320/work/gfn/pbeone/EIGENVAL'
+removed '/scratch/alpine/noso3320/18043033/EIGENVAL'
+copied '/scratch/alpine/noso3320/18043033/INCAR' -> '/projects/noso3320/work/gfn/pbeone/INCAR'
+removed '/scratch/alpine/noso3320/18043033/INCAR'
+copied '/scratch/alpine/noso3320/18043033/KPOINTS' -> '/projects/noso3320/work/gfn/pbeone/KPOINTS'
+removed '/scratch/alpine/noso3320/18043033/KPOINTS'
+copied '/scratch/alpine/noso3320/18043033/OSZICAR' -> '/projects/noso3320/work/gfn/pbeone/OSZICAR'
+removed '/scratch/alpine/noso3320/18043033/OSZICAR'
+copied '/scratch/alpine/noso3320/18043033/OUTCAR' -> '/projects/noso3320/work/gfn/pbeone/OUTCAR'
+removed '/scratch/alpine/noso3320/18043033/OUTCAR'
+copied '/scratch/alpine/noso3320/18043033/PCDAT' -> '/projects/noso3320/work/gfn/pbeone/PCDAT'
+removed '/scratch/alpine/noso3320/18043033/PCDAT'
+copied '/scratch/alpine/noso3320/18043033/POSCAR' -> '/projects/noso3320/work/gfn/pbeone/POSCAR'
+removed '/scratch/alpine/noso3320/18043033/POSCAR'
+copied '/scratch/alpine/noso3320/18043033/POTCAR' -> '/projects/noso3320/work/gfn/pbeone/POTCAR'
+removed '/scratch/alpine/noso3320/18043033/POTCAR'
+copied '/scratch/alpine/noso3320/18043033/REPORT' -> '/projects/noso3320/work/gfn/pbeone/REPORT'
+removed '/scratch/alpine/noso3320/18043033/REPORT'
+copied '/scratch/alpine/noso3320/18043033/screen.18043033' -> '/projects/noso3320/work/gfn/pbeone/screen.18043033'
+removed '/scratch/alpine/noso3320/18043033/screen.18043033'
+copied '/scratch/alpine/noso3320/18043033/VASP_18043033_Timed.bash' -> '/projects/noso3320/work/gfn/pbeone/VASP_18043033_Timed.bash'
+removed '/scratch/alpine/noso3320/18043033/VASP_18043033_Timed.bash'
+copied '/scratch/alpine/noso3320/18043033/vasp_run.sbatch' -> '/projects/noso3320/work/gfn/pbeone/vasp_run.sbatch'
+removed '/scratch/alpine/noso3320/18043033/vasp_run.sbatch'
+copied '/scratch/alpine/noso3320/18043033/vasprun.xml' -> '/projects/noso3320/work/gfn/pbeone/vasprun.xml'
+removed '/scratch/alpine/noso3320/18043033/vasprun.xml'
+copied '/scratch/alpine/noso3320/18043033/WAVECAR' -> '/projects/noso3320/work/gfn/pbeone/WAVECAR'
+removed '/scratch/alpine/noso3320/18043033/WAVECAR'
+copied '/scratch/alpine/noso3320/18043033/XDATCAR' -> '/projects/noso3320/work/gfn/pbeone/XDATCAR'
+removed '/scratch/alpine/noso3320/18043033/XDATCAR'
+...done
+removed directory '/scratch/alpine/noso3320/18043033'
+... done
+
+Changing directory to /projects/noso3320/work/gfn/pbeone
+...done
+
+over and out

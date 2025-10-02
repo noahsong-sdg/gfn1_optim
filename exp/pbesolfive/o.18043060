@@ -1,0 +1,63 @@
+mkdir: created directory '/scratch/alpine/noso3320/18043060'
+'/projects/noso3320/work/gfn/pbesolfive/INCAR' -> '/scratch/alpine/noso3320/18043060/INCAR'
+'/projects/noso3320/work/gfn/pbesolfive/KPOINTS' -> '/scratch/alpine/noso3320/18043060/KPOINTS'
+'/projects/noso3320/work/gfn/pbesolfive/POSCAR' -> '/scratch/alpine/noso3320/18043060/POSCAR'
+'/projects/noso3320/work/gfn/pbesolfive/POTCAR' -> '/scratch/alpine/noso3320/18043060/POTCAR'
+'/projects/noso3320/work/gfn/pbesolfive/vasp_run.sbatch' -> '/scratch/alpine/noso3320/18043060/vasp_run.sbatch'
+removed '/projects/noso3320/work/gfn/pbesolfive/INCAR'
+removed '/projects/noso3320/work/gfn/pbesolfive/KPOINTS'
+removed '/projects/noso3320/work/gfn/pbesolfive/POSCAR'
+removed '/projects/noso3320/work/gfn/pbesolfive/POTCAR'
+removed '/projects/noso3320/work/gfn/pbesolfive/vasp_run.sbatch'
+
+
+running vasp program...
+vasp done... over and out
+
+Moving results to head node /projects/noso3320/work/gfn/pbesolfive...
+copied '/scratch/alpine/noso3320/18043060/CHG' -> '/projects/noso3320/work/gfn/pbesolfive/CHG'
+removed '/scratch/alpine/noso3320/18043060/CHG'
+copied '/scratch/alpine/noso3320/18043060/CHGCAR' -> '/projects/noso3320/work/gfn/pbesolfive/CHGCAR'
+removed '/scratch/alpine/noso3320/18043060/CHGCAR'
+copied '/scratch/alpine/noso3320/18043060/CONTCAR' -> '/projects/noso3320/work/gfn/pbesolfive/CONTCAR'
+removed '/scratch/alpine/noso3320/18043060/CONTCAR'
+copied '/scratch/alpine/noso3320/18043060/DOSCAR' -> '/projects/noso3320/work/gfn/pbesolfive/DOSCAR'
+removed '/scratch/alpine/noso3320/18043060/DOSCAR'
+copied '/scratch/alpine/noso3320/18043060/EIGENVAL' -> '/projects/noso3320/work/gfn/pbesolfive/EIGENVAL'
+removed '/scratch/alpine/noso3320/18043060/EIGENVAL'
+copied '/scratch/alpine/noso3320/18043060/INCAR' -> '/projects/noso3320/work/gfn/pbesolfive/INCAR'
+removed '/scratch/alpine/noso3320/18043060/INCAR'
+copied '/scratch/alpine/noso3320/18043060/KPOINTS' -> '/projects/noso3320/work/gfn/pbesolfive/KPOINTS'
+removed '/scratch/alpine/noso3320/18043060/KPOINTS'
+copied '/scratch/alpine/noso3320/18043060/OSZICAR' -> '/projects/noso3320/work/gfn/pbesolfive/OSZICAR'
+removed '/scratch/alpine/noso3320/18043060/OSZICAR'
+copied '/scratch/alpine/noso3320/18043060/OUTCAR' -> '/projects/noso3320/work/gfn/pbesolfive/OUTCAR'
+removed '/scratch/alpine/noso3320/18043060/OUTCAR'
+copied '/scratch/alpine/noso3320/18043060/PCDAT' -> '/projects/noso3320/work/gfn/pbesolfive/PCDAT'
+removed '/scratch/alpine/noso3320/18043060/PCDAT'
+copied '/scratch/alpine/noso3320/18043060/POSCAR' -> '/projects/noso3320/work/gfn/pbesolfive/POSCAR'
+removed '/scratch/alpine/noso3320/18043060/POSCAR'
+copied '/scratch/alpine/noso3320/18043060/POTCAR' -> '/projects/noso3320/work/gfn/pbesolfive/POTCAR'
+removed '/scratch/alpine/noso3320/18043060/POTCAR'
+copied '/scratch/alpine/noso3320/18043060/REPORT' -> '/projects/noso3320/work/gfn/pbesolfive/REPORT'
+removed '/scratch/alpine/noso3320/18043060/REPORT'
+copied '/scratch/alpine/noso3320/18043060/screen.18043060' -> '/projects/noso3320/work/gfn/pbesolfive/screen.18043060'
+removed '/scratch/alpine/noso3320/18043060/screen.18043060'
+copied '/scratch/alpine/noso3320/18043060/VASP_18043060_Timed.bash' -> '/projects/noso3320/work/gfn/pbesolfive/VASP_18043060_Timed.bash'
+removed '/scratch/alpine/noso3320/18043060/VASP_18043060_Timed.bash'
+copied '/scratch/alpine/noso3320/18043060/vasp_run.sbatch' -> '/projects/noso3320/work/gfn/pbesolfive/vasp_run.sbatch'
+removed '/scratch/alpine/noso3320/18043060/vasp_run.sbatch'
+copied '/scratch/alpine/noso3320/18043060/vasprun.xml' -> '/projects/noso3320/work/gfn/pbesolfive/vasprun.xml'
+removed '/scratch/alpine/noso3320/18043060/vasprun.xml'
+copied '/scratch/alpine/noso3320/18043060/WAVECAR' -> '/projects/noso3320/work/gfn/pbesolfive/WAVECAR'
+removed '/scratch/alpine/noso3320/18043060/WAVECAR'
+copied '/scratch/alpine/noso3320/18043060/XDATCAR' -> '/projects/noso3320/work/gfn/pbesolfive/XDATCAR'
+removed '/scratch/alpine/noso3320/18043060/XDATCAR'
+...done
+removed directory '/scratch/alpine/noso3320/18043060'
+... done
+
+Changing directory to /projects/noso3320/work/gfn/pbesolfive
+...done
+
+over and out
