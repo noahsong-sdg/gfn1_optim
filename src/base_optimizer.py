@@ -274,7 +274,7 @@ class BaseOptimizer(ABC):
                 # Weighted combination (energy is most important)
                 lattice_weight = 0.10   
                 angle_weight = 0.05     
-            energy_weight = 0.85        
+                energy_weight = 0.85        
                 
                 total_loss = (lattice_weight * lattice_loss + 
                              angle_weight * angle_loss + 
