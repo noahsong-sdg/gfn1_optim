@@ -1,4 +1,9 @@
 import numpy as np
+import re
+import json
+import os
+import uuid
+from ase.dft.bandgap import bandgap as ase_bandgap
 import subprocess
 import tempfile
 from pathlib import Path
@@ -41,6 +46,9 @@ class TBLiteASECalculator(Calculator):
         self.electronic_temperature = electronic_temperature
         self.charge = charge
         self.spin = spin
+        # Cache for ASE bandgap support
+        self._last_eigenvalues_eV = None  # type: Optional[np.ndarray]
+        self._last_fermi_eV = None  # type: Optional[float]
         
     def calculate(self, atoms: Optional[Atoms] = None, 
                  properties: list = ['energy'], 
@@ -55,7 +63,7 @@ class TBLiteASECalculator(Calculator):
             self._write_coordinates(atoms, coord_file)
             
             # Run TBLite calculation
-            energy, forces, stress = self._run_tblite_calculation(tmpdir, coord_file)
+            energy, forces, stress = self._run_tblite_calculation(tmpdir, coord_file, atoms)
             
             # Set ASE results
             self.results['energy'] = energy
@@ -99,7 +107,7 @@ class TBLiteASECalculator(Calculator):
                 f.write("$periodic 3\n")
                 f.write("$end\n")
     
-    def _run_tblite_calculation(self, tmpdir: str, coord_file: Path) -> tuple:
+    def _run_tblite_calculation(self, tmpdir: str, coord_file: Path, atoms: Atoms) -> tuple:
         """Run TBLite calculation and parse results"""
         # Build TBLite command with enhanced convergence parameters
         cmd = [
@@ -109,6 +117,8 @@ class TBLiteASECalculator(Calculator):
             "--iterations", "500",  # Increased iterations for better convergence
             "--etemp", str(self.electronic_temperature + 150),
             "--grad", "tblite.txt",  # Output gradient to file
+            "--json", "tblite.json",
+            "-v",
             str(coord_file)
         ]
         
@@ -126,6 +136,10 @@ class TBLiteASECalculator(Calculator):
             text=True,
             check=False
         )
+        # Optional: echo stdout/stderr for debugging
+        if os.environ.get('TBLITE_PRINT_STDOUT'):
+            print("\n[TBLite stdout]\n" + (result.stdout or ""))
+            print("\n[TBLite stderr]\n" + (result.stderr or ""))
         
         if result.returncode != 0:
             # Check if it's a convergence issue
@@ -140,6 +154,8 @@ class TBLiteASECalculator(Calculator):
                     "--iterations", "1000",  # More iterations
                     "--etemp", str(self.electronic_temperature + 150),
                     "--grad", "tblite.txt",
+                    "--json", "tblite.json",
+                    "-v",
                     str(coord_file)
                 ]
                 
@@ -149,12 +165,28 @@ class TBLiteASECalculator(Calculator):
                     capture_output=True,
                     text=True,
                     check=False)
+                if os.environ.get('TBLITE_PRINT_STDOUT'):
+                    print("\n[TBLite relaxed stdout]\n" + (result_relaxed.stdout or ""))
+                    print("\n[TBLite relaxed stderr]\n" + (result_relaxed.stderr or ""))
                 
                 if result_relaxed.returncode == 0:
                     logger.info(f"Calculation succeeded with relaxed convergence")
                     energy = self._parse_energy(result_relaxed.stdout)
                     gap = self._parse_bandgap(result_relaxed.stdout)
+                    # Prefer JSON-derived gap if available
+                    json_gap = self._parse_json_bandgap(Path(tmpdir) / "tblite.json")
+                    if json_gap is not None:
+                        gap = json_gap
                     forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+                    self._maybe_persist_json(Path(tmpdir) / "tblite.json")
+                    # Fallback: try ASE Python API for bandgap if still missing
+                    if gap is None:
+                        try:
+                            gap_ase = self._compute_gap_via_ase(atoms)
+                            if gap_ase is not None:
+                                gap = gap_ase
+                        except Exception:
+                            pass
                     if gap is not None:
                         self.results['bandgap'] = gap
                     return energy, forces, stress
@@ -173,7 +205,20 @@ class TBLiteASECalculator(Calculator):
         # Parse results from successful calculation
         energy = self._parse_energy(result.stdout)
         gap = self._parse_bandgap(result.stdout)
+        # Prefer JSON-derived gap if available
+        json_gap = self._parse_json_bandgap(Path(tmpdir) / "tblite.json")
+        if json_gap is not None:
+            gap = json_gap
         forces, stress = self._parse_gradient(Path(tmpdir) / "tblite.txt")
+        self._maybe_persist_json(Path(tmpdir) / "tblite.json")
+        # Fallback: try ASE Python API for bandgap if still missing
+        if gap is None:
+            try:
+                gap_ase = self._compute_gap_via_ase(atoms)
+                if gap_ase is not None:
+                    gap = gap_ase
+            except Exception:
+                pass
         if gap is not None:
             self.results['bandgap'] = gap
         
@@ -184,7 +229,7 @@ class TBLiteASECalculator(Calculator):
         Returns gap in eV when possible.
         """
         text = output.lower()
-        # Try common patterns
+        # Try common patterns where the gap is reported explicitly
         candidates = []
         for line in output.splitlines():
             lower = line.lower()
@@ -208,7 +253,349 @@ class TBLiteASECalculator(Calculator):
                     return val
                 except Exception:
                     continue
+        
+        # Fallback: infer from separate HOMO and LUMO energies if present
+        homo_val: Optional[float] = None
+        lumo_val: Optional[float] = None
+        homo_unit: Optional[str] = None
+        lumo_unit: Optional[str] = None
+        # Capture lines where label may appear after the numeric value as well
+        # e.g., "-10.5927  (HOMO)" or "-7.2301  ( LUMO )"
+        homo_pattern = re.compile(r"(?:homo[^\n]*?([\-+]?\d+(?:\.\d+)?)(?:\s*(ev|eh))?)|([\-+]?\d+(?:\.\d+)?)\s*\(\s*homo\s*\)", re.IGNORECASE)
+        lumo_pattern = re.compile(r"(?:lumo[^\n]*?([\-+]?\d+(?:\.\d+)?)(?:\s*(ev|eh))?)|([\-+]?\d+(?:\.\d+)?)\s*\(\s*lumo\s*\)", re.IGNORECASE)
+        for line in output.splitlines():
+            try:
+                if homo_val is None and ('homo' in line.lower()):
+                    m = homo_pattern.search(line)
+                    if m:
+                        # Prefer named-capture group order: pre-labeled or post-labeled number
+                        num = m.group(1) or m.group(3)
+                        unit = m.group(2)
+                        homo_val = float(num)
+                        homo_unit = (unit or 'eV').lower()
+                if lumo_val is None and ('lumo' in line.lower()):
+                    m = lumo_pattern.search(line)
+                    if m:
+                        num = m.group(1) or m.group(3)
+                        unit = m.group(2)
+                        lumo_val = float(num)
+                        lumo_unit = (unit or 'eV').lower()
+            except Exception:
+                continue
+        def to_ev(value: float, unit: Optional[str]) -> float:
+            if unit is None:
+                return value
+            if 'eh' in unit:
+                return value * 27.211386245988
+            return value  # assume eV
+        if homo_val is not None and lumo_val is not None:
+            homo_ev = to_ev(homo_val, homo_unit)
+            lumo_ev = to_ev(lumo_val, lumo_unit)
+            gap = lumo_ev - homo_ev
+            # Ensure non-negative gap
+            if gap < 0:
+                gap = abs(gap)
+            return float(gap)
         return None
+
+    def _maybe_persist_json(self, json_path: Path) -> None:
+        """Optionally persist tblite.json to a user-specified directory via
+        environment variable TBLITE_SAVE_JSON_DIR for debugging/inspection.
+        """
+        try:
+            save_dir = os.environ.get('TBLITE_SAVE_JSON_DIR')
+            if not save_dir:
+                return
+            if not json_path.exists():
+                return
+            dst_dir = Path(save_dir)
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            unique = uuid.uuid4().hex[:8]
+            dst = dst_dir / f"tblite_{self.method}_{unique}.json"
+            with open(json_path, 'r') as src_f, open(dst, 'w') as dst_f:
+                dst_f.write(src_f.read())
+        except Exception:
+            # Best-effort only
+            pass
+
+    def _parse_json_bandgap(self, json_file: Path) -> Optional[float]:
+        """Parse bandgap from TBLite JSON results if present. Falls back to
+        computing HOMO-LUMO gap from eigenvalues and occupations.
+        Returns gap in eV when possible.
+        """
+        try:
+            if not json_file.exists():
+                return None
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+        except Exception:
+            return None
+
+        # Try ASE's bandgap() first if we can extract eigenvalues (+ optional Fermi)
+        def find_first_array(node, key_candidates):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if any(c in str(k).lower() for c in key_candidates) and isinstance(v, list):
+                        return v
+                    found = find_first_array(v, key_candidates)
+                    if found is not None:
+                        return found
+            elif isinstance(node, list):
+                for item in node:
+                    found = find_first_array(item, key_candidates)
+                    if found is not None:
+                        return found
+            return None
+
+        eigenvalues = find_first_array(data, ['eigenvalues', 'orbital-energies', 'eigen', 'orbitals'])
+        def flatten_if_nested(arr):
+            if isinstance(arr, list) and len(arr) > 0 and isinstance(arr[0], list):
+                flat = []
+                for sub in arr:
+                    if isinstance(sub, list):
+                        flat.extend(sub)
+                return flat
+            return arr
+
+        def to_ev_array(raw):
+            try:
+                arr = np.array([float(x) for x in raw], dtype=float)
+            except Exception:
+                return None
+            # Heuristic: Hartree -> eV if |E|max < 5
+            if np.nanmax(np.abs(arr)) < 5.0:
+                arr = arr * 27.211386245988
+            return arr
+
+        if eigenvalues is not None:
+            eigenvalues = flatten_if_nested(eigenvalues)
+            eig_arr = to_ev_array(eigenvalues)
+            if eig_arr is not None and eig_arr.size > 0:
+                # Shape to (nspin, nkpt, nband)
+                nband = eig_arr.size
+                eig_reshaped = eig_arr.reshape((1, 1, nband))
+                # Optional Fermi
+                def find_numeric(node, keys):
+                    if isinstance(node, dict):
+                        for k, v in node.items():
+                            if any(c in str(k).lower() for c in keys) and isinstance(v, (int, float)):
+                                return float(v)
+                            found = find_numeric(v, keys)
+                            if found is not None:
+                                return found
+                    elif isinstance(node, list):
+                        for item in node:
+                            found = find_numeric(item, keys)
+                            if found is not None:
+                                return found
+                    return None
+                fermi = find_numeric(data, ['fermi', 'e_fermi', 'fermi_level'])
+                if fermi is not None and abs(fermi) < 5.0:
+                    fermi = fermi * 27.211386245988
+                try:
+                    gap_val, _, _ = ase_bandgap(eigenvalues=eig_reshaped, efermi=fermi)
+                    # Cache for ASE interface methods
+                    self._last_eigenvalues_eV = eig_reshaped
+                    self._last_fermi_eV = fermi
+                    if gap_val is not None and np.isfinite(gap_val):
+                        return float(abs(gap_val))
+                except Exception:
+                    # Still cache even if bandgap calc fails
+                    self._last_eigenvalues_eV = eig_reshaped
+                    self._last_fermi_eV = fermi
+                    pass
+
+        # 1) Try to find an explicit numeric gap anywhere in the JSON
+        def find_numeric_gap(node):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    kl = str(k).lower()
+                    if 'gap' in kl and isinstance(v, (int, float)):
+                        return float(v)
+                    found = find_numeric_gap(v)
+                    if found is not None:
+                        return found
+            elif isinstance(node, list):
+                for item in node:
+                    found = find_numeric_gap(item)
+                    if found is not None:
+                        return found
+            return None
+
+        explicit_gap = find_numeric_gap(data)
+        if explicit_gap is not None:
+            return float(explicit_gap)
+
+        # 2) Try to compute from eigenvalues and occupations
+        def find_first_array(node, key_candidates):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if any(c in str(k).lower() for c in key_candidates) and isinstance(v, list):
+                        return v
+                    found = find_first_array(v, key_candidates)
+                    if found is not None:
+                        return found
+            elif isinstance(node, list):
+                for item in node:
+                    found = find_first_array(item, key_candidates)
+                    if found is not None:
+                        return found
+            return None
+
+        eigenvalues = find_first_array(data, ['orbital', 'eigen', 'eigenvalues'])
+        occupations = find_first_array(data, ['occupation', 'occupations', 'occ'])
+
+        # Flatten possible spin-channels [[...], [...]]
+        def flatten_if_nested(arr):
+            if isinstance(arr, list) and len(arr) > 0 and isinstance(arr[0], list):
+                flat = []
+                for sub in arr:
+                    if isinstance(sub, list):
+                        flat.extend(sub)
+                return flat
+            return arr
+
+        if eigenvalues is None:
+            return None
+        eigenvalues = flatten_if_nested(eigenvalues)
+        if occupations is not None:
+            occupations = flatten_if_nested(occupations)
+
+        try:
+            ev = np.array([float(x) for x in eigenvalues], dtype=float)
+        except Exception:
+            return None
+
+        # Heuristic unit detection: if orbital energies look like Hartree values, convert to eV
+        def convert_to_ev(values: np.ndarray) -> np.ndarray:
+            # If absolute values are small (|E| < 5), assume Hartree and convert
+            if np.nanmax(np.abs(values)) < 5.0:
+                return values * 27.211386245988
+            return values
+
+        ev_eV = convert_to_ev(ev)
+
+        # Use occupations if available; otherwise try Fermi level
+        if occupations is not None:
+            try:
+                occ = np.array([float(x) for x in occupations], dtype=float)
+                # Consider occupied if occupancy > ~0
+                occ_mask = occ > 1e-6
+            except Exception:
+                occ_mask = None
+        else:
+            occ_mask = None
+
+        if occ_mask is not None and occ_mask.shape == ev_eV.shape:
+            if not np.any(occ_mask) or np.all(occ_mask):
+                return None
+            homo = np.max(ev_eV[occ_mask])
+            lumo = np.min(ev_eV[~occ_mask])
+            gap = float(lumo - homo)
+            if gap < 0:
+                gap = abs(gap)
+            return gap
+
+        # Try Fermi level key if occupations missing
+        def find_numeric(node, keys):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if any(c in str(k).lower() for c in keys) and isinstance(v, (int, float)):
+                        return float(v)
+                    found = find_numeric(v, keys)
+                    if found is not None:
+                        return found
+            elif isinstance(node, list):
+                for item in node:
+                    found = find_numeric(item, keys)
+                    if found is not None:
+                        return found
+            return None
+
+        fermi = find_numeric(data, ['fermi', 'e_fermi', 'fermi_level'])
+        if fermi is not None:
+            # Convert Fermi to eV if needed (same heuristic as eigenvalues)
+            fermi_eV = fermi * 27.211386245988 if abs(fermi) < 5.0 else fermi
+            occ_mask = ev_eV <= fermi_eV + 1e-6
+            if not np.any(occ_mask) or np.all(occ_mask):
+                return None
+            homo = np.max(ev_eV[occ_mask])
+            lumo = np.min(ev_eV[~occ_mask])
+            gap = float(lumo - homo)
+            if gap < 0:
+                gap = abs(gap)
+            # Cache
+            self._last_eigenvalues_eV = ev_eV.reshape((1, 1, ev_eV.size))
+            self._last_fermi_eV = fermi_eV
+            return gap
+
+        return None
+
+    # --- Minimal ASE calculator API for bandgap(calc) convenience ---
+    def get_eigenvalues(self, kpt: Optional[int] = None, spin: Optional[int] = None) -> np.ndarray:
+        """Return 1D eigenvalue array in eV for the last calculation.
+        Ignores kpt/spin and returns Gamma-only flattened spectrum if present.
+        """
+        if self._last_eigenvalues_eV is None:
+            raise RuntimeError("No eigenvalues cached. Run a calculation first (with --json enabled).")
+        arr = self._last_eigenvalues_eV
+        if arr.ndim == 3:
+            return arr[0, 0, :]
+        return arr.reshape(-1)
+
+    def get_fermi_level(self) -> Optional[float]:
+        """Return Fermi level in eV (if available)."""
+        return self._last_fermi_eV
+
+    def get_ibz_k_points(self) -> np.ndarray:
+        """Return Gamma-only k-point to satisfy ASE bandgap API when needed."""
+        return np.zeros((1, 3), dtype=float)
+    
+    def _compute_gap_via_ase(self, atoms: Atoms) -> Optional[float]:
+        """Attempt to compute bandgap using the tblite.ase Python API and ASE's
+        bandgap utility. This is a fallback when CLI/stdout/JSON do not provide
+        the gap directly.
+        """
+        try:
+            from tblite.ase import TBLite as TBLiteASE
+        except Exception:
+            return None
+        try:
+            # Prefer providing method and param; charge/spin may not always be supported
+            ase_calc = TBLiteASE(method=self.method, param=str(self.param_file.resolve()))
+        except Exception:
+            try:
+                ase_calc = TBLiteASE(method=self.method)
+            except Exception:
+                return None
+        try:
+            atoms_local = atoms.copy()
+            atoms_local.calc = ase_calc
+            _ = atoms_local.get_potential_energy()
+            gap_val, _, _ = ase_bandgap(ase_calc)
+            if gap_val is not None and np.isfinite(gap_val):
+                return float(abs(gap_val))
+        except Exception:
+            pass
+        try:
+            ev = ase_calc.get_eigenvalues(kpt=0)
+            if ev is None or len(ev) == 0:
+                return None
+            ev = np.array(ev, dtype=float)
+            try:
+                fermi = ase_calc.get_fermi_level()
+            except Exception:
+                fermi = None
+            if fermi is None:
+                return None
+            homo = np.max(ev[ev <= fermi + 1e-6])
+            above = ev[ev > fermi + 1e-6]
+            if above.size == 0:
+                return None
+            lumo = np.min(above)
+            return float(abs(lumo - homo))
+        except Exception:
+            return None
     
     def _parse_energy(self, output):
         # DEBUG: Extract energy from the summary 'total energy' line (not the cycle table)
