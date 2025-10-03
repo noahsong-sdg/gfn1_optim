@@ -1,6 +1,6 @@
  vasp.6.4.2 20Jul23 (build Sep 17 2025 15:35:10) complex                        
   
- executed on             LinuxIFC date 2025.10.01  23:07:35
+ executed on             LinuxIFC date 2025.10.02  21:37:15
  running   32 mpi-ranks, on    1 nodes
  distrk:  each k-point on   32 cores,    1 groups
  distr:  one band on NCORE=   1 cores,   32 groups
@@ -201,7 +201,7 @@
  kinetic energy error for atom=    0.0046 (will be added to EATOM!!)
  
  
- POSCAR: Cd S
+ POSCAR: Cd S  Cd S  Cd S  Cd S  Cd S  Cd S  Cd S
   positions in cartesian coordinates
   No initial velocities read in
  exchange correlation table for  LEXCH =        8
@@ -568,7 +568,7 @@ Automatic generation of k-mesh.
    NGXF,Y,Z  is equivalent  to a cutoff of  22.33, 22.33, 22.07 a.u.
 
  SYSTEM =  unknown system                          
- POSCAR =  Cd S                                    
+ POSCAR =  Cd S  Cd S  Cd S  Cd S  Cd S  Cd S  Cd S
 
  Startparameter for this run:
    NWRITE =      2    write-flag & timer
@@ -977,7 +977,7 @@ Automatic generation of k-mesh.
    nonlr-proj:      17722. kBytes
    wavefun   :       7155. kBytes
  
-     INWAV:  cpu time      0.0000: real time      0.0003
+     INWAV:  cpu time      0.0000: real time      0.0002
  initial charge density was supplied:
  charge density of overlapping atoms calculated
  number of electron     648.0000000 magnetization 
@@ -997,7 +997,7 @@ Automatic generation of k-mesh.
  Maximum number of real-space cells 3x 3x 3
  Maximum number of reciprocal cells 3x 3x 3
 
-    FEWALD:  cpu time      0.0021: real time      0.0021
+    FEWALD:  cpu time      0.0019: real time      0.0019
 
 
 --------------------------------------- Ionic step        1  -------------------------------------------
@@ -1008,12 +1008,12 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   1)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.0938: real time      0.0977
-    SETDIJ:  cpu time      0.0093: real time      0.0099
-     EDDAV:  cpu time      2.9415: real time      2.9857
-       DOS:  cpu time      0.0013: real time      0.0021
+    POTLOK:  cpu time      0.0938: real time      0.1413
+    SETDIJ:  cpu time      0.0105: real time      0.0254
+     EDDAV:  cpu time      3.2861: real time      3.8205
+       DOS:  cpu time      0.0013: real time      0.0023
     --------------------------------------------
-      LOOP:  cpu time      3.0458: real time      3.0955
+      LOOP:  cpu time      3.3917: real time      3.9896
 
  eigenvalue-minimisations  :   864
  total energy-change (2. order) :-0.3696693E+05  (-0.2849352E+05)
@@ -1047,10 +1047,10 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   2)  ---------------------------------------
 
 
-     EDDAV:  cpu time      3.1214: real time      3.1484
-       DOS:  cpu time      0.0005: real time      0.0005
+     EDDAV:  cpu time      3.1691: real time      3.1989
+       DOS:  cpu time      0.0004: real time      0.0004
     --------------------------------------------
-      LOOP:  cpu time      3.1219: real time      3.1489
+      LOOP:  cpu time      3.1695: real time      3.1993
 
  eigenvalue-minimisations  :   928
  total energy-change (2. order) :-0.3961697E+04  (-0.3821468E+04)
@@ -1084,10 +1084,10 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   3)  ---------------------------------------
 
 
-     EDDAV:  cpu time      3.1322: real time      3.1613
+     EDDAV:  cpu time      3.1884: real time      3.2201
        DOS:  cpu time      0.0004: real time      0.0004
     --------------------------------------------
-      LOOP:  cpu time      3.1327: real time      3.1617
+      LOOP:  cpu time      3.1888: real time      3.2205
 
  eigenvalue-minimisations  :   960
  total energy-change (2. order) :-0.2657290E+03  (-0.2566626E+03)
@@ -1121,10 +1121,10 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   4)  ---------------------------------------
 
 
-     EDDAV:  cpu time      3.0111: real time      3.0380
+     EDDAV:  cpu time      2.9966: real time      3.0232
        DOS:  cpu time      0.0004: real time      0.0004
     --------------------------------------------
-      LOOP:  cpu time      3.0115: real time      3.0385
+      LOOP:  cpu time      2.9970: real time      3.0236
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) :-0.5281973E+01  (-0.5233424E+01)
@@ -1158,14 +1158,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   5)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1901: real time      0.1916
-    SETDIJ:  cpu time      0.0584: real time      0.0587
-     EDDAV:  cpu time     76.6529: real time     77.2289
+    POTLOK:  cpu time      0.2077: real time      0.2093
+    SETDIJ:  cpu time      0.0708: real time      0.0714
+     EDDAV:  cpu time     83.2986: real time     83.9935
        DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1491: real time      0.1505
-    MIXING:  cpu time      0.0016: real time      0.0017
+    CHARGE:  cpu time      0.1619: real time      0.1644
+    MIXING:  cpu time      0.0018: real time      0.0019
     --------------------------------------------
-      LOOP:  cpu time     77.0526: real time     77.6319
+      LOOP:  cpu time     83.7413: real time     84.4409
 
  eigenvalue-minimisations  :   864
  total energy-change (2. order) : 0.4103058E+05  (-0.3377929E+02)
@@ -1199,14 +1199,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   6)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1862: real time      0.2127
-    SETDIJ:  cpu time      0.0603: real time      0.0606
-     EDDAV:  cpu time     65.6361: real time     66.1756
+    POTLOK:  cpu time      0.2019: real time      0.2034
+    SETDIJ:  cpu time      0.0788: real time      0.0792
+     EDDAV:  cpu time     66.7872: real time     67.4723
        DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1456: real time      0.1463
-    MIXING:  cpu time      0.0040: real time      0.0040
+    CHARGE:  cpu time      0.1441: real time      0.1451
+    MIXING:  cpu time      0.0045: real time      0.0046
     --------------------------------------------
-      LOOP:  cpu time     66.0327: real time     66.5997
+      LOOP:  cpu time     67.2170: real time     67.9050
 
  eigenvalue-minimisations  :   928
  total energy-change (2. order) : 0.9807025E+01  (-0.4991014E+01)
@@ -1240,14 +1240,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   7)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1925: real time      0.1938
-    SETDIJ:  cpu time      0.0707: real time      0.0713
-     EDDAV:  cpu time     68.2023: real time     74.2983
-       DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1799: real time      0.1810
-    MIXING:  cpu time      0.0024: real time      0.0024
+    POTLOK:  cpu time      0.1896: real time      0.1907
+    SETDIJ:  cpu time      0.0618: real time      0.0620
+     EDDAV:  cpu time     66.5933: real time     74.3345
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1612: real time      0.1622
+    MIXING:  cpu time      0.0019: real time      0.0019
     --------------------------------------------
-      LOOP:  cpu time     68.6482: real time     74.7473
+      LOOP:  cpu time     67.0081: real time     74.7517
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) :-0.4065537E+01  (-0.8410874E+00)
@@ -1261,7 +1261,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21361.82130151
   -exchange      EXHF   =      1341.68541125
   -V(xc)+E(xc)   XCENC  =       442.75824110
-  PAW double counting   =     65596.22139721   -64392.74237830
+  PAW double counting   =     65596.22139721   -64392.74237829
   entropy T*S    EENTRO =        -0.00486757
   eigenvalues    EBANDS =     -4221.41178273
   atomic energy  EATOM  =     56436.66214262
@@ -1281,14 +1281,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   8)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1933: real time      0.1950
-    SETDIJ:  cpu time      0.0633: real time      0.0635
-     EDDAV:  cpu time     73.6541: real time     74.3162
-       DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1576: real time      0.1585
-    MIXING:  cpu time      0.0024: real time      0.0024
+    POTLOK:  cpu time      0.1925: real time      0.1939
+    SETDIJ:  cpu time      0.0613: real time      0.0616
+     EDDAV:  cpu time     63.6833: real time     64.2664
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1534: real time      0.1544
+    MIXING:  cpu time      0.0030: real time      0.0030
     --------------------------------------------
-      LOOP:  cpu time     74.0711: real time     74.7362
+      LOOP:  cpu time     64.0939: real time     64.6798
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) : 0.1446000E+01  (-0.1696933E+00)
@@ -1302,7 +1302,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21333.84439676
   -exchange      EXHF   =      1338.25629505
   -V(xc)+E(xc)   XCENC  =       440.62289425
-  PAW double counting   =     69504.09763625   -68307.62171409
+  PAW double counting   =     69504.09763622   -68307.62171406
   entropy T*S    EENTRO =        -0.00088021
   eigenvalues    EBANDS =     -4235.37911455
   atomic energy  EATOM  =     56436.66214262
@@ -1322,14 +1322,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(   9)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1959: real time      0.1973
-    SETDIJ:  cpu time      0.0634: real time      0.0637
-     EDDAV:  cpu time     72.8225: real time     73.3795
-       DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1646: real time      0.1656
-    MIXING:  cpu time      0.0019: real time      0.0019
+    POTLOK:  cpu time      0.1938: real time      0.1951
+    SETDIJ:  cpu time      0.0626: real time      0.0628
+     EDDAV:  cpu time     64.3655: real time     64.9311
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1578: real time      0.1588
+    MIXING:  cpu time      0.0039: real time      0.0039
     --------------------------------------------
-      LOOP:  cpu time     73.2487: real time     73.8085
+      LOOP:  cpu time     64.7840: real time     65.3522
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) :-0.7843548E-01  (-0.1508203E+00)
@@ -1343,7 +1343,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21309.53400592
   -exchange      EXHF   =      1340.65123183
   -V(xc)+E(xc)   XCENC  =       439.78281532
-  PAW double counting   =     71788.84166670   -70594.84652124
+  PAW double counting   =     71788.84166668   -70594.84652122
   entropy T*S    EENTRO =        -0.00278921
   eigenvalues    EBANDS =     -4258.84011302
   atomic energy  EATOM  =     56436.66214262
@@ -1351,7 +1351,7 @@ Automatic generation of k-mesh.
   ---------------------------------------------------
   free energy    TOTEN  =      -161.94180791 eV
 
-  energy without entropy =     -161.93901870  energy(sigma->0) =     -161.94041330
+  energy without entropy =     -161.93901870  energy(sigma->0) =     -161.94041331
   exchange ACFDT corr.  =         0.00000000  see jH, gK, PRB 81, 115126
 
 
@@ -1363,14 +1363,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  10)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1886: real time      0.1918
-    SETDIJ:  cpu time      0.0751: real time      0.0755
-     EDDAV:  cpu time     73.3207: real time     73.8877
-       DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1488: real time      0.1496
-    MIXING:  cpu time      0.0025: real time      0.0025
+    POTLOK:  cpu time      0.1946: real time      0.1961
+    SETDIJ:  cpu time      0.0719: real time      0.0722
+     EDDAV:  cpu time     64.8081: real time     65.3840
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1460: real time      0.1467
+    MIXING:  cpu time      0.0028: real time      0.0028
     --------------------------------------------
-      LOOP:  cpu time     73.7361: real time     74.3075
+      LOOP:  cpu time     65.2239: real time     65.8023
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) :-0.1348079E-01  (-0.2627284E-01)
@@ -1384,7 +1384,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21295.76563639
   -exchange      EXHF   =      1342.98569620
   -V(xc)+E(xc)   XCENC  =       439.78169133
-  PAW double counting   =     73084.09443328   -71890.89709218
+  PAW double counting   =     73084.09443326   -71890.89709215
   entropy T*S    EENTRO =        -0.00238881
   eigenvalues    EBANDS =     -4274.15789977
   atomic energy  EATOM  =     56436.66214262
@@ -1404,14 +1404,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  11)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1985: real time      0.2010
-    SETDIJ:  cpu time      0.0666: real time      0.0669
-     EDDAV:  cpu time     71.0130: real time     71.5303
-       DOS:  cpu time      0.0005: real time      0.0004
-    CHARGE:  cpu time      0.1444: real time      0.1452
-    MIXING:  cpu time      0.0016: real time      0.0016
+    POTLOK:  cpu time      0.2004: real time      0.2019
+    SETDIJ:  cpu time      0.0692: real time      0.0696
+     EDDAV:  cpu time     65.5951: real time     66.2007
+       DOS:  cpu time      0.0005: real time      0.0005
+    CHARGE:  cpu time      0.1509: real time      0.1518
+    MIXING:  cpu time      0.0023: real time      0.0023
     --------------------------------------------
-      LOOP:  cpu time     71.4245: real time     71.9454
+      LOOP:  cpu time     66.0182: real time     66.6267
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) : 0.2196542E-01  (-0.9563807E-02)
@@ -1425,7 +1425,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21290.70404676
   -exchange      EXHF   =      1343.23509871
   -V(xc)+E(xc)   XCENC  =       439.85687141
-  PAW double counting   =     73845.83012684   -72653.41655428
+  PAW double counting   =     73845.83012681   -72653.41655426
   entropy T*S    EENTRO =        -0.00185278
   eigenvalues    EBANDS =     -4278.73887405
   atomic energy  EATOM  =     56436.66214262
@@ -1445,14 +1445,14 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  12)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1958: real time      0.1976
-    SETDIJ:  cpu time      0.0650: real time      0.0653
-     EDDAV:  cpu time     70.7697: real time     71.2738
+    POTLOK:  cpu time      0.1890: real time      0.1903
+    SETDIJ:  cpu time      0.0651: real time      0.0654
+     EDDAV:  cpu time     66.0877: real time     66.6465
        DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1460: real time      0.1470
-    MIXING:  cpu time      0.0024: real time      0.0024
+    CHARGE:  cpu time      0.1555: real time      0.1565
+    MIXING:  cpu time      0.0031: real time      0.0032
     --------------------------------------------
-      LOOP:  cpu time     71.1793: real time     71.6866
+      LOOP:  cpu time     66.5009: real time     67.0623
 
  eigenvalue-minimisations  :   896
  total energy-change (2. order) :-0.7016945E-02  (-0.4246712E-02)
@@ -1466,7 +1466,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21289.75959822
   -exchange      EXHF   =      1342.87363456
   -V(xc)+E(xc)   XCENC  =       439.83906315
-  PAW double counting   =     74310.40736586   -73118.83290235
+  PAW double counting   =     74310.40736583   -73118.83290231
   entropy T*S    EENTRO =        -0.00186616
   eigenvalues    EBANDS =     -4278.47194470
   atomic energy  EATOM  =     56436.66214262
@@ -1486,17 +1486,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  13)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.2004: real time      0.2019
-    SETDIJ:  cpu time      0.0626: real time      0.0630
-     EDDAV:  cpu time     70.7562: real time     71.2456
-       DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1395: real time      0.1403
-    MIXING:  cpu time      0.0019: real time      0.0019
+    POTLOK:  cpu time      0.1895: real time      0.1912
+    SETDIJ:  cpu time      0.0727: real time      0.0730
+     EDDAV:  cpu time     65.5652: real time     66.1214
+       DOS:  cpu time      0.0005: real time      0.0004
+    CHARGE:  cpu time      0.1590: real time      0.1603
+    MIXING:  cpu time      0.0024: real time      0.0024
     --------------------------------------------
-      LOOP:  cpu time     71.1611: real time     71.6531
+      LOOP:  cpu time     65.9893: real time     66.5487
 
  eigenvalue-minimisations  :   928
- total energy-change (2. order) : 0.1457935E-02  (-0.8896322E-03)
+ total energy-change (2. order) : 0.1457937E-02  (-0.8896322E-03)
  number of electron     648.0000454 magnetization 
  augmentation part      175.4987827 magnetization 
 
@@ -1507,7 +1507,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21289.23350006
   -exchange      EXHF   =      1342.65590935
   -V(xc)+E(xc)   XCENC  =       439.77673408
-  PAW double counting   =     74582.07433346   -73391.09580056
+  PAW double counting   =     74582.07433344   -73391.09580053
   entropy T*S    EENTRO =        -0.00210331
   eigenvalues    EBANDS =     -4278.12036288
   atomic energy  EATOM  =     56436.66214262
@@ -1527,17 +1527,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  14)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1983: real time      0.1999
-    SETDIJ:  cpu time      0.0592: real time      0.0595
-     EDDAV:  cpu time     71.4740: real time     72.0500
+    POTLOK:  cpu time      0.2025: real time      0.2040
+    SETDIJ:  cpu time      0.0817: real time      0.0821
+     EDDAV:  cpu time     66.1146: real time     66.6642
        DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1503: real time      0.1511
-    MIXING:  cpu time      0.0060: real time      0.0061
+    CHARGE:  cpu time      0.1528: real time      0.1541
+    MIXING:  cpu time      0.0074: real time      0.0075
     --------------------------------------------
-      LOOP:  cpu time     71.8882: real time     72.4669
+      LOOP:  cpu time     66.5595: real time     67.1123
 
  eigenvalue-minimisations  :   896
- total energy-change (2. order) : 0.1052090E-03  (-0.4861166E-03)
+ total energy-change (2. order) : 0.1052076E-03  (-0.4861166E-03)
  number of electron     648.0000456 magnetization 
  augmentation part      175.4907834 magnetization 
 
@@ -1548,7 +1548,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21288.53193637
   -exchange      EXHF   =      1342.66984853
   -V(xc)+E(xc)   XCENC  =       439.73448116
-  PAW double counting   =     74739.63841790   -73548.96540650
+  PAW double counting   =     74739.63841787   -73548.96540647
   entropy T*S    EENTRO =        -0.00215112
   eigenvalues    EBANDS =     -4278.48793832
   atomic energy  EATOM  =     56436.66214262
@@ -1568,17 +1568,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  15)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1872: real time      0.1924
-    SETDIJ:  cpu time      0.0633: real time      0.0638
-     EDDAV:  cpu time     71.1348: real time     71.6626
-       DOS:  cpu time      0.0004: real time      0.0005
-    CHARGE:  cpu time      0.1855: real time      0.1865
-    MIXING:  cpu time      0.0025: real time      0.0025
+    POTLOK:  cpu time      0.2045: real time      0.2061
+    SETDIJ:  cpu time      0.0666: real time      0.0669
+     EDDAV:  cpu time     65.4318: real time     66.0362
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1496: real time      0.1505
+    MIXING:  cpu time      0.0013: real time      0.0013
     --------------------------------------------
-      LOOP:  cpu time     71.5738: real time     72.1082
+      LOOP:  cpu time     65.8542: real time     66.4615
 
  eigenvalue-minimisations  :   896
- total energy-change (2. order) :-0.2112962E-03  (-0.1849825E-03)
+ total energy-change (2. order) :-0.2112964E-03  (-0.1849825E-03)
  number of electron     648.0000457 magnetization 
  augmentation part      175.4909904 magnetization 
 
@@ -1589,7 +1589,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.79614563
   -exchange      EXHF   =      1342.74166718
   -V(xc)+E(xc)   XCENC  =       439.72131133
-  PAW double counting   =     74829.06663409   -73638.51932976
+  PAW double counting   =     74829.06663403   -73638.51932971
   entropy T*S    EENTRO =        -0.00211080
   eigenvalues    EBANDS =     -4279.15692242
   atomic energy  EATOM  =     56436.66214262
@@ -1609,17 +1609,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  16)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1875: real time      0.1891
-    SETDIJ:  cpu time      0.0662: real time      0.0666
-     EDDAV:  cpu time     71.5772: real time     72.1408
+    POTLOK:  cpu time      0.1983: real time      0.1998
+    SETDIJ:  cpu time      0.0711: real time      0.0718
+     EDDAV:  cpu time     65.5325: real time     66.0899
        DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1430: real time      0.1438
-    MIXING:  cpu time      0.0041: real time      0.0041
+    CHARGE:  cpu time      0.1600: real time      0.1611
+    MIXING:  cpu time      0.0061: real time      0.0061
     --------------------------------------------
-      LOOP:  cpu time     71.9784: real time     72.5448
+      LOOP:  cpu time     65.9685: real time     66.5291
 
  eigenvalue-minimisations  :   928
- total energy-change (2. order) : 0.6516436E-04  (-0.6726213E-04)
+ total energy-change (2. order) : 0.6516435E-04  (-0.6726212E-04)
  number of electron     648.0000458 magnetization 
  augmentation part      175.4931368 magnetization 
 
@@ -1630,7 +1630,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.34445003
   -exchange      EXHF   =      1342.77108207
   -V(xc)+E(xc)   XCENC  =       439.71978204
-  PAW double counting   =     74882.74889071   -73692.26939001
+  PAW double counting   =     74882.74889068   -73692.26938998
   entropy T*S    EENTRO =        -0.00214009
   eigenvalues    EBANDS =     -4279.56860554
   atomic energy  EATOM  =     56436.66214262
@@ -1650,17 +1650,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  17)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1865: real time      0.1881
-    SETDIJ:  cpu time      0.0628: real time      0.0630
-     EDDAV:  cpu time     72.3285: real time     72.8793
-       DOS:  cpu time      0.0005: real time      0.0118
-    CHARGE:  cpu time      0.1430: real time      0.1438
-    MIXING:  cpu time      0.0012: real time      0.0012
+    POTLOK:  cpu time      0.1924: real time      0.1938
+    SETDIJ:  cpu time      0.0716: real time      0.0720
+     EDDAV:  cpu time     64.8529: real time     65.3935
+       DOS:  cpu time      0.0025: real time      0.0026
+    CHARGE:  cpu time      0.1530: real time      0.1542
+    MIXING:  cpu time      0.0029: real time      0.0029
     --------------------------------------------
-      LOOP:  cpu time     72.7224: real time     73.2872
+      LOOP:  cpu time     65.2753: real time     65.8190
 
  eigenvalue-minimisations  :   896
- total energy-change (2. order) :-0.8205068E-04  (-0.3160557E-04)
+ total energy-change (2. order) :-0.8204996E-04  (-0.3160556E-04)
  number of electron     648.0000458 magnetization 
  augmentation part      175.4936077 magnetization 
 
@@ -1671,7 +1671,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.22279367
   -exchange      EXHF   =      1342.75888504
   -V(xc)+E(xc)   XCENC  =       439.71668436
-  PAW double counting   =     74914.80498913   -73724.38713881
+  PAW double counting   =     74914.80498912   -73724.38713880
   entropy T*S    EENTRO =        -0.00215301
   eigenvalues    EBANDS =     -4279.61338595
   atomic energy  EATOM  =     56436.66214262
@@ -1691,17 +1691,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  18)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1933: real time      0.1950
-    SETDIJ:  cpu time      0.0713: real time      0.0718
-     EDDAV:  cpu time     73.3676: real time     73.9507
-       DOS:  cpu time      0.0005: real time      0.0075
-    CHARGE:  cpu time      0.1587: real time      0.1597
-    MIXING:  cpu time      0.0015: real time      0.0015
+    POTLOK:  cpu time      0.1957: real time      0.1973
+    SETDIJ:  cpu time      0.0737: real time      0.0740
+     EDDAV:  cpu time     65.2340: real time     65.7730
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1619: real time      0.1629
+    MIXING:  cpu time      0.0033: real time      0.0033
     --------------------------------------------
-      LOOP:  cpu time     73.7929: real time     74.3861
+      LOOP:  cpu time     65.6689: real time     66.2110
 
  eigenvalue-minimisations  :   960
- total energy-change (2. order) :-0.2854795E-05  (-0.1159991E-04)
+ total energy-change (2. order) :-0.2854889E-05  (-0.1159991E-04)
  number of electron     648.0000459 magnetization 
  augmentation part      175.4928581 magnetization 
 
@@ -1712,7 +1712,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.20610018
   -exchange      EXHF   =      1342.74690872
   -V(xc)+E(xc)   XCENC  =       439.71212852
-  PAW double counting   =     74933.36996561   -73742.99711977
+  PAW double counting   =     74933.36996559   -73742.99711975
   entropy T*S    EENTRO =        -0.00213030
   eigenvalues    EBANDS =     -4279.56856835
   atomic energy  EATOM  =     56436.66214262
@@ -1732,17 +1732,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  19)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.2014: real time      0.2032
-    SETDIJ:  cpu time      0.0593: real time      0.0596
-     EDDAV:  cpu time     72.7337: real time     73.2835
+    POTLOK:  cpu time      0.1983: real time      0.1999
+    SETDIJ:  cpu time      0.0794: real time      0.0799
+     EDDAV:  cpu time     65.5753: real time     66.0986
        DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1691: real time      0.1701
-    MIXING:  cpu time      0.0020: real time      0.0020
+    CHARGE:  cpu time      0.1617: real time      0.1628
+    MIXING:  cpu time      0.0053: real time      0.0054
     --------------------------------------------
-      LOOP:  cpu time     73.1660: real time     73.7188
+      LOOP:  cpu time     66.0205: real time     66.5469
 
  eigenvalue-minimisations  :   864
- total energy-change (2. order) :-0.1711305E-04  (-0.4584210E-05)
+ total energy-change (2. order) :-0.1711141E-04  (-0.4584204E-05)
  number of electron     648.0000459 magnetization 
  augmentation part      175.4922968 magnetization 
 
@@ -1759,7 +1759,7 @@ Automatic generation of k-mesh.
   atomic energy  EATOM  =     56436.66214262
   Solvation  Ediel_sol  =         0.00000000
   ---------------------------------------------------
-  free energy    TOTEN  =      -161.93902524 eV
+  free energy    TOTEN  =      -161.93902523 eV
 
   energy without entropy =     -161.93689639  energy(sigma->0) =     -161.93796081
   exchange ACFDT corr.  =         0.00000000  see jH, gK, PRB 81, 115126
@@ -1773,17 +1773,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  20)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.2008: real time      0.2024
-    SETDIJ:  cpu time      0.0634: real time      0.0637
-     EDDAV:  cpu time     72.0462: real time     72.6582
+    POTLOK:  cpu time      0.1982: real time      0.1995
+    SETDIJ:  cpu time      0.0756: real time      0.0761
+     EDDAV:  cpu time     65.6462: real time     66.1647
        DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1536: real time      0.1548
-    MIXING:  cpu time      0.0035: real time      0.0035
+    CHARGE:  cpu time      0.1464: real time      0.1473
+    MIXING:  cpu time      0.0034: real time      0.0034
     --------------------------------------------
-      LOOP:  cpu time     72.4681: real time     73.0832
+      LOOP:  cpu time     66.0703: real time     66.5915
 
  eigenvalue-minimisations  :   832
- total energy-change (2. order) :-0.5873502E-05  (-0.2234685E-05)
+ total energy-change (2. order) :-0.5876784E-05  (-0.2234680E-05)
  number of electron     648.0000459 magnetization 
  augmentation part      175.4922683 magnetization 
 
@@ -1794,7 +1794,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.11773764
   -exchange      EXHF   =      1342.75081711
   -V(xc)+E(xc)   XCENC  =       439.70783038
-  PAW double counting   =     74949.86314618   -73759.52267403
+  PAW double counting   =     74949.86314618   -73759.52267404
   entropy T*S    EENTRO =        -0.00213764
   eigenvalues    EBANDS =     -4279.62418310
   atomic energy  EATOM  =     56436.66214262
@@ -1802,7 +1802,7 @@ Automatic generation of k-mesh.
   ---------------------------------------------------
   free energy    TOTEN  =      -161.93903111 eV
 
-  energy without entropy =     -161.93689347  energy(sigma->0) =     -161.93796229
+  energy without entropy =     -161.93689348  energy(sigma->0) =     -161.93796229
   exchange ACFDT corr.  =         0.00000000  see jH, gK, PRB 81, 115126
 
 
@@ -1814,17 +1814,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  21)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1859: real time      0.1875
-    SETDIJ:  cpu time      0.0698: real time      0.0702
-     EDDAV:  cpu time     71.8453: real time     72.4422
-       DOS:  cpu time      0.0005: real time      0.0005
-    CHARGE:  cpu time      0.1529: real time      0.1537
-    MIXING:  cpu time      0.0016: real time      0.0016
+    POTLOK:  cpu time      0.1900: real time      0.1913
+    SETDIJ:  cpu time      0.0815: real time      0.0819
+     EDDAV:  cpu time     64.8669: real time     65.4004
+       DOS:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1475: real time      0.1483
+    MIXING:  cpu time      0.0050: real time      0.0050
     --------------------------------------------
-      LOOP:  cpu time     72.2559: real time     72.8557
+      LOOP:  cpu time     65.2913: real time     65.8275
 
  eigenvalue-minimisations  :   736
- total energy-change (2. order) :-0.2865243E-05  (-0.1004309E-05)
+ total energy-change (2. order) :-0.2865047E-05  (-0.1004306E-05)
  number of electron     648.0000459 magnetization 
  augmentation part      175.4923146 magnetization 
 
@@ -1835,15 +1835,15 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.10278230
   -exchange      EXHF   =      1342.75165837
   -V(xc)+E(xc)   XCENC  =       439.70708436
-  PAW double counting   =     74953.12521954   -73762.79069573
+  PAW double counting   =     74953.12521952   -73762.79069571
   entropy T*S    EENTRO =        -0.00213401
   eigenvalues    EBANDS =     -4279.63329183
   atomic energy  EATOM  =     56436.66214262
   Solvation  Ediel_sol  =         0.00000000
   ---------------------------------------------------
-  free energy    TOTEN  =      -161.93903397 eV
+  free energy    TOTEN  =      -161.93903398 eV
 
-  energy without entropy =     -161.93689996  energy(sigma->0) =     -161.93796697
+  energy without entropy =     -161.93689997  energy(sigma->0) =     -161.93796697
   exchange ACFDT corr.  =         0.00000000  see jH, gK, PRB 81, 115126
 
 
@@ -1855,17 +1855,17 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  22)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1966: real time      0.1982
-    SETDIJ:  cpu time      0.0661: real time      0.0664
-     EDDAV:  cpu time     71.3116: real time     71.8604
+    POTLOK:  cpu time      0.1996: real time      0.2011
+    SETDIJ:  cpu time      0.0715: real time      0.0720
+     EDDAV:  cpu time     65.6101: real time     66.2216
        DOS:  cpu time      0.0004: real time      0.0004
-    CHARGE:  cpu time      0.1429: real time      0.1436
-    MIXING:  cpu time      0.0015: real time      0.0015
+    CHARGE:  cpu time      0.1413: real time      0.1421
+    MIXING:  cpu time      0.0028: real time      0.0028
     --------------------------------------------
-      LOOP:  cpu time     71.7191: real time     72.2705
+      LOOP:  cpu time     66.0256: real time     66.6402
 
  eigenvalue-minimisations  :   736
- total energy-change (2. order) :-0.2975095E-05  (-0.3952726E-06)
+ total energy-change (2. order) :-0.2975583E-05  (-0.3952608E-06)
  number of electron     648.0000459 magnetization 
  augmentation part      175.4923798 magnetization 
 
@@ -1876,9 +1876,9 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.09160476
   -exchange      EXHF   =      1342.75190325
   -V(xc)+E(xc)   XCENC  =       439.70669894
-  PAW double counting   =     74954.99321955   -73764.66187135
+  PAW double counting   =     74954.99321952   -73764.66187131
   entropy T*S    EENTRO =        -0.00213090
-  eigenvalues    EBANDS =     -4279.64115931
+  eigenvalues    EBANDS =     -4279.64115932
   atomic energy  EATOM  =     56436.66214262
   Solvation  Ediel_sol  =         0.00000000
   ---------------------------------------------------
@@ -1896,15 +1896,15 @@ Automatic generation of k-mesh.
 --------------------------------------- Iteration      1(  23)  ---------------------------------------
 
 
-    POTLOK:  cpu time      0.1874: real time      0.1892
-    SETDIJ:  cpu time      0.0594: real time      0.0596
-     EDDAV:  cpu time     70.7525: real time     71.3005
+    POTLOK:  cpu time      0.1899: real time      0.1914
+    SETDIJ:  cpu time      0.0673: real time      0.0681
+     EDDAV:  cpu time     65.1833: real time     65.7360
        DOS:  cpu time      0.0004: real time      0.0004
     --------------------------------------------
-      LOOP:  cpu time     70.9997: real time     71.5497
+      LOOP:  cpu time     65.4409: real time     65.9959
 
  eigenvalue-minimisations  :   576
- total energy-change (2. order) :-0.7468698E-06  (-0.2047690E-06)
+ total energy-change (2. order) :-0.7458730E-06  (-0.2047575E-06)
  number of electron     648.0000459 magnetization 
  augmentation part      175.4923798 magnetization 
 
@@ -1915,7 +1915,7 @@ Automatic generation of k-mesh.
   -Hartree energ DENC   =    -21287.08506761
   -exchange      EXHF   =      1342.75202098
   -V(xc)+E(xc)   XCENC  =       439.70650372
-  PAW double counting   =     74956.14012724   -73765.81059533
+  PAW double counting   =     74956.14012722   -73765.81059530
   entropy T*S    EENTRO =        -0.00213335
   eigenvalues    EBANDS =     -4279.64580098
   atomic energy  EATOM  =     56436.66214262
@@ -1923,7 +1923,7 @@ Automatic generation of k-mesh.
   ---------------------------------------------------
   free energy    TOTEN  =      -161.93903770 eV
 
-  energy without entropy =     -161.93690434  energy(sigma->0) =     -161.93797102
+  energy without entropy =     -161.93690435  energy(sigma->0) =     -161.93797102
   exchange ACFDT corr.  =         0.00000000  see jH, gK, PRB 81, 115126
 
 
@@ -1955,7 +1955,7 @@ Automatic generation of k-mesh.
  
  E-fermi :   2.0966     XC(G=0):  -7.6277     alpha+bet : -6.8947
 
- Fermi energy:         2.0966017757
+ Fermi energy:         2.0966017756
 
  k-point     1 :       0.0000    0.0000    0.0000
   band No.  band energies     occupation 
@@ -2427,13 +2427,13 @@ Automatic generation of k-mesh.
 ------------------------ aborting loop because EDIFF is reached ----------------------------------------
 
 
-    CHARGE:  cpu time      0.1370: real time      0.1379
-    FORLOC:  cpu time      0.0256: real time      0.0257
-    FORHF :  cpu time     54.3732: real time     54.7864
-    FORNL :  cpu time      1.2065: real time      1.2158
-    FORCOR:  cpu time      0.2687: real time      0.2714
-    FORHAR:  cpu time      0.0333: real time      0.0334
-    MIXING:  cpu time      0.0004: real time      0.0004
+    CHARGE:  cpu time      0.1502: real time      0.1518
+    FORLOC:  cpu time      0.0241: real time      0.0243
+    FORHF :  cpu time     56.0807: real time     56.4886
+    FORNL :  cpu time      1.2728: real time      1.2814
+    FORCOR:  cpu time      0.2721: real time      0.2746
+    FORHAR:  cpu time      0.0347: real time      0.0348
+    MIXING:  cpu time      0.0005: real time      0.0005
     OFIELD:  cpu time      0.0000: real time      0.0000
 
  VOLUME and BASIS-vectors are now :
@@ -2614,21 +2614,21 @@ Automatic generation of k-mesh.
   ---------------------------------------------------
   free  energy   TOTEN  =      -161.93903770 eV
 
-  energy  without entropy=     -161.93690434  energy(sigma->0) =     -161.93797102
+  energy  without entropy=     -161.93690435  energy(sigma->0) =     -161.93797102
  
 
 
 --------------------------------------------------------------------------------------------------------
 
 
-    POTLOK:  cpu time      0.2623: real time      0.2955
+    POTLOK:  cpu time      0.2596: real time      0.2612
 
 
 --------------------------------------------------------------------------------------------------------
 
 
-     LOOP+:  cpu time   1437.7449: real time   1454.6762
-    4ORBIT:  cpu time      0.0000: real time      0.0000
+     LOOP+:  cpu time   1339.6011: real time   1358.8994
+    4ORBIT:  cpu time      0.0006: real time      0.0252
 
  total amount of memory used by VASP MPI-rank0   812258. kBytes
 =======================================================================
@@ -2648,14 +2648,14 @@ Automatic generation of k-mesh.
  General timing and accounting informations for this job:
  ========================================================
   
-                  Total CPU time used (sec):     1442.617
-                            User time (sec):     1421.162
-                          System time (sec):       21.455
-                         Elapsed time (sec):     1462.118
+                  Total CPU time used (sec):     1344.702
+                            User time (sec):     1317.960
+                          System time (sec):       26.742
+                         Elapsed time (sec):     1368.674
   
-                   Maximum memory used (kb):     1941092.
+                   Maximum memory used (kb):     1906672.
                    Average memory used (kb):          N/A
   
-                          Minor page faults:      4801060
-                          Major page faults:          500
-                 Voluntary context switches:        13666
+                          Minor page faults:      3476874
+                          Major page faults:          515
+                 Voluntary context switches:         9655
