@@ -3,37 +3,32 @@ Evaluate a parameter TOML against bulk/supercell test structures.
 
 Usage:
 pixi run python src/scripts/eval_bulk.py --system big --params config/gfn1-base.toml --xyz val_lind50_eq.xyz --results test_structs/results.csv --out results/base.csv --skip-energy
-pixi run python src/scripts/eval_bulk.py --system big --params config/gfn1-base.toml --xyz pure_72.xyz --results test_structs/results.csv --out results/base.csv --skip-energy
 
-pixi run python src/scripts/eval_bulk.py --system big --params results/pso/big_pso.toml --xyz val_lind50_eq.xyz --results test_structs/results.csv --out results/pso.csv 
+pixi run python src/scripts/eval_bulk.py --system big --params results/gad/big_gad.toml --xyz val_lind50_eq.xyz --results test_structs/results.csv --out results/gad.csv 
 
-This script loads the XYZ, attaches reference targets from results.csv if present,
-runs TBLite (GFN1) with the provided param file to compute energies/bandgaps, and
-reports RMSEs and per-structure outputs.
+pixi run python src/scripts/eval_bulk.py  --params results/pso/big_pso.toml --out results/pso2.csv 
+
+pixi run python src/scripts/eval_bulk.py  --params results/gad/big_gad.toml --out results/gad.csv 
+
 """
-
 import argparse
 import sys
 from pathlib import Path
 import pandas as pd
 import numpy as np
-import ase.io
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from ase.dft.bandgap import bandgap as ase_bandgap
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from calculators.tblite_ase_calculator import TBLiteASECalculator
-
 
 def attach_references(structures, results_csv: Path) -> None:
     if not results_csv.exists():
         print(f"Reference CSV not found: {results_csv}")
         return
     df = pd.read_csv(results_csv)
-    # Normalize numeric columns if present
+    # convert to floates
     if 'FreeEnergy(eV)' in df.columns:
         df['FreeEnergy(eV)'] = pd.to_numeric(df['FreeEnergy(eV)'], errors='coerce')
     if 'Bandgap(eV)' in df.columns:
@@ -70,7 +65,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--system', default='big')
     ap.add_argument('--params', required=True, help='Path to TOML parameter file')
-    ap.add_argument('--xyz', default='trainall.xyz')
+    ap.add_argument('--xyz', default='val_lind50_eq.xyz')
     ap.add_argument('--results', default='test_structs/results.csv')
     ap.add_argument('--out', default='results/eval.csv')
     ap.add_argument('--skip-energy', action='store_true', help='Skip computing free energy and related plots; reuse from existing out if available')
@@ -84,7 +79,7 @@ def main():
     structures = list(ase.io.read(str(xyz_path), index=':'))
     attach_references(structures, res_path)
 
-    # If output CSV already exists, optionally reuse existing energies
+    # reuse logic
     prev_df = None
     reuse_energy = False
     prev_energies = None
@@ -116,20 +111,18 @@ def main():
             e_h = calc.get_potential_energy(atoms)
             if not reuse_energy and not args.skip_energy:
                 e_ev = float(e_h) * 27.211386245988
+                print("energy append success")
                 energies_ev.append(e_ev)
-            # Prefer ASE bandgap if available; fallback to calculator result
-            gap = np.nan
-            print("ase used")
-            bg_val, _, _ = ase_bandgap(calc)
-            if bg_val is not None and np.isfinite(bg_val):
-                gap = float(bg_val)
-            if not np.isfinite(gap):
-                try:
-                    gap = float(calc.results.get('bandgap', np.nan))
-                except Exception:
-                    gap = np.nan
+            # Prefer calculator result first
+            try:
+                gap = float(calc.results.get('bandgap', np.nan))
+                print("bandgap success")
+            except Exception:
+                print("hmmm")
+                gap = np.nan
             gaps_ev.append(gap)
         except Exception as exc:
+            print('oops! something went wrong in the calculation loop')
             if not reuse_energy and not args.skip_energy:
                 energies_ev.append(np.nan)
             gaps_ev.append(np.nan)
@@ -138,14 +131,6 @@ def main():
         ref_e.append(float(info.get('ref_energy_eV', np.nan)))
         ref_g.append(float(info.get('ref_gap_eV', np.nan)))
 
-    # Ensure energies column length matches structures
-    if reuse_energy:
-        energies_col = prev_energies
-    elif len(energies_ev) == len(structures):
-        energies_col = np.array(energies_ev, dtype=float)
-    else:
-        energies_col = np.array([np.nan] * len(structures), dtype=float)
-
     df = pd.DataFrame({
         'calc_energy_eV': energies_col,
         'ref_energy_eV': ref_e,
@@ -153,7 +138,7 @@ def main():
         'ref_gap_eV': ref_g,
     })
 
-    # RMSE metrics where both sides present
+    # RMSE 
     def rmse(a, b):
         mask = np.isfinite(a) & np.isfinite(b)
         if not np.any(mask):
