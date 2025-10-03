@@ -13,7 +13,7 @@ from base_optimizer import BaseOptimizer
 from optimizers.ga import GeneralParameterGA, GAConfig
 from optimizers.gad import PyGADOptimizer, PyGADConfig
 from optimizers.pso import GeneralParameterPSO, PSOConfig
-from optimizers.bayes_h import GeneralParameterBayesian, BayesianConfig
+from optimizers.bayes_optuna import GeneralParameterBayesian, BayesianConfig
 from optimizers.cma1 import GeneralParameterCMA, CMAConfig
 from optimizers.cma2 import GeneralParameterCMA2, CMA2Config
 
@@ -149,6 +149,8 @@ Examples:
                        help='Maximum iterations (PSO)')
     parser.add_argument('--n-calls', type=int,
                        help='Number of function calls (Bayesian)')
+    parser.add_argument('--n-jobs', type=int,
+                       help='Number of parallel trials (Optuna Bayesian)')
     parser.add_argument('--population-size', type=int,
                        help='Population size (GA/PSO)')
     parser.add_argument('--swarm-size', type=int,
@@ -186,6 +188,8 @@ Examples:
         kwargs['max_iterations'] = args.max_iterations
     if args.n_calls:
         kwargs['n_calls'] = args.n_calls
+    if args.n_jobs:
+        kwargs['n_jobs'] = args.n_jobs
     if args.population_size:
         kwargs['population_size'] = args.population_size
     if args.swarm_size:
