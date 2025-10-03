@@ -29,8 +29,8 @@ logging.basicConfig(level=logging.DEBUG)
 @dataclass
 class BayesianConfig:
     """Configuration for Bayesian optimization"""
-    n_calls: int = 500  # Number of function evaluations (increased for better sampling)
-    n_initial_points: int = 20  # Number of random points to start with (increased)
+    n_calls: int = 500  
+    n_initial_points: int = 20  
     acq_func: str = "EI"  # Acquisition function: "EI", "LCB", "PI"
     acq_optimizer: str = "auto"  # Acquisition optimizer
     xi: float = 0.1  # Exploration-exploitation trade-off
@@ -38,7 +38,6 @@ class BayesianConfig:
     n_restarts_optimizer: int = 5  # Number of restarts for acquisition optimization
     noise: float = 1e-10  # Noise level for Gaussian process
     random_state: Optional[int] = None  # Random state for reproducibility
-
 
 class GeneralParameterBayesian(BaseOptimizer):
     """Bayesian Optimization optimizer inheriting from BaseOptimizer"""

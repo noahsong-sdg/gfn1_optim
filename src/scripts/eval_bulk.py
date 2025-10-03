@@ -8,12 +8,13 @@ pixi run python src/scripts/eval_bulk.py --system big --params results/gad/big_g
 
 pixi run python src/scripts/eval_bulk.py  --params results/pso/big_pso.toml --out results/pso2.csv 
 
-pixi run python src/scripts/eval_bulk.py  --params results/gad/big_gad.toml --out results/gad.csv 
+pixi run python src/scripts/eval_bulk.py  --params results/ga/big_ga.toml --out results/ga.csv 
 
 """
 import argparse
 import sys
 from pathlib import Path
+import ase.io
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -132,7 +133,7 @@ def main():
         ref_g.append(float(info.get('ref_gap_eV', np.nan)))
 
     df = pd.DataFrame({
-        'calc_energy_eV': energies_col,
+        'calc_energy_eV': energies_ev,
         'ref_energy_eV': ref_e,
         'calc_gap_eV': gaps_ev,
         'ref_gap_eV': ref_g,
