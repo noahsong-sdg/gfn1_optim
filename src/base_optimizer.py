@@ -327,8 +327,8 @@ class BaseOptimizer(ABC):
                     gap_rmse = float(np.sqrt(np.mean((ref_g - calc_g) ** 2)))
 
                 # Combine losses (normalize with simple scales; energy relative nature already reduces scale issues)
-                energy_weight = 0.7
-                gap_weight = 0.3 if gap_rmse is not None else 0.0
+                energy_weight = 0.0
+                gap_weight = 1.0 if gap_rmse is not None else 0.0
                 total_loss = energy_weight * energy_rmse + gap_weight * (gap_rmse or 0.0)
                 fitness = 1.0 / (1.0 + total_loss)
 
