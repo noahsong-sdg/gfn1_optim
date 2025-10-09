@@ -6,9 +6,9 @@ pixi run python src/scripts/eval_bulk.py --system big --params config/gfn1-base.
 
 pixi run python src/scripts/eval_bulk.py --params results/gad/37_big_gad.toml --out results/gad.csv 
 
-pixi run python src/scripts/eval_bulk.py  --params results/pso/big_pso.toml --out results/pso2.csv 
+pixi run python src/scripts/eval_bulk.py  --params results/pso/37_big_pso.toml --out results/pso2.csv 
 
-pixi run python src/scripts/eval_bulk.py  --params results/ga/big_ga.toml --out results/ga.csv 
+pixi run python src/scripts/eval_bulk.py  --params results/ga/37_big_ga.toml --out results/ga.csv 
 
 pixi run python src/scripts/eval_bulk.py  --params results/bayes/big_bayes.toml --out results/bayes.csv 
 
@@ -236,7 +236,7 @@ def main():
                 plt.xlabel('Reference Relative Free Energy (eV)')
                 plt.ylabel('Calculated Relative Free Energy (eV)')
                 title_rmse_e = f" (RMSE={e_rmse:.3f} eV)" if np.isfinite(e_rmse) else ""
-                plt.title(f'Free Energy: Predicted vs Actual (relative){title_rmse_e}')
+                plt.title(f'Free Energy: Predicted w/ GA vs Actual (relative){title_rmse_e}')
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
                 plt.savefig(energy_plot_path, dpi=300, bbox_inches='tight')

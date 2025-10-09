@@ -101,8 +101,8 @@ def analyze_fitness_data(csv_path):
 # Example usage:
 if __name__ == "__main__":
 
-    df = analyze_fitness_data('results/bayes/CdS_bayes_history.csv')
-    plot_generation_vs_best_fitness('results/bayes/CdS_bayes_history.csv')
+    # df = analyze_fitness_data('results/bayes/CdS_bayes_history.csv')
+    plot_generation_vs_best_fitness('results/pso/37_big_pso_history.csv')
 
     #df = analyze_fitness_data('results/cma1/CdS_cma1_history.csv')
     #plot_generation_vs_best_fitness('results/cma1/CdS_cma1_history.csv')

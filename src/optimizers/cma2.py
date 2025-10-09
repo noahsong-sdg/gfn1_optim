@@ -103,7 +103,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         return False
     
     def optimize(self) -> Dict[str, float]:
-        """Run pycma CMA-ES optimization"""
+        """Run pycma CMA-ES optimization with checkpoint/resume support"""
         logger.info(f"Starting pycma CMA-ES optimization for {self.system_name}")
         start_time = time.time()
         
@@ -132,27 +132,34 @@ class GeneralParameterCMA2(BaseOptimizer):
         # Format bounds for pycma: [lower_bounds, upper_bounds]
         bounds = [lower_bounds, upper_bounds]
 
-        # Initialize CMA-ES with bounds
-        self.es = cma.CMAEvolutionStrategy(
-            initial_mean,
-            self.config.sigma,
-            {
-                'maxiter': self.config.max_generations,
-                'popsize': self.config.population_size,
-                'seed': self.config.seed,
-                'bounds': bounds,  # Pass bounds in correct format
-                'CMA_diagonal': True,
-                'CMA_elitist': True,
-                'tolfun': 1e-6,
-                'tolx': 1e-6
-            }
-        )
+        # Initialize or resume CMA-ES
+        resumed = self.es is not None
+        if resumed:
+            logger.info(f"Resuming CMA-ES from generation {self.generation}")
+        else:
+            self.es = cma.CMAEvolutionStrategy(
+                initial_mean,
+                self.config.sigma,
+                {
+                    'maxiter': self.config.max_generations,
+                    'popsize': self.config.population_size,
+                    'seed': self.config.seed,
+                    'bounds': bounds,  # Pass bounds in correct format
+                    'CMA_diagonal': True,
+                    'CMA_elitist': True,
+                    'tolfun': 1e-6,
+                    'tolx': 1e-6
+                }
+            )
         
         # Run optimization with pycma's built-in parallelization
         try:
             # Track fitness during optimization
-            generation = 0
-            while generation < self.config.max_generations:
+            if self.generation >= self.config.max_generations:
+                logger.info("Optimization already completed based on checkpoint")
+                return self.best_parameters or {}
+
+            while self.generation < self.config.max_generations:
                 # Get solutions for current generation
                 solutions = self.es.ask()
                 
@@ -166,7 +173,7 @@ class GeneralParameterCMA2(BaseOptimizer):
                 self.es.tell(solutions, fitness_values)
                 
                 # Update generation counter
-                generation += 1
+                self.generation += 1
                 
                 # Record fitness statistics for this generation
                 best_rmse_gen = min(fitness_values)  # CMA-ES minimizes RMSE
@@ -174,7 +181,7 @@ class GeneralParameterCMA2(BaseOptimizer):
                 std_rmse_gen = np.std(fitness_values)
                 
                 self.fitness_history.append({
-                    'generation': generation,
+                    'generation': self.generation,
                     'best_fitness': best_rmse_gen,  # Store RMSE (lower is better)
                     'avg_fitness': avg_rmse_gen,
                     'std_fitness': std_rmse_gen
@@ -186,14 +193,19 @@ class GeneralParameterCMA2(BaseOptimizer):
                     best_solution = solutions[best_idx]
                     self.best_parameters = {param_names[i]: float(best_solution[i]) for i in range(len(param_names))}
                     self.best_fitness = best_rmse_gen
+                    # Save checkpoint on improvement
+                    self.save_checkpoint()
                 
                 # Log progress
-                if generation % 5 == 0 or generation == 1:
-                    logger.info(f"Generation {generation}: Best RMSE = {best_rmse_gen:.6f}, Avg = {avg_rmse_gen:.6f}")
+                if self.generation % 5 == 0 or self.generation == 1:
+                    logger.info(f"Generation {self.generation}: Best RMSE = {best_rmse_gen:.6f}, Avg = {avg_rmse_gen:.6f}")
+                    # Periodic checkpoint
+                    self.save_checkpoint()
                 
                 # Check convergence
                 if self.es.stop():
-                    logger.info(f"CMA-ES converged at generation {generation}")
+                    logger.info(f"CMA-ES converged at generation {self.generation}")
+                    self.save_checkpoint()
                     break
             
             # Extract final best solution
@@ -206,6 +218,8 @@ class GeneralParameterCMA2(BaseOptimizer):
             # Update best parameters
             self.best_parameters = best_params.copy()
             self.best_fitness = best_fitness
+            # Final checkpoint at completion
+            self.save_checkpoint()
             
         except Exception as e:
             logger.error(f"pycma CMA-ES optimization failed: {e}")
