@@ -6,11 +6,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
 import os
+# Enable TBLite stdout for debugging
+os.environ['TBLITE_PRINT_STDOUT'] = '1'
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ase import Atoms
 from ase.build import bulk
 from tblite.ase import TBLite
-from ase.optimize import BFGS
+from ase.optimize import BFGS, FIRE
 from ase.filters import UnitCellFilter
 import torch
 
@@ -62,25 +64,34 @@ atoms = Atoms(symbols=syms, positions=geometry_angstroms)
 atoms.set_cell([4.85, 10.65, 18.03])
 atoms.set_pbc(True)
 atoms.calc = TBLiteASECalculator(
-    param_file="config/gfn1-base.toml",  # Path to your parameter file
+    param_file="config/gfn1-base.toml",  
     method="gfn1",
-    electronic_temperature=300.0,
+    electronic_temperature=50.0,
     charge=0.0,
     spin=0
 )
 
 ucf = UnitCellFilter(atoms)
-opt = BFGS(ucf)
-opt.run(fmax=0.05) 
+# BFGS gives bad result, try fire?
+opt = FIRE(ucf)
+# fmax = 0.05 was kank
+opt.run(fmax=0.01) 
 
 results = atoms.get_potential_energy()
 
+# NEW CODE TO COMPUTE THE BAND GAP USING tblite_ase_calculator SHOULD GO BELOW HERE
 
-print("potential energy: ", results)
-from ase.dft.bandgap import bandgap
-# homo, lumo = atoms.get_homo_lumo_levels()
-bg = bandgap(calc=atoms.calc)
-print("bg: ", bg)
+gap_ev = atoms.calc.results.get('bandgap', np.nan)
+if np.isfinite(gap_ev):
+    print(f"Bandgap (eV): {gap_ev}")
+else:
+    print("Bandgap not available from calculator results.")
+
+# print("potential energy: ", results)
+# from ase.dft.bandgap import bandgap
+# # homo, lumo = atoms.get_homo_lumo_levels()
+# bg = bandgap(calc=atoms.calc)
+# print("bg: ", bg)
 # AttributeError: 'TBLiteASECalculator' object has no attribute 'get_number_of_spins'
 # results:
 

@@ -106,7 +106,7 @@ def main():
             calc = TBLiteASECalculator(
                 param_file=args.params,
                 method='gfn1',
-                electronic_temperature=400.0,
+                electronic_temperature=100.0,
                 charge=0.0,
                 spin=0
             )

@@ -7,13 +7,14 @@ from ase.io import read, write, vasp
 import ase.io
 from ase.build import make_supercell
 unit_cell = ase.io.read('CdS.poscar')
-# transformation_matrix = [[3, 0, 0], [0, 3, 0], [0, 0, 2]]
-# supercell = make_supercell(unit_cell, transformation_matrix)
 supercell = unit_cell.repeat((3, 3, 2))
+ase.io.vasp.write_vasp('POSCAR_sort', supercell, direct=True, sort=True)
 # ase.io.write('POSCAR_supercell', supercell, format='vasp')
-ase.io.vasp.write_vasp('POSCAR_sc_yay', supercell, direct=True, )
-
 
 # conversion
 # atoms = read('POSCAR_supercell')
 # write('pure_72_test.xyz', atoms)
+
+
+# transformation_matrix = [[3, 0, 0], [0, 3, 0], [0, 0, 2]]
+# supercell = make_supercell(unit_cell, transformation_matrix)

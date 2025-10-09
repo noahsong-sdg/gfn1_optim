@@ -225,77 +225,28 @@ class TBLiteASECalculator(Calculator):
         return energy, forces, stress
 
     def _parse_bandgap(self, output: str) -> Optional[float]:
-        """Parse HOMO-LUMO/band gap from TBLite stdout if available.
-        Returns gap in eV when possible.
-        """
-        text = output.lower()
-        # Try common patterns where the gap is reported explicitly
-        candidates = []
-        for line in output.splitlines():
-            lower = line.lower()
-            if 'homo' in lower and 'lumo' in lower and 'gap' in lower:
-                candidates.append(line)
-            elif 'band gap' in lower:
-                candidates.append(line)
-        for line in candidates:
-            tokens = line.replace('=', ' ').replace(':', ' ').split()
-            # Look for a float followed by eV or a float alone
-            for i, tok in enumerate(tokens):
-                try:
-                    val = float(tok)
-                    # If unit token next
-                    unit = tokens[i+1].lower() if i + 1 < len(tokens) else ''
-                    if 'ev' in unit:
-                        return val
-                    if 'eh' in unit:
-                        return val * 27.211386245988  # Eh -> eV
-                    # If no unit, assume eV
-                    return val
-                except Exception:
-                    continue
+        """Parse HOMO-LUMO gap from TBLite stdout.
         
-        # Fallback: infer from separate HOMO and LUMO energies if present
-        homo_val: Optional[float] = None
-        lumo_val: Optional[float] = None
-        homo_unit: Optional[str] = None
-        lumo_unit: Optional[str] = None
-        # Capture lines where label may appear after the numeric value as well
-        # e.g., "-10.5927  (HOMO)" or "-7.2301  ( LUMO )"
-        homo_pattern = re.compile(r"(?:homo[^\n]*?([\-+]?\d+(?:\.\d+)?)(?:\s*(ev|eh))?)|([\-+]?\d+(?:\.\d+)?)\s*\(\s*homo\s*\)", re.IGNORECASE)
-        lumo_pattern = re.compile(r"(?:lumo[^\n]*?([\-+]?\d+(?:\.\d+)?)(?:\s*(ev|eh))?)|([\-+]?\d+(?:\.\d+)?)\s*\(\s*lumo\s*\)", re.IGNORECASE)
+        TBLite outputs a clear "HL-Gap" line with the gap in eV.
+        Example: "HL-Gap            0.0031795 Eh            0.0865 eV"
+        """
         for line in output.splitlines():
-            try:
-                if homo_val is None and ('homo' in line.lower()):
-                    m = homo_pattern.search(line)
-                    if m:
-                        # Prefer named-capture group order: pre-labeled or post-labeled number
-                        num = m.group(1) or m.group(3)
-                        unit = m.group(2)
-                        homo_val = float(num)
-                        homo_unit = (unit or 'eV').lower()
-                if lumo_val is None and ('lumo' in line.lower()):
-                    m = lumo_pattern.search(line)
-                    if m:
-                        num = m.group(1) or m.group(3)
-                        unit = m.group(2)
-                        lumo_val = float(num)
-                        lumo_unit = (unit or 'eV').lower()
-            except Exception:
-                continue
-        def to_ev(value: float, unit: Optional[str]) -> float:
-            if unit is None:
-                return value
-            if 'eh' in unit:
-                return value * 27.211386245988
-            return value  # assume eV
-        if homo_val is not None and lumo_val is not None:
-            homo_ev = to_ev(homo_val, homo_unit)
-            lumo_ev = to_ev(lumo_val, lumo_unit)
-            gap = lumo_ev - homo_ev
-            # Ensure non-negative gap
-            if gap < 0:
-                gap = abs(gap)
-            return float(gap)
+            if 'HL-Gap' in line or 'hl-gap' in line.lower():
+                # Look for the eV value in the line
+                tokens = line.split()
+                for i, token in enumerate(tokens):
+                    if token.lower() == 'ev':
+                        # The previous token should be the gap value
+                        try:
+                            return float(tokens[i-1])
+                        except (ValueError, IndexError):
+                            continue
+                # Fallback: look for any float followed by 'eV' anywhere in the line
+                import re
+                ev_match = re.search(r'(\d+\.?\d*)\s*eV', line, re.IGNORECASE)
+                if ev_match:
+                    return float(ev_match.group(1))
+        
         return None
 
     def _maybe_persist_json(self, json_path: Path) -> None:
