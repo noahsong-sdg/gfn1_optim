@@ -56,43 +56,59 @@ from ase.optimize import LBFGS
 # print(gap)
 # ------------------------------------------------------------------------------------------------------ #
 # CsPbI3
-molecule = qcel.models.Molecule.from_file("cspbi3.xyz")
-syms = molecule.symbols
-geometry_angstroms = molecule.geometry * 0.529177210903
 
-atoms = Atoms(symbols=syms, positions=geometry_angstroms)
-atoms.set_cell([4.85, 10.65, 18.03])
-atoms.set_pbc(True)
-atoms.calc = TBLiteASECalculator(
-    param_file="config/gfn1-base.toml",  
-    method="gfn1",
-    electronic_temperature=50.0,
-    charge=0.0,
-    spin=0
-)
-
+from ase.io import read
+atoms = read('cspbi3.cif') 
+# atoms.calc = TBLiteASECalculator(
+#     param_file="config/gfn1-base.toml",  
+#     method="gfn1",
+#     electronic_temperature=150.0,
+#     charge=0.0,
+#     spin=0
+# )
+atoms.calc = TBLite(method="GFN1-xTB", 
+                    electronic_temperature=100.0, 
+                    max_iterations=2000,
+                    initial_guess="sad",
+                    accuracy=1.0,
+                    kpts={'size': (4, 4, 4), 'gamma': True})
+# has no attribute get_ibz_k_points
 ucf = UnitCellFilter(atoms)
 # BFGS gives bad result, try fire?
 opt = FIRE(ucf)
 # fmax = 0.05 was kank
 opt.run(fmax=0.01) 
 
-results = atoms.get_potential_energy()
+# results = atoms.get_potential_energy()
+results = atoms.calc.singlepoint
+energies = results['orbital_energies']      # Shape: (nspin, nkpts, nbands)
+orbitaloccupations = results['orbital_occupations']
 
-# NEW CODE TO COMPUTE THE BAND GAP USING tblite_ase_calculator SHOULD GO BELOW HERE
+occupied_indices = np.where(orbital_occupations > 1.8)[0]
+homo_index = occupied_indices[-1]  
+print("orbital occupancies: ", orbital_occupations[np.where(orbital_occupations > 0.5)])
+print("homo occupation: ", orbital_occupations[homo_index])
+print("homo energy: ", orbital_energies[homo_index])
+unoccupied_indices = np.where(orbital_occupations < 0.1)[0]
+lumo_index = unoccupied_indices[0]  
+print("orbital unoccupancies: ", orbital_occupations[np.where(orbital_occupations <= 0.5)])
+print("lumo occupation: ", orbital_occupations[lumo_index])
+print("lumo energy: ", orbital_energies[lumo_index])
+gap = (orbital_energies[lumo_index] - orbital_energies[homo_index])
 
-gap_ev = atoms.calc.results.get('bandgap', np.nan)
-if np.isfinite(gap_ev):
-    print(f"Bandgap (eV): {gap_ev}")
-else:
-    print("Bandgap not available from calculator results.")
 
-# print("potential energy: ", results)
+
+
 # from ase.dft.bandgap import bandgap
-# # homo, lumo = atoms.get_homo_lumo_levels()
 # bg = bandgap(calc=atoms.calc)
 # print("bg: ", bg)
 # AttributeError: 'TBLiteASECalculator' object has no attribute 'get_number_of_spins'
+
+# gap_ev = atoms.calc.results.get('bandgap', np.nan)
+# if np.isfinite(gap_ev):
+#     print(f"Bandgap (eV): {gap_ev}")
+# else:
+#     print("Bandgap not available from calculator results.")
 # results:
 
 # -------------------------------------------------------------------------- #
