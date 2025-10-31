@@ -24,8 +24,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from ase.dft.bandgap import bandgap as ase_bandgap
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from calculators.dftbp_ase_calculator import DFTBPlusASECalculator
-
+from calculators import run_dftbp_bandgap
 def attach_references(structures, results_csv: Path) -> None:
     if not results_csv.exists():
         print(f"Reference CSV not found: {results_csv}")
@@ -109,7 +108,7 @@ def main():
             ase.io.write(str(input_xyz), atoms)
             bandgap, total_energy_ev = run_dftbp_bandgap(
                 str(input_xyz),
-                kpts=(1, 1, 1),
+                kpts=(3, 3, 3),
                 method="GFN1-xTB",
                 temp=100.0,
                 parameter_file=str(Path(args.params).resolve()),
