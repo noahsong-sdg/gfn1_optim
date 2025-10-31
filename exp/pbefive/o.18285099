@@ -1,0 +1,65 @@
+mkdir: created directory '/scratch/alpine/noso3320/18285099'
+'/projects/noso3320/work/gfn/exp/pbefive/INCAR' -> '/scratch/alpine/noso3320/18285099/INCAR'
+'/projects/noso3320/work/gfn/exp/pbefive/KPOINTS' -> '/scratch/alpine/noso3320/18285099/KPOINTS'
+'/projects/noso3320/work/gfn/exp/pbefive/POSCAR' -> '/scratch/alpine/noso3320/18285099/POSCAR'
+'/projects/noso3320/work/gfn/exp/pbefive/POTCAR' -> '/scratch/alpine/noso3320/18285099/POTCAR'
+'/projects/noso3320/work/gfn/exp/pbefive/vasp_run.sbatch' -> '/scratch/alpine/noso3320/18285099/vasp_run.sbatch'
+removed '/projects/noso3320/work/gfn/exp/pbefive/INCAR'
+removed '/projects/noso3320/work/gfn/exp/pbefive/KPOINTS'
+removed '/projects/noso3320/work/gfn/exp/pbefive/POSCAR'
+removed '/projects/noso3320/work/gfn/exp/pbefive/POTCAR'
+removed '/projects/noso3320/work/gfn/exp/pbefive/vasp_run.sbatch'
+
+
+running vasp program...
+vasp done... over and out
+
+Moving results to head node /projects/noso3320/work/gfn/exp/pbefive...
+copied '/scratch/alpine/noso3320/18285099/CHG' -> '/projects/noso3320/work/gfn/exp/pbefive/CHG'
+removed '/scratch/alpine/noso3320/18285099/CHG'
+copied '/scratch/alpine/noso3320/18285099/CHGCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/CHGCAR'
+removed '/scratch/alpine/noso3320/18285099/CHGCAR'
+copied '/scratch/alpine/noso3320/18285099/CONTCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/CONTCAR'
+removed '/scratch/alpine/noso3320/18285099/CONTCAR'
+copied '/scratch/alpine/noso3320/18285099/DOSCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/DOSCAR'
+removed '/scratch/alpine/noso3320/18285099/DOSCAR'
+copied '/scratch/alpine/noso3320/18285099/EIGENVAL' -> '/projects/noso3320/work/gfn/exp/pbefive/EIGENVAL'
+removed '/scratch/alpine/noso3320/18285099/EIGENVAL'
+copied '/scratch/alpine/noso3320/18285099/IBZKPT' -> '/projects/noso3320/work/gfn/exp/pbefive/IBZKPT'
+removed '/scratch/alpine/noso3320/18285099/IBZKPT'
+copied '/scratch/alpine/noso3320/18285099/INCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/INCAR'
+removed '/scratch/alpine/noso3320/18285099/INCAR'
+copied '/scratch/alpine/noso3320/18285099/KPOINTS' -> '/projects/noso3320/work/gfn/exp/pbefive/KPOINTS'
+removed '/scratch/alpine/noso3320/18285099/KPOINTS'
+copied '/scratch/alpine/noso3320/18285099/OSZICAR' -> '/projects/noso3320/work/gfn/exp/pbefive/OSZICAR'
+removed '/scratch/alpine/noso3320/18285099/OSZICAR'
+copied '/scratch/alpine/noso3320/18285099/OUTCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/OUTCAR'
+removed '/scratch/alpine/noso3320/18285099/OUTCAR'
+copied '/scratch/alpine/noso3320/18285099/PCDAT' -> '/projects/noso3320/work/gfn/exp/pbefive/PCDAT'
+removed '/scratch/alpine/noso3320/18285099/PCDAT'
+copied '/scratch/alpine/noso3320/18285099/POSCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/POSCAR'
+removed '/scratch/alpine/noso3320/18285099/POSCAR'
+copied '/scratch/alpine/noso3320/18285099/POTCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/POTCAR'
+removed '/scratch/alpine/noso3320/18285099/POTCAR'
+copied '/scratch/alpine/noso3320/18285099/REPORT' -> '/projects/noso3320/work/gfn/exp/pbefive/REPORT'
+removed '/scratch/alpine/noso3320/18285099/REPORT'
+copied '/scratch/alpine/noso3320/18285099/screen.18285099' -> '/projects/noso3320/work/gfn/exp/pbefive/screen.18285099'
+removed '/scratch/alpine/noso3320/18285099/screen.18285099'
+copied '/scratch/alpine/noso3320/18285099/VASP_18285099_Timed.bash' -> '/projects/noso3320/work/gfn/exp/pbefive/VASP_18285099_Timed.bash'
+removed '/scratch/alpine/noso3320/18285099/VASP_18285099_Timed.bash'
+copied '/scratch/alpine/noso3320/18285099/vasp_run.sbatch' -> '/projects/noso3320/work/gfn/exp/pbefive/vasp_run.sbatch'
+removed '/scratch/alpine/noso3320/18285099/vasp_run.sbatch'
+copied '/scratch/alpine/noso3320/18285099/vasprun.xml' -> '/projects/noso3320/work/gfn/exp/pbefive/vasprun.xml'
+removed '/scratch/alpine/noso3320/18285099/vasprun.xml'
+copied '/scratch/alpine/noso3320/18285099/WAVECAR' -> '/projects/noso3320/work/gfn/exp/pbefive/WAVECAR'
+removed '/scratch/alpine/noso3320/18285099/WAVECAR'
+copied '/scratch/alpine/noso3320/18285099/XDATCAR' -> '/projects/noso3320/work/gfn/exp/pbefive/XDATCAR'
+removed '/scratch/alpine/noso3320/18285099/XDATCAR'
+...done
+removed directory '/scratch/alpine/noso3320/18285099'
+... done
+
+Changing directory to /projects/noso3320/work/gfn/exp/pbefive
+...done
+
+over and out

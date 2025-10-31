@@ -1,0 +1,20 @@
+YSTEM = CdS Calculation
+PREC   = Accurate      # Precision level
+ENCUT  = 400           # Cutoff energy in eV. Check POTCAR for ENMAX.
+ISTART = 0             # Start from scratch
+ICHARG = 2             # Charge density from superposition of atomic charges
+ISMEAR = 0             # Gaussian smearing (use -5 for insulators, but 0 is safe)
+SIGMA  = 0.05          # Smearing width
+
+# --- Electronic Relaxation (SCF) ---
+EDIFF  = 1E-6          # SCF energy convergence criterion
+NELM   = 100           # Max number of SCF steps
+LREAL  = .FALSE.       # Use real-space projection operators (can set to Auto)
+
+LHFCALC = .TRUE.
+GGA = PE
+HFSCREEN = 0.2
+
+# --- Output ---
+LWAVE  = .FALSE.       # Don't write WAVECAR
+LCHARG = .FALSE.       # Don't write CHGCAR

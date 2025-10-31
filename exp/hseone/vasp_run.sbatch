@@ -11,7 +11,7 @@
 #SBATCH --partition=amilan ##Partition to actually run some jobs
 
 ## Job_name
-#SBATCH --job-name=puregfn ## edit here to give job name (4-5 letters should be descriptive).
+#SBATCH --job-name=puregfn-hseone ## edit here to give job name (4-5 letters should be descriptive).
 
 #SBATCH -o o.%j                 # Name of stdout output file (%j expands to jobId)
 #SBATCH -e e.%j                 # name of error file
