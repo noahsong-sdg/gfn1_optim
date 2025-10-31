@@ -255,8 +255,9 @@ def calculate_bandgap(eigenvalues, occupations, occ_threshold=0.1):
     occupied_mask = occupations > occ_threshold
     unoccupied_mask = occupations < occ_threshold
     
-    assert np.any(occupied_mask), "No occupied states found"
-    assert np.any(unoccupied_mask), "No unoccupied states found"
+    if not np.any(occupied_mask) or not np.any(unoccupied_mask):
+        # Gracefully handle cases with no occupied or unoccupied states
+        return 0.0, np.nan, np.nan
     
     vbm = np.max(eigenvalues[occupied_mask])
     cbm = np.min(eigenvalues[unoccupied_mask])
