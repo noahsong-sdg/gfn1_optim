@@ -24,7 +24,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from ase.dft.bandgap import bandgap as ase_bandgap
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts.dftbp import run_dftbp_bandgap
+from calculators.dftbp_ase_calculator import DFTBPlusASECalculator
 
 def attach_references(structures, results_csv: Path) -> None:
     if not results_csv.exists():

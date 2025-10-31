@@ -3,7 +3,7 @@ Scripts and utilities for band structure and bulk evaluations.
 Exposes DFTB+ runner helpers for external use.
 """
 
-from .dftbp import (
+from calculators.dftbp import (
     run_dftbp_bandgap,
     create_hsd_input,
     run_dftbp,
