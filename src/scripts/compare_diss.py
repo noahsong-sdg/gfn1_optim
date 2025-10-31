@@ -18,7 +18,7 @@ from typing import Optional, Dict, List, Union
 import argparse
 import logging
 
-from calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
+#from ..calculators.calc import CalcMethod, CalcConfig, GeneralCalculator, DissociationCurveGenerator
 from config import get_system_config
 
 from ga import GAConfig

@@ -1,12 +1,30 @@
 """
-Tests package for TBLite optimization.
-Contains comparison and validation tools.
+Scripts and utilities for band structure and bulk evaluations.
+Exposes DFTB+ runner helpers for external use.
 """
 
-from .compare_diss import MethodComparisonAnalyzer
-from .bandgap_pyscf import BandgapCalculator
-from .bulk_materials_validator import BulkMaterialsValidator
+from .dftbp import (
+    run_dftbp_bandgap,
+    create_hsd_input,
+    run_dftbp,
+    parse_energy,
+    parse_fermi,
+    parse_band_out,
+    calculate_bandgap,
+    write_gen_format,
+    plot_dos,
+    save_band_data,
+)
 
 __all__ = [
-    'MethodComparisonAnalyzer', 'BandgapCalculator', 'BulkMaterialsValidator'
-] 
+    "run_dftbp_bandgap",
+    "create_hsd_input",
+    "run_dftbp",
+    "parse_energy",
+    "parse_fermi",
+    "parse_band_out",
+    "calculate_bandgap",
+    "write_gen_format",
+    "plot_dos",
+    "save_band_data",
+]

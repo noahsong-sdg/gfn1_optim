@@ -1,12 +1,13 @@
 """
-Calculators package for TBLite calculations.
+Calculators package for TBLite and DFTB+ calculations.
 Contains calculation engines and ASE integration.
 """
 
 from .calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
 from .tblite_ase_calculator import TBLiteASECalculator
+from .dftbp_ase_calculator import DFTBPlusASECalculator
 
 __all__ = [
     'GeneralCalculator', 'DissociationCurveGenerator', 'CrystalGenerator', 
-    'CalcConfig', 'CalcMethod', 'TBLiteASECalculator'
+    'CalcConfig', 'CalcMethod', 'TBLiteASECalculator', 'DFTBPlusASECalculator'
 ] 

@@ -15,7 +15,7 @@ import ase.io
 from ase import Atoms
 
 from calculators.calc import GeneralCalculator, DissociationCurveGenerator, CrystalGenerator, CalcConfig, CalcMethod
-from calculators.tblite_ase_calculator import TBLiteASECalculator
+from scripts.dftbp import run_dftbp_bandgap
 from utils.extract_default import extract_system_parameters
 from config import get_system_config, CalculationType
 from utils.parameter_bounds import ParameterBoundsManager, ParameterBounds, init_dynamic_bounds
@@ -577,57 +577,58 @@ class BaseOptimizer(ABC):
         return energies
     
     def _calculate_energies(self, structures: List[Atoms], param_file: str) -> List[float]:
-        """Calculate energies for all structures using TBLite, return in eV."""
+        """Calculate energies for all structures using DFTB+ runner, return in eV."""
         energies = []
         failed = 0
-        
         for i, atoms in enumerate(structures):
             try:
-                calc = TBLiteASECalculator(
-                    param_file=param_file,
-                    method="gfn1",
-                    electronic_temperature=400.0,
-                    charge=0.0,
-                    spin=self.spin
-                )
-                # TBLite energy is parsed in Hartree; convert to eV
-                energy = calc.get_potential_energy(atoms) * 27.211386245988
-                energies.append(energy)
-                
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    # Write structure file for dftbp
+                    struct_path = Path(tmpdir) / "input.xyz"
+                    ase.io.write(str(struct_path), atoms)
+                    # Choose k-points based on periodicity
+                    kpts = (3, 3, 3) if any(atoms.get_pbc()) else (1, 1, 1)
+                    bandgap, energy = run_dftbp_bandgap(
+                        str(struct_path),
+                        kpts=kpts,
+                        method="GFN1-xTB",
+                        temp=400.0,
+                        parameter_file=param_file,
+                        workdir=tmpdir,
+                    )
+                    energies.append(float(energy) if energy is not None else np.nan)
                 if i % 10 == 0:
                     logger.info(f"Processed {i+1}/{len(structures)} structures")
-                    
             except Exception as e:
                 logger.warning(f"Failed to calculate energy for structure {i}: {e}")
                 failed += 1
                 energies.append(np.nan)
-        
         logger.info(f"Calculated energies for {len(energies) - failed}/{len(structures)} structures")
         return energies
 
     def _calculate_energies_and_bandgaps(self, structures: List[Atoms], param_file: str) -> Tuple[List[float], List[float]]:
-        """Calculate energies and bandgaps for all structures using TBLite.
-        Bandgaps may be NaN if not available/printed by backend.
+        """Calculate energies and bandgaps for all structures using DFTB+ runner.
+        Bandgaps may be NaN if not available/parsed.
         """
         energies = []
         bandgaps = []
         failed = 0
         for i, atoms in enumerate(structures):
             try:
-                calc = TBLiteASECalculator(
-                    param_file=param_file,
-                    method="gfn1",
-                    electronic_temperature=400.0,
-                    charge=0.0,
-                    spin=self.spin
-                )
-                # energy in Hartree -> convert to eV
-                e = calc.get_potential_energy(atoms) * 27.211386245988
-                energies.append(e)
-                bg = np.nan
-                if 'bandgap' in calc.results:
-                    bg = float(calc.results['bandgap'])
-                bandgaps.append(bg)
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    struct_path = Path(tmpdir) / "input.xyz"
+                    ase.io.write(str(struct_path), atoms)
+                    kpts = (3, 3, 3) if any(atoms.get_pbc()) else (1, 1, 1)
+                    bg, e = run_dftbp_bandgap(
+                        str(struct_path),
+                        kpts=kpts,
+                        method="GFN1-xTB",
+                        temp=400.0,
+                        parameter_file=param_file,
+                        workdir=tmpdir,
+                    )
+                    energies.append(float(e) if e is not None else np.nan)
+                    bandgaps.append(float(bg) if bg is not None else np.nan)
                 if i % 10 == 0:
                     logger.info(f"Processed {i+1}/{len(structures)} structures")
             except Exception as e:

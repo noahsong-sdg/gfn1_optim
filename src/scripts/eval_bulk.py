@@ -24,7 +24,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from ase.dft.bandgap import bandgap as ase_bandgap
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from calculators.tblite_ase_calculator import TBLiteASECalculator
+from scripts.dftbp import run_dftbp_bandgap
 
 def attach_references(structures, results_csv: Path) -> None:
     if not results_csv.exists():
@@ -103,27 +103,21 @@ def main():
 
     for i, atoms in enumerate(structures):
         try:
-            calc = TBLiteASECalculator(
-                param_file=args.params,
-                method='gfn1',
-                electronic_temperature=100.0,
-                charge=0.0,
-                spin=0
+            workdir = out_path.parent / 'eval_bulk' / f"dftbp_{i:04d}"
+            workdir.mkdir(parents=True, exist_ok=True)
+            input_xyz = workdir / 'input.xyz'
+            ase.io.write(str(input_xyz), atoms)
+            bandgap, total_energy_ev = run_dftbp_bandgap(
+                str(input_xyz),
+                kpts=(1, 1, 1),
+                method="GFN1-xTB",
+                temp=100.0,
+                parameter_file=str(Path(args.params).resolve()),
+                workdir=workdir
             )
-            # Trigger calculation; we always run TBLite to get bandgap
-            e_h = calc.get_potential_energy(atoms)
             if not reuse_energy and not args.skip_energy:
-                e_ev = float(e_h) * 27.211386245988
-                print("energy append success")
-                energies_ev.append(e_ev)
-            # Prefer calculator result first
-            try:
-                gap = float(calc.results.get('bandgap', np.nan))
-                print("bandgap success")
-            except Exception:
-                print("hmmm")
-                gap = np.nan
-            gaps_ev.append(gap)
+                energies_ev.append(float(total_energy_ev))
+            gaps_ev.append(float(bandgap) if bandgap is not None else np.nan)
         except Exception as exc:
             print('oops! something went wrong in the calculation loop')
             if not reuse_energy and not args.skip_energy:
