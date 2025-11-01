@@ -16,6 +16,12 @@ from deap import tools
 
 logger = setup_logging(module_name="ga")
 
+# Initialize DEAP types at module level for type hints
+if not hasattr(creator, "FitnessMax"):
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+if not hasattr(creator, "Individual"):
+    creator.create("Individual", list, fitness=creator.FitnessMax, age=0, param_dict=None)
+
 @dataclass
 class GAConfig:
     population_size: int = 10  
@@ -39,13 +45,7 @@ class GeneralParameterGA(BaseOptimizer):
         self.config = config
         self.generation = 0
         
-        # Initialize DEAP types
-        if not hasattr(creator, "FitnessMax"):
-            creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-        if not hasattr(creator, "Individual"):
-            creator.create("Individual", list, fitness=creator.FitnessMax, age=0, param_dict=None)
-        
-        # Initialize base optimizer (must be after creator setup)
+        # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
         
         # Setup DEAP toolbox

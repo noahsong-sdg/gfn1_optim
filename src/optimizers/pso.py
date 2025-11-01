@@ -17,6 +17,13 @@ from deap import tools
 
 logger = setup_logging(module_name="pso")
 
+# Initialize DEAP types at module level for type hints
+if not hasattr(creator, "FitnessMax"):
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+if not hasattr(creator, "Particle"):
+    creator.create("Particle", list, fitness=creator.FitnessMax, 
+                  speed=list, smin=None, smax=None, best=None, param_dict=None)
+
 @dataclass
 class PSOConfig:
     swarm_size: int = 10
@@ -48,14 +55,7 @@ class GeneralParameterPSO(BaseOptimizer):
         self.config = config
         self.iteration = 0
         
-        # Initialize DEAP types
-        if not hasattr(creator, "FitnessMax"):
-            creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-        if not hasattr(creator, "Particle"):
-            creator.create("Particle", list, fitness=creator.FitnessMax, 
-                          speed=list, smin=None, smax=None, best=None, param_dict=None)
-        
-        # Initialize base optimizer (must be after creator setup)
+        # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
         
         # Setup DEAP toolbox
