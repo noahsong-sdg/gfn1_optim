@@ -6,7 +6,7 @@
 #SBATCH --job-name=ga_cds
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=14
 #SBATCH --output=ga_%j.out
 #SBATCH --error=ga_%j.err
 
