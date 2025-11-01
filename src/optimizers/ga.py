@@ -22,6 +22,15 @@ if not hasattr(creator, "FitnessMax"):
 if not hasattr(creator, "Individual"):
     creator.create("Individual", list, fitness=creator.FitnessMax, age=0, param_dict=None)
 
+# Global variable to hold optimizer instance for multiprocessing
+# This is set/unset during optimization to enable picklable evaluation
+_global_optimizer = None
+
+def _evaluate_wrapper(individual):
+    """Picklable wrapper for evaluation function used with multiprocessing."""
+    assert _global_optimizer is not None, "Global optimizer not set"
+    return _global_optimizer._evaluate_individual_deap(individual)
+
 @dataclass
 class GAConfig:
     population_size: int = 10  
@@ -72,8 +81,13 @@ class GeneralParameterGA(BaseOptimizer):
         self.toolbox.register("individual", self._create_individual_deap)
         # Register population creation
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
-        # Register evaluation
-        self.toolbox.register("evaluate", self._evaluate_individual_deap)
+        # Register evaluation - use wrapper for multiprocessing compatibility
+        if self.config.max_workers > 1:
+            # For multiprocessing, we'll use the global wrapper
+            self.toolbox.register("evaluate", _evaluate_wrapper)
+        else:
+            # For serial execution, we can use the instance method directly
+            self.toolbox.register("evaluate", self._evaluate_individual_deap)
         # Register crossover (uniform crossover for dict-based params)
         self.toolbox.register("mate", self._crossover_deap)
         # Register mutation
@@ -100,13 +114,17 @@ class GeneralParameterGA(BaseOptimizer):
             try:
                 self.pool = multiprocessing.Pool(processes=self.config.max_workers)
                 self.toolbox.register("map", self.pool.map)
+                # Update evaluate to use wrapper for multiprocessing
+                self.toolbox.register("evaluate", _evaluate_wrapper)
             except Exception as e:
                 # Fallback to serial execution if multiprocessing fails
                 logger.warning(f"Failed to create multiprocessing pool: {e}. Falling back to serial execution.")
                 self.pool = None
                 self.toolbox.register("map", map)  # Serial execution
+                self.toolbox.register("evaluate", self._evaluate_individual_deap)  # Back to instance method
         else:
             self.toolbox.register("map", map)  # Serial execution
+            self.toolbox.register("evaluate", self._evaluate_individual_deap)  # Instance method
         
     def _list_to_param_dict(self, param_list: List[float]) -> Dict[str, float]:
         """Convert list of parameter values to dictionary."""
@@ -285,7 +303,7 @@ class GeneralParameterGA(BaseOptimizer):
             'best_fitness_value': self.best_fitness_value
         })
         return state
-    
+
     def set_state(self, state: dict):
         """Set state from checkpoint."""
         super().set_state(state)
@@ -319,29 +337,35 @@ class GeneralParameterGA(BaseOptimizer):
         if not hasattr(self, 'pool') or (self.config.max_workers > 1 and self.pool is None):
             self._setup_pool()
         
-        # Initialize population if empty
+        # Set global optimizer for multiprocessing (needed for picklable evaluation)
+        global _global_optimizer
+        old_optimizer = _global_optimizer
+        _global_optimizer = self
+        
+        try:
+            # Initialize population if empty
         if not self.population:
             default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
-            self.population = [self._create_individual_deap(default_params)]
+                self.population = [self._create_individual_deap(default_params)]
             for _ in range(self.config.population_size - 1):
-                self.population.append(self._create_individual_deap())
+                    self.population.append(self._create_individual_deap())
         
-        # Main evolution loop
+            # Main evolution loop
         for generation in range(self.generation, self.config.generations):
             self.generation = generation
             
-            # Evaluate all individuals
-            invalid_ind = [ind for ind in self.population if not ind.fitness.valid]
-            fitnesses = self.toolbox.map(self.toolbox.evaluate, invalid_ind)
-            for ind, fit in zip(invalid_ind, fitnesses):
-                ind.fitness.values = fit
-            
-            # Check for perfect fitness
-            best_fitness = max(ind.fitness.values[0] for ind in self.population)
+                # Evaluate all individuals
+                invalid_ind = [ind for ind in self.population if not ind.fitness.valid]
+                fitnesses = self.toolbox.map(self.toolbox.evaluate, invalid_ind)
+                for ind, fit in zip(invalid_ind, fitnesses):
+                    ind.fitness.values = fit
+                
+                # Check for perfect fitness
+                best_fitness = max(ind.fitness.values[0] for ind in self.population)
             if best_fitness == 0.0:
                 break
             
-            # Check convergence
+                # Check convergence
             if len(self.fitness_history) >= 2:
                 recent_improvement = abs(
                     self.fitness_history[-1]['best_fitness'] - 
@@ -351,49 +375,52 @@ class GeneralParameterGA(BaseOptimizer):
                     if self.convergence_counter >= self.config.patience:
                         break
             
-            # Evolve generation
-            self._evolve_generation_deap()
+                # Evolve generation
+                self._evolve_generation_deap()
             self.save_checkpoint()
         
-        # Finalize best parameters
-        if self.hof and len(self.hof) > 0:
-            best_ind = self.hof[0]
-            if best_ind.param_dict is not None:
-                self.best_parameters = best_ind.param_dict.copy()
+            # Finalize best parameters
+            if self.hof and len(self.hof) > 0:
+                best_ind = self.hof[0]
+                if best_ind.param_dict is not None:
+                    self.best_parameters = best_ind.param_dict.copy()
+                else:
+                    self.best_parameters = self._list_to_param_dict(list(best_ind))
+                ga_fitness = best_ind.fitness.values[0]
+                self.best_fitness_value = ga_fitness
+            elif self.best_parameters is not None:
+                # Use tracked best parameters
+                pass
             else:
-                self.best_parameters = self._list_to_param_dict(list(best_ind))
-            ga_fitness = best_ind.fitness.values[0]
-            self.best_fitness_value = ga_fitness
-        elif self.best_parameters is not None:
-            # Use tracked best parameters
-            pass
-        else:
-            # Fallback: use best from current population
-            best_ind = max(self.population, key=lambda x: x.fitness.values[0])
-            if best_ind.param_dict is not None:
-                self.best_parameters = best_ind.param_dict.copy()
+                # Fallback: use best from current population
+                best_ind = max(self.population, key=lambda x: x.fitness.values[0])
+                if best_ind.param_dict is not None:
+                    self.best_parameters = best_ind.param_dict.copy()
+                else:
+                    self.best_parameters = self._list_to_param_dict(list(best_ind))
+                ga_fitness = best_ind.fitness.values[0]
+                self.best_fitness_value = ga_fitness
+            
+            # Convert best_fitness_value from fitness to RMSE for consistency with base class
+            if self.best_fitness_value > 0:
+                self.best_fitness = (1.0 / self.best_fitness_value) - 1.0
             else:
-                self.best_parameters = self._list_to_param_dict(list(best_ind))
-            ga_fitness = best_ind.fitness.values[0]
-            self.best_fitness_value = ga_fitness
-        
-        # Convert best_fitness_value from fitness to RMSE for consistency with base class
-        if self.best_fitness_value > 0:
-            self.best_fitness = (1.0 / self.best_fitness_value) - 1.0
-        else:
-            self.best_fitness = float('inf')
-        
-        # Cleanup multiprocessing pool
-        if hasattr(self, 'pool') and self.pool is not None:
-            try:
-                self.pool.close()
-                self.pool.join()
-            except Exception:
-                pass  # Ignore errors during cleanup
-            finally:
-                self.pool = None
+                self.best_fitness = float('inf')
+            
+            # Cleanup multiprocessing pool
+            if hasattr(self, 'pool') and self.pool is not None:
+                try:
+                    self.pool.close()
+                    self.pool.join()
+                except Exception:
+                    pass  # Ignore errors during cleanup
+                finally:
+                    self.pool = None
         
         return self.best_parameters
+        finally:
+            # Restore global optimizer
+            _global_optimizer = old_optimizer
     
     def __del__(self):
         """Cleanup pool on object deletion."""
