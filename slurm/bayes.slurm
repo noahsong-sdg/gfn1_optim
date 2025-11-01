@@ -22,4 +22,4 @@ cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 # python src/cli.py bayes CdS config/gfn1-base.toml --output results/bayes 
 #python src/cli.py bayes big config/gfn1-base.toml --output-dir results/bayes
-python src/cli.py bayes big config/gfn1-base.toml --n-calls 200 --n-jobs 12 --output results/bayes
+python src/cli.py bayes big config/gfn1-base.toml --n-calls 200 --n-jobs 12 --output results/bayes_ones
