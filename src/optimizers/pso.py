@@ -1,15 +1,21 @@
-"""Particle Swarm Optimization for TBLite parameter optimization."""
+"""Particle Swarm Optimization for TBLite parameter optimization using DEAP."""
 
 import numpy as np
-from typing import Dict, List, Optional
+import random
+import copy
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import pandas as pd
 from base_optimizer import BaseOptimizer
 from utils.parameter_bounds import ParameterBounds
-import logging
+from common import setup_logging
 import os
 
-logger = logging.getLogger(__name__)
+from deap import base
+from deap import creator
+from deap import tools
+
+logger = setup_logging(module_name="pso")
 
 @dataclass
 class PSOConfig:
@@ -26,47 +32,8 @@ class PSOConfig:
     min_iterations: int = 20  # Minimum iterations before allowing convergence
 
 
-class Particle:
-    def __init__(self, position: Dict[str, float], parameter_bounds):
-        self.position = position.copy()
-        self.velocity = {name: 0.0 for name in position.keys()}
-        self.best_position = position.copy()
-        self.fitness = 0.0
-        self.best_fitness = 0.0
-        self.parameter_bounds = parameter_bounds
-        
-    def update_velocity(self, global_best_position: Dict[str, float], w: float, c1: float, c2: float):
-        """Update particle velocity"""
-        for param_name in self.position:
-            # Get parameter bounds
-            bound = next(b for b in self.parameter_bounds if b.name == param_name)
-            max_velocity = (bound.max_val - bound.min_val) * 0.2  # Limit velocity to 20% of parameter range
-            
-            # Calculate velocity components
-            cognitive = c1 * np.random.random() * (self.best_position[param_name] - self.position[param_name])
-            social = c2 * np.random.random() * (global_best_position[param_name] - self.position[param_name])
-            
-            # Update velocity with inertia
-            self.velocity[param_name] = (w * self.velocity[param_name] + cognitive + social)
-            
-            # Clamp velocity
-            self.velocity[param_name] = max(-max_velocity, min(max_velocity, self.velocity[param_name]))
-    
-    def update_position(self):
-        """Update particle position"""
-        for param_name in self.position:
-            # Update position
-            self.position[param_name] += self.velocity[param_name]
-    
-    def update_best(self):
-        """Update personal best if current fitness is better"""
-        if self.fitness > self.best_fitness:
-            self.best_fitness = self.fitness
-            self.best_position = self.position.copy()
-
-
 class GeneralParameterPSO(BaseOptimizer):
-    """Particle Swarm Optimization optimizer inheriting from BaseOptimizer"""
+    """Particle Swarm Optimization optimizer using DEAP, inheriting from BaseOptimizer"""
     
     def __init__(self, 
                  system_name: str,
@@ -79,66 +46,157 @@ class GeneralParameterPSO(BaseOptimizer):
         
         # PSO-specific configuration (set before super().__init__ to avoid set_state issues)
         self.config = config
-        
-        # PSO-specific state
-        self.swarm = []
-        self.global_best_position = None
-        self.global_best_fitness = 0.0
         self.iteration = 0
         
-        # Initialize base optimizer
+        # Initialize DEAP types
+        if not hasattr(creator, "FitnessMax"):
+            creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+        if not hasattr(creator, "Particle"):
+            creator.create("Particle", list, fitness=creator.FitnessMax, 
+                          speed=list, smin=None, smax=None, best=None, param_dict=None)
+        
+        # Initialize base optimizer (must be after creator setup)
         super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
         
-    def initialize_particle(self, parameters: Optional[Dict[str, float]] = None) -> Particle:
-        """Initialize a single particle"""
+        # Setup DEAP toolbox
+        self._setup_toolbox()
+        
+        # Initialize swarm (empty, will be created in optimize if needed)
+        self.swarm = []
+        self.global_best = None
+        self.global_best_fitness = -float('inf')  # Track fitness (higher is better)
+        
+    def _setup_toolbox(self):
+        """Setup DEAP toolbox with registered operators."""
+        self.toolbox = base.Toolbox()
+        
+        # Get parameter names and bounds for ordering
+        self.param_names = [bound.name for bound in self.parameter_bounds]
+        self.param_bounds = {bound.name: (bound.min_val, bound.max_val) for bound in self.parameter_bounds}
+        self.param_defaults = {bound.name: bound.default_val for bound in self.parameter_bounds}
+        
+        # Register individual creation
+        self.toolbox.register("particle", self._create_particle_deap)
+        # Register swarm creation
+        self.toolbox.register("swarm", tools.initRepeat, list, self.toolbox.particle)
+        # Register evaluation
+        self.toolbox.register("evaluate", self._evaluate_particle_deap)
+        # Register clone
+        self.toolbox.register("clone", copy.deepcopy)
+    
+    def _list_to_param_dict(self, param_list: List[float]) -> Dict[str, float]:
+        """Convert list of parameter values to dictionary."""
+        return {name: val for name, val in zip(self.param_names, param_list)}
+    
+    def _param_dict_to_list(self, param_dict: Dict[str, float]) -> List[float]:
+        """Convert parameter dictionary to ordered list."""
+        return [param_dict[name] for name in self.param_names]
+    
+    def _create_particle_deap(self, parameters: Optional[Dict[str, float]] = None) -> creator.Particle:
+        """Create a DEAP particle from parameters or generate random."""
         if parameters is None:
             parameters = {}
             for bound in self.parameter_bounds:
-                if np.random.random() < 0.8:  # 80% chance to stay near default
+                if random.random() < 0.8:  # 80% chance to stay near default
                     range_size = bound.max_val - bound.min_val
                     std = max(range_size * 0.1, 1e-6)
                     value = np.random.normal(bound.default_val, std)
                 else:
-                    value = np.random.uniform(bound.min_val, bound.max_val)
-                
+                    value = random.uniform(bound.min_val, bound.max_val)
                 parameters[bound.name] = value
             
-            # Apply bounds using centralized system
             parameters = self.apply_bounds(parameters)
         
-        return Particle(parameters, self.parameter_bounds)
-    
-    def evaluate_particle_fitness(self, particle: Particle) -> float:
-        """Evaluate fitness of a particle (wrapper around base class method)"""
-        return self.evaluate_fitness(particle.position)  # Now returns fitness directly
-    
-    def initialize_swarm(self):
-        """Initialize the swarm"""
-        logger.info(f"Initializing swarm of size {self.config.swarm_size}")
+        param_list = self._param_dict_to_list(parameters)
         
-        # Include one particle with default parameters
-        default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
-        self.swarm = [self.initialize_particle(default_params)]
+        # Create particle with position and velocity
+        particle = creator.Particle(param_list)
         
-        # Add random particles
-        for _ in range(self.config.swarm_size - 1):
-            self.swarm.append(self.initialize_particle())
+        # Initialize velocity (zero or small random)
+        particle.speed = [0.0] * len(param_list)
+        
+        # Set velocity bounds (20% of parameter range)
+        particle.smin = []
+        particle.smax = []
+        for name in self.param_names:
+            bound = next(b for b in self.parameter_bounds if b.name == name)
+            max_velocity = (bound.max_val - bound.min_val) * 0.2
+            particle.smin.append(-max_velocity)
+            particle.smax.append(max_velocity)
+        
+        # Initialize best position (same as current position)
+        particle.best = creator.Particle(param_list)
+        particle.best[:] = param_list
+        particle.best.speed = particle.speed[:]
+        particle.best.smin = particle.smin[:]
+        particle.best.smax = particle.smax[:]
+        particle.best.param_dict = parameters.copy()
+        # Initialize best fitness with worst value (will be updated when evaluated)
+        particle.best.fitness.values = (-float('inf'),)
+        
+        # Store parameter dict for easy access
+        particle.param_dict = parameters.copy()
+        
+        return particle
     
-    def update_global_best(self):
-        """Update global best position"""
-        for particle in self.swarm:
-            if particle.fitness > self.global_best_fitness:
-                self.global_best_fitness = particle.fitness
-                self.global_best_position = particle.position.copy()
-                self.convergence_counter = 0
-                logger.info(f"  NEW GLOBAL BEST at iteration {self.iteration + 1}: fitness = {self.global_best_fitness:.6f}")
-            else:
-                if hasattr(self, 'convergence_counter'):
-                    self.convergence_counter += 1
-                else:
-                    self.convergence_counter = 0
+    def _evaluate_particle_deap(self, particle: creator.Particle) -> Tuple[float]:
+        """Evaluate fitness of a DEAP particle."""
+        # Convert list to parameter dict if needed
+        if particle.param_dict is None:
+            particle.param_dict = self._list_to_param_dict(particle)
+        
+        # Ensure bounds are applied
+        particle.param_dict = self.apply_bounds(particle.param_dict)
+        
+        # Update the list representation
+        param_list = self._param_dict_to_list(particle.param_dict)
+        particle[:] = param_list
+        
+        # Evaluate fitness
+        fitness_val = self.evaluate_fitness(particle.param_dict)
+        return (fitness_val,)  # DEAP expects tuple
     
-    def get_adaptive_inertia(self) -> float:
+    def _update_particle(self, particle: creator.Particle, global_best: creator.Particle, w: float, c1: float, c2: float):
+        """Update particle velocity and position using PSO equations."""
+        # Update velocity
+        for i in range(len(particle)):
+            r1 = random.random()
+            r2 = random.random()
+            
+            # Calculate velocity components
+            cognitive = c1 * r1 * (particle.best[i] - particle[i])
+            social = c2 * r2 * (global_best[i] - particle[i])
+            
+            # Update velocity with inertia
+            particle.speed[i] = w * particle.speed[i] + cognitive + social
+            
+            # Clamp velocity
+            particle.speed[i] = max(particle.smin[i], min(particle.smax[i], particle.speed[i]))
+        
+        # Update position
+        for i in range(len(particle)):
+            particle[i] += particle.speed[i]
+        
+        # Convert to param dict and apply bounds
+        particle.param_dict = self._list_to_param_dict(particle)
+        particle.param_dict = self.apply_bounds(particle.param_dict)
+        
+        # Update list representation
+        param_list = self._param_dict_to_list(particle.param_dict)
+        particle[:] = param_list
+        
+        # Update best position if current fitness is better
+        if particle.fitness.valid:
+            # Initialize best fitness if not set
+            if not particle.best.fitness.valid:
+                particle.best.fitness.values = (-float('inf'),)
+            
+            if particle.fitness.values[0] > particle.best.fitness.values[0]:
+                particle.best[:] = particle[:]
+                particle.best.param_dict = particle.param_dict.copy()
+                particle.best.fitness.values = particle.fitness.values
+    
+    def _get_adaptive_inertia(self) -> float:
         """Calculate adaptive inertia weight"""
         if not self.config.use_adaptive_inertia:
             return self.config.w
@@ -148,7 +206,7 @@ class GeneralParameterPSO(BaseOptimizer):
         return self.config.w_max - (self.config.w_max - self.config.w_min) * progress
     
     def optimize(self) -> Dict[str, float]:
-        """Run PSO optimization"""
+        """Run PSO optimization using DEAP"""
         logger.info(f"Starting PSO optimization for {self.system_name}")
         
         # Try to load checkpoint if exists
@@ -160,22 +218,48 @@ class GeneralParameterPSO(BaseOptimizer):
         else:
             logger.info("No checkpoint found, starting fresh optimization")
             # Initialize swarm
-            self.initialize_swarm()
+            default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
+            self.swarm = [self._create_particle_deap(default_params)]
+            for _ in range(self.config.swarm_size - 1):
+                self.swarm.append(self._create_particle_deap())
+            
+            # Initialize global best
+            self.global_best = None
+            self.global_best_fitness = -float('inf')
         
         for iteration in range(self.iteration, self.config.max_iterations):
             self.iteration = iteration
             logger.info(f"Iteration {iteration + 1}/{self.config.max_iterations}")
             
             # Evaluate fitness for all particles
-            for particle in self.swarm:
-                particle.fitness = self.evaluate_particle_fitness(particle)
-                particle.update_best()
+            invalid_particles = [p for p in self.swarm if not p.fitness.valid]
+            fitnesses = map(self.toolbox.evaluate, invalid_particles)
+            for particle, fitness in zip(invalid_particles, fitnesses):
+                particle.fitness.values = fitness
             
             # Update global best
-            self.update_global_best()
+            for particle in self.swarm:
+                fitness_val = particle.fitness.values[0]
+                if fitness_val > self.global_best_fitness:
+                    self.global_best_fitness = fitness_val
+                    self.global_best = self.toolbox.clone(particle)
+                    self.convergence_counter = 0
+                    logger.info(f"  NEW GLOBAL BEST at iteration {iteration + 1}: fitness = {self.global_best_fitness:.6f}")
             
-            best_fitness = max(p.fitness for p in self.swarm)
-            avg_fitness = np.mean([p.fitness for p in self.swarm])
+            # Update personal best for each particle
+            for particle in self.swarm:
+                if particle.fitness.valid:
+                    # Initialize best fitness if not set
+                    if not particle.best.fitness.valid:
+                        particle.best.fitness.values = (-float('inf'),)
+                    
+                    if particle.fitness.values[0] > particle.best.fitness.values[0]:
+                        particle.best[:] = particle[:]
+                        particle.best.param_dict = particle.param_dict.copy() if particle.param_dict else self._list_to_param_dict(particle)
+                        particle.best.fitness.values = particle.fitness.values
+            
+            best_fitness = max(p.fitness.values[0] for p in self.swarm)
+            avg_fitness = np.mean([p.fitness.values[0] for p in self.swarm])
             logger.info(f"  Best fitness: {best_fitness:.6f}, Avg: {avg_fitness:.6f}")
             
             # Record fitness history
@@ -183,8 +267,20 @@ class GeneralParameterPSO(BaseOptimizer):
                 'generation': iteration,
                 'best_fitness': best_fitness,
                 'avg_fitness': avg_fitness,
-                'std_fitness': np.std([p.fitness for p in self.swarm])
+                'std_fitness': np.std([p.fitness.values[0] for p in self.swarm])
             })
+            
+            # Update best parameters for base class
+            if self.global_best is not None:
+                if self.global_best.param_dict is not None:
+                    self.best_parameters = self.global_best.param_dict.copy()
+                else:
+                    self.best_parameters = self._list_to_param_dict(list(self.global_best))
+                # Convert fitness to RMSE for consistency with base class
+                if self.global_best_fitness > 0:
+                    self.best_fitness = (1.0 / self.global_best_fitness) - 1.0
+                else:
+                    self.best_fitness = float('inf')
             
             # Save checkpoint every 10 iterations
             if iteration % 10 == 0:
@@ -213,25 +309,25 @@ class GeneralParameterPSO(BaseOptimizer):
                     self.convergence_counter = 0
             
             # Update particles
-            if self.global_best_position is not None:
-                inertia = self.get_adaptive_inertia()
+            if self.global_best is not None:
+                inertia = self._get_adaptive_inertia()
                 
                 for particle in self.swarm:
-                    particle.update_velocity(
-                        self.global_best_position, 
-                        inertia, 
-                        self.config.c1, 
-                        self.config.c2
-                    )
-                    particle.update_position()
-                    # Apply bounds using centralized system
-                    particle.position = self.apply_bounds(particle.position)
+                    self._update_particle(particle, self.global_best, inertia, self.config.c1, self.config.c2)
+                    # Invalidate fitness after position update
+                    del particle.fitness.values
         
-        
-        # Set best parameters for base class
-        if self.global_best_position is not None:
-            self.best_parameters = self.global_best_position.copy()
-            self.best_fitness = self.global_best_fitness
+        # Finalize best parameters
+        if self.global_best is not None:
+            if self.global_best.param_dict is not None:
+                self.best_parameters = self.global_best.param_dict.copy()
+            else:
+                self.best_parameters = self._list_to_param_dict(list(self.global_best))
+            # Convert fitness to RMSE for consistency with base class
+            if self.global_best_fitness > 0:
+                self.best_fitness = (1.0 / self.global_best_fitness) - 1.0
+            else:
+                self.best_fitness = float('inf')
         
         # Save final checkpoint
         self.save_checkpoint()
@@ -240,10 +336,28 @@ class GeneralParameterPSO(BaseOptimizer):
         return self.best_parameters
 
     def get_state(self) -> dict:
+        """Get state for checkpointing."""
         state = super().get_state()
+        
+        # Serialize swarm as parameter dicts (DEAP particles are complex)
+        swarm_dicts = []
+        for particle in self.swarm:
+            if particle.param_dict is not None:
+                swarm_dicts.append(particle.param_dict.copy())
+            else:
+                swarm_dicts.append(self._list_to_param_dict(list(particle)))
+        
+        # Serialize global best
+        global_best_dict = None
+        if self.global_best is not None:
+            if self.global_best.param_dict is not None:
+                global_best_dict = self.global_best.param_dict.copy()
+            else:
+                global_best_dict = self._list_to_param_dict(list(self.global_best))
+        
         state.update({
-            'swarm': self.swarm,
-            'global_best_position': self.global_best_position,
+            'swarm_dicts': swarm_dicts,
+            'global_best_dict': global_best_dict,
             'global_best_fitness': self.global_best_fitness,
             'iteration': self.iteration,
             'config': self.config
@@ -251,10 +365,27 @@ class GeneralParameterPSO(BaseOptimizer):
         return state
 
     def set_state(self, state: dict):
+        """Set state from checkpoint."""
         super().set_state(state)
-        self.swarm = state.get('swarm', [])
-        self.global_best_position = state.get('global_best_position')
-        self.global_best_fitness = state.get('global_best_fitness', 0.0)
+        
+        # Reconstruct swarm from parameter dicts
+        swarm_dicts = state.get('swarm_dicts', [])
+        self.swarm = []
+        for param_dict in swarm_dicts:
+            particle = self._create_particle_deap(param_dict)
+            self.swarm.append(particle)
+        
+        # Reconstruct global best
+        global_best_dict = state.get('global_best_dict')
+        if global_best_dict is not None:
+            self.global_best = self._create_particle_deap(global_best_dict)
+            # Evaluate to set fitness
+            self.global_best.fitness.values = self.toolbox.evaluate(self.global_best)
+            self.global_best_fitness = self.global_best.fitness.values[0]
+        else:
+            self.global_best = None
+            self.global_best_fitness = state.get('global_best_fitness', -float('inf'))
+        
         self.iteration = state.get('iteration', 0)
         self.config = state.get('config', self.config)
 

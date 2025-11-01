@@ -6,7 +6,7 @@
 #SBATCH --job-name=pso_si
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=14
 #SBATCH --output=pso_%j.out
 #SBATCH --error=pso_%j.err
 
@@ -20,6 +20,7 @@ module load anaconda
 
 cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
-
+conda install -c conda-forge deap -y
 # python src/cli.py pso CdS config/gfn1-base.toml --output results/pso
+
 python src/cli.py pso big config/gfn1-base.toml --output-dir results/pso
