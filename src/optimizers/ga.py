@@ -101,13 +101,10 @@ class GeneralParameterGA(BaseOptimizer):
         """Setup multiprocessing pool for parallel evaluation."""
         # Cleanup existing pool if any
         if hasattr(self, 'pool') and self.pool is not None:
-            try:
-                self.pool.close()
-                self.pool.join()
-            except Exception:
-                pass
-            finally:
-                self.pool = None
+            assert self.pool is not None, "Pool should not be None here"
+            self.pool.close()
+            self.pool.join()
+            self.pool = None
         
         # Create new pool if parallel execution is requested
         if self.config.max_workers > 1:
@@ -344,16 +341,16 @@ class GeneralParameterGA(BaseOptimizer):
         
         try:
             # Initialize population if empty
-        if not self.population:
-            default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
+            if not self.population:
+                default_params = {bound.name: bound.default_val for bound in self.parameter_bounds}
                 self.population = [self._create_individual_deap(default_params)]
-            for _ in range(self.config.population_size - 1):
+                for _ in range(self.config.population_size - 1):
                     self.population.append(self._create_individual_deap())
-        
-            # Main evolution loop
-        for generation in range(self.generation, self.config.generations):
-            self.generation = generation
             
+            # Main evolution loop
+            for generation in range(self.generation, self.config.generations):
+                self.generation = generation
+                
                 # Evaluate all individuals
                 invalid_ind = [ind for ind in self.population if not ind.fitness.valid]
                 fitnesses = self.toolbox.map(self.toolbox.evaluate, invalid_ind)
@@ -362,23 +359,23 @@ class GeneralParameterGA(BaseOptimizer):
                 
                 # Check for perfect fitness
                 best_fitness = max(ind.fitness.values[0] for ind in self.population)
-            if best_fitness == 0.0:
-                break
-            
+                if best_fitness == 0.0:
+                    break
+                
                 # Check convergence
-            if len(self.fitness_history) >= 2:
-                recent_improvement = abs(
-                    self.fitness_history[-1]['best_fitness'] - 
-                    self.fitness_history[-2]['best_fitness']
-                )
-                if recent_improvement < self.config.convergence_threshold:
-                    if self.convergence_counter >= self.config.patience:
-                        break
-            
+                if len(self.fitness_history) >= 2:
+                    recent_improvement = abs(
+                        self.fitness_history[-1]['best_fitness'] - 
+                        self.fitness_history[-2]['best_fitness']
+                    )
+                    if recent_improvement < self.config.convergence_threshold:
+                        if self.convergence_counter >= self.config.patience:
+                            break
+                
                 # Evolve generation
                 self._evolve_generation_deap()
-            self.save_checkpoint()
-        
+                self.save_checkpoint()
+            
             # Finalize best parameters
             if self.hof and len(self.hof) > 0:
                 best_ind = self.hof[0]
@@ -409,15 +406,12 @@ class GeneralParameterGA(BaseOptimizer):
             
             # Cleanup multiprocessing pool
             if hasattr(self, 'pool') and self.pool is not None:
-                try:
-                    self.pool.close()
-                    self.pool.join()
-                except Exception:
-                    pass  # Ignore errors during cleanup
-                finally:
-                    self.pool = None
-        
-        return self.best_parameters
+                assert self.pool is not None, "Pool should not be None here"
+                self.pool.close()
+                self.pool.join()
+                self.pool = None
+            
+            return self.best_parameters
         finally:
             # Restore global optimizer
             _global_optimizer = old_optimizer
@@ -425,8 +419,6 @@ class GeneralParameterGA(BaseOptimizer):
     def __del__(self):
         """Cleanup pool on object deletion."""
         if hasattr(self, 'pool') and self.pool is not None:
-            try:
-                self.pool.terminate()
-                self.pool.join()
-            except Exception:
-                pass
+            assert self.pool is not None, "Pool should not be None here"
+            self.pool.terminate()
+            self.pool.join()
