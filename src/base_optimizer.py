@@ -587,7 +587,7 @@ class BaseOptimizer(ABC):
                     struct_path = Path(tmpdir) / "input.xyz"
                     ase.io.write(str(struct_path), atoms)
                     # Choose k-points based on periodicity
-                    kpts = (3, 3, 3) if any(atoms.get_pbc()) else (1, 1, 1)
+                    kpts = (1, 1, 1)
                     bandgap, energy = run_dftbp_bandgap(
                         str(struct_path),
                         kpts=kpts,
@@ -618,7 +618,7 @@ class BaseOptimizer(ABC):
                 with tempfile.TemporaryDirectory() as tmpdir:
                     struct_path = Path(tmpdir) / "input.xyz"
                     ase.io.write(str(struct_path), atoms)
-                    kpts = (3, 3, 3) if any(atoms.get_pbc()) else (1, 1, 1)
+                    kpts = (1, 1, 1)
                     bg, e = run_dftbp_bandgap(
                         str(struct_path),
                         kpts=kpts,

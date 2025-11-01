@@ -1,7 +1,0 @@
-[build-system]
-requires = ["uv-build"]
-build-backend = "uv_build.build"
-
-[project]
-name = "xtbo"
-version = "0.1.0"

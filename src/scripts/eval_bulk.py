@@ -10,7 +10,7 @@ pixi run python src/scripts/eval_bulk.py  --params results/pso/37_big_pso.toml -
 
 pixi run python src/scripts/eval_bulk.py  --params results/ga/37_big_ga.toml --out results/ga.csv 
 
-pixi run python src/scripts/eval_bulk.py  --params results/bayes/big_bayes.toml --out results/bayes.csv 
+pixi run python src/scripts/eval_bulk.py  --params results/bayes/37_big_bayes.toml --out results/bayes.csv 
 
 """
 import argparse
