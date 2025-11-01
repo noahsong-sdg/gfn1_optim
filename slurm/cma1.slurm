@@ -6,7 +6,7 @@
 #SBATCH --job-name=cma1
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=14
 #SBATCH --output=cma1_%j.out
 #SBATCH --error=cma1_%j.err
 
