@@ -23,13 +23,38 @@ if not hasattr(creator, "Individual"):
     creator.create("Individual", list, fitness=creator.FitnessMax, age=0, param_dict=None)
 
 # Global variable to hold optimizer instance for multiprocessing
-# This is set/unset during optimization to enable picklable evaluation
+# This is set per worker process via pool initializer
 _global_optimizer = None
+
+def _init_worker(optimizer_data):
+    """Initialize worker process with optimizer data."""
+    global _global_optimizer
+    from base_optimizer import BaseOptimizer
+    # Recreate optimizer from data in worker process
+    _global_optimizer = BaseOptimizer(
+        optimizer_data['system_name'],
+        optimizer_data['base_param_file'],
+        optimizer_data['train_reference_data'],
+        optimizer_data['train_fraction'],
+        optimizer_data['spin']
+    )
+    _global_optimizer.param_names = optimizer_data['param_names']
+    _global_optimizer.parameter_bounds = optimizer_data['parameter_bounds']
 
 def _evaluate_wrapper(individual):
     """Picklable wrapper for evaluation function used with multiprocessing."""
-    assert _global_optimizer is not None, "Global optimizer not set"
-    return _global_optimizer._evaluate_individual_deap(individual)
+    assert _global_optimizer is not None, "Global optimizer not set in worker process"
+    
+    # Convert individual list to parameter dict
+    param_names = _global_optimizer.param_names
+    param_dict = {name: val for name, val in zip(param_names, individual)}
+    
+    # Apply bounds
+    param_dict = _global_optimizer.apply_bounds(param_dict)
+    
+    # Evaluate fitness
+    fitness_val = _global_optimizer.evaluate_fitness(param_dict)
+    return (fitness_val,)
 
 @dataclass
 class GAConfig:
@@ -83,7 +108,7 @@ class GeneralParameterGA(BaseOptimizer):
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
         # Register evaluation - use wrapper for multiprocessing compatibility
         if self.config.max_workers > 1:
-            # For multiprocessing, we'll use the global wrapper
+            # For multiprocessing, we'll use the wrapper (set up via pool initializer)
             self.toolbox.register("evaluate", _evaluate_wrapper)
         else:
             # For serial execution, we can use the instance method directly
@@ -109,7 +134,22 @@ class GeneralParameterGA(BaseOptimizer):
         # Create new pool if parallel execution is requested
         if self.config.max_workers > 1:
             try:
-                self.pool = multiprocessing.Pool(processes=self.config.max_workers)
+                # Prepare optimizer data for worker initialization
+                optimizer_data = {
+                    'system_name': self.system_name,
+                    'base_param_file': str(self.base_param_file),
+                    'train_reference_data': self.train_reference_data,
+                    'train_fraction': self.train_fraction,
+                    'spin': self.spin,
+                    'param_names': self.param_names,
+                    'parameter_bounds': self.parameter_bounds
+                }
+                # Create pool with initializer to set up optimizer in each worker
+                self.pool = multiprocessing.Pool(
+                    processes=self.config.max_workers,
+                    initializer=_init_worker,
+                    initargs=(optimizer_data,)
+                )
                 self.toolbox.register("map", self.pool.map)
                 # Update evaluate to use wrapper for multiprocessing
                 self.toolbox.register("evaluate", _evaluate_wrapper)
@@ -334,11 +374,6 @@ class GeneralParameterGA(BaseOptimizer):
         if not hasattr(self, 'pool') or (self.config.max_workers > 1 and self.pool is None):
             self._setup_pool()
         
-        # Set global optimizer for multiprocessing (needed for picklable evaluation)
-        global _global_optimizer
-        old_optimizer = _global_optimizer
-        _global_optimizer = self
-        
         try:
             # Initialize population if empty
             if not self.population:
@@ -413,8 +448,8 @@ class GeneralParameterGA(BaseOptimizer):
             
             return self.best_parameters
         finally:
-            # Restore global optimizer
-            _global_optimizer = old_optimizer
+            # Pool cleanup happens in finally, but global optimizer cleanup is per-worker
+            pass
     
     def __del__(self):
         """Cleanup pool on object deletion."""
