@@ -13,3 +13,7 @@ archive/
 **/sc_experiments/
 */vasp_structs/**
 **/structure_*/**
+**/eval_bulk/
+*.hsd
+*.bin
+
