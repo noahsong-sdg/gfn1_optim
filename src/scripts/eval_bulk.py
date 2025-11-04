@@ -10,7 +10,7 @@ pixi run python src/scripts/eval_bulk.py  --params results/pso/37_big_pso.toml -
 
 pixi run python src/scripts/eval_bulk.py  --params results/ga/37_big_ga.toml --out results/ga.csv 
 
-pixi run python src/scripts/eval_bulk.py  --params results/bayes/37_big_bayes.toml --out results/bayes.csv 
+pixi run python src/scripts/eval_bulk.py  --params results/bayes_ones/big_bayes.toml --out results/bayes_gap100.csv 
 
 """
 import argparse
@@ -108,7 +108,7 @@ def main():
             ase.io.write(str(input_xyz), atoms)
             bandgap, total_energy_ev = run_dftbp_bandgap(
                 str(input_xyz),
-                kpts=(3, 3, 3),
+                kpts=(1, 1, 1),
                 method="GFN1-xTB",
                 temp=100.0,
                 parameter_file=str(Path(args.params).resolve()),

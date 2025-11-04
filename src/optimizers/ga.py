@@ -7,6 +7,7 @@ import multiprocessing
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 import pandas as pd
+from pathlib import Path
 from base_optimizer import BaseOptimizer
 from common import setup_logging
 
@@ -22,38 +23,91 @@ if not hasattr(creator, "FitnessMax"):
 if not hasattr(creator, "Individual"):
     creator.create("Individual", list, fitness=creator.FitnessMax, age=0, param_dict=None)
 
-# Global variable to hold optimizer instance for multiprocessing
+# Global variable to hold evaluator instance for multiprocessing
 # This is set per worker process via pool initializer
-_global_optimizer = None
+_global_evaluator = None
+
+class _FitnessEvaluator:
+    """Concrete evaluator class for worker processes (not abstract)."""
+    def __init__(self, system_name: str, base_param_file: str,
+                 reference_data, train_fraction: float, spin: int,
+                 param_names: List[str], parameter_bounds):
+        from base_optimizer import BaseOptimizer
+        
+        # Store evaluation data
+        self.param_names = param_names
+        self.parameter_bounds = parameter_bounds
+        
+        # Create a concrete optimizer class that implements optimize()
+        class _WorkerOptimizer(BaseOptimizer):
+            def optimize(self):
+                # No-op for worker processes
+                return {}
+        
+        # Create optimizer instance manually to skip checkpoint loading
+        # This avoids the recursion issue where checkpoint loading tries to set up pool
+        self._optimizer = _WorkerOptimizer.__new__(_WorkerOptimizer)
+        
+        # Manually initialize all required attributes (mimicking BaseOptimizer.__init__)
+        import toml
+        from config import get_system_config
+        from utils.parameter_bounds import ParameterBoundsManager
+        
+        self._optimizer.system_name = system_name
+        self._optimizer.base_param_file = Path(base_param_file)
+        self._optimizer.train_fraction = train_fraction
+        self._optimizer.spin = spin
+        
+        # Load base parameters
+        with open(base_param_file, 'r') as f:
+            self._optimizer.base_params = toml.load(f)
+        
+        # Setup system config and parameter bounds
+        self._optimizer.system_config = get_system_config(system_name)
+        self._optimizer.bounds_manager = ParameterBoundsManager()
+        self._optimizer.parameter_bounds = parameter_bounds
+        
+        # Setup reference data (this calls _split_train_test_data internally)
+        self._optimizer._setup_reference_data(reference_data)
+        
+        # Initialize state (skip checkpoint loading)
+        self._optimizer._init_optimization_state(None)
+    
+    def apply_bounds(self, parameters: Dict[str, float]) -> Dict[str, float]:
+        """Apply bounds to parameters."""
+        return self._optimizer.apply_bounds(parameters)
+    
+    def evaluate_fitness(self, parameters: Dict[str, float]) -> float:
+        """Evaluate fitness of parameters."""
+        return self._optimizer.evaluate_fitness(parameters)
 
 def _init_worker(optimizer_data):
     """Initialize worker process with optimizer data."""
-    global _global_optimizer
-    from base_optimizer import BaseOptimizer
-    # Recreate optimizer from data in worker process
-    _global_optimizer = BaseOptimizer(
+    global _global_evaluator
+    # Create evaluator instance (concrete, not abstract)
+    _global_evaluator = _FitnessEvaluator(
         optimizer_data['system_name'],
         optimizer_data['base_param_file'],
         optimizer_data['train_reference_data'],
         optimizer_data['train_fraction'],
-        optimizer_data['spin']
+        optimizer_data['spin'],
+        optimizer_data['param_names'],
+        optimizer_data['parameter_bounds']
     )
-    _global_optimizer.param_names = optimizer_data['param_names']
-    _global_optimizer.parameter_bounds = optimizer_data['parameter_bounds']
 
 def _evaluate_wrapper(individual):
     """Picklable wrapper for evaluation function used with multiprocessing."""
-    assert _global_optimizer is not None, "Global optimizer not set in worker process"
+    assert _global_evaluator is not None, "Global evaluator not set in worker process"
     
     # Convert individual list to parameter dict
-    param_names = _global_optimizer.param_names
+    param_names = _global_evaluator.param_names
     param_dict = {name: val for name, val in zip(param_names, individual)}
     
     # Apply bounds
-    param_dict = _global_optimizer.apply_bounds(param_dict)
+    param_dict = _global_evaluator.apply_bounds(param_dict)
     
     # Evaluate fitness
-    fitness_val = _global_optimizer.evaluate_fitness(param_dict)
+    fitness_val = _global_evaluator.evaluate_fitness(param_dict)
     return (fitness_val,)
 
 @dataclass
@@ -375,13 +429,15 @@ class GeneralParameterGA(BaseOptimizer):
         self.best_fitness_value = state.get('best_fitness_value', -float('inf'))
         
         # Recreate multiprocessing pool after checkpoint load (pool can't be pickled)
-        # Only if all required attributes are available
+        # Only if all required attributes are available and we're not in a worker process
         if hasattr(self, 'reference_data') and hasattr(self, 'param_names'):
-            self._setup_pool()
+            # Delay pool setup until optimize() is called to avoid issues during checkpoint loading
+            pass
     
     def optimize(self) -> Dict[str, float]:
         """Run the genetic algorithm optimization."""
         # Ensure pool is set up (in case optimize is called directly without checkpoint)
+        # Also set up pool if it wasn't created during checkpoint loading
         if not hasattr(self, 'pool') or (self.config.max_workers > 1 and self.pool is None):
             self._setup_pool()
         
