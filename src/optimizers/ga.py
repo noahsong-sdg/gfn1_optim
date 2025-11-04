@@ -124,6 +124,10 @@ class GeneralParameterGA(BaseOptimizer):
     
     def _setup_pool(self):
         """Setup multiprocessing pool for parallel evaluation."""
+        # Ensure toolbox is set up before accessing param_names
+        if not hasattr(self, 'param_names') or not hasattr(self, 'toolbox'):
+            self._setup_toolbox()
+        
         # Cleanup existing pool if any
         if hasattr(self, 'pool') and self.pool is not None:
             assert self.pool is not None, "Pool should not be None here"
@@ -135,10 +139,11 @@ class GeneralParameterGA(BaseOptimizer):
         if self.config.max_workers > 1:
             try:
                 # Prepare optimizer data for worker initialization
+                # Use reference_data (training data) which is set up in base class
                 optimizer_data = {
                     'system_name': self.system_name,
                     'base_param_file': str(self.base_param_file),
-                    'train_reference_data': self.train_reference_data,
+                    'train_reference_data': getattr(self, 'reference_data', None),
                     'train_fraction': self.train_fraction,
                     'spin': self.spin,
                     'param_names': self.param_names,
@@ -345,6 +350,10 @@ class GeneralParameterGA(BaseOptimizer):
         """Set state from checkpoint."""
         super().set_state(state)
         
+        # Ensure toolbox is set up before using it (needed for param_names, etc.)
+        if not hasattr(self, 'toolbox') or not hasattr(self, 'param_names'):
+            self._setup_toolbox()
+        
         # Reconstruct population from parameter dicts
         population_dicts = state.get('population_dicts', [])
         self.population = []
@@ -366,7 +375,9 @@ class GeneralParameterGA(BaseOptimizer):
         self.best_fitness_value = state.get('best_fitness_value', -float('inf'))
         
         # Recreate multiprocessing pool after checkpoint load (pool can't be pickled)
-        self._setup_pool()
+        # Only if all required attributes are available
+        if hasattr(self, 'reference_data') and hasattr(self, 'param_names'):
+            self._setup_pool()
     
     def optimize(self) -> Dict[str, float]:
         """Run the genetic algorithm optimization."""

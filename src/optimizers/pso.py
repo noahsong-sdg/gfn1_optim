@@ -368,6 +368,10 @@ class GeneralParameterPSO(BaseOptimizer):
         """Set state from checkpoint."""
         super().set_state(state)
         
+        # Ensure toolbox is set up before using it (needed for param_names, etc.)
+        if not hasattr(self, 'toolbox') or not hasattr(self, 'param_names'):
+            self._setup_toolbox()
+        
         # Reconstruct swarm from parameter dicts
         swarm_dicts = state.get('swarm_dicts', [])
         self.swarm = []
