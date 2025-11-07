@@ -3,7 +3,7 @@
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
-#SBATCH --job-name=pso_big
+#SBATCH --job-name=pso_allgap
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
@@ -23,4 +23,4 @@ conda activate /projects/noso3320/software/gfn_env
 #conda install -c conda-forge deap -y
 # python src/cli.py pso CdS config/gfn1-base.toml --output results/pso
 
-python src/cli.py pso big config/gfn1-base.toml --name pso_20iter --output-dir results/pso
+python src/cli.py pso big config/gfn1-base.toml --name pso_20iter_allgap --output-dir results/pso_allgap

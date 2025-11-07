@@ -21,4 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 ## python src/cli.py ga CdS config/gfn1-base.toml --output results/ga
-python src/cli.py ga big config/gfn1-base.toml --name ga_gap100 --output-dir results/ga
+python src/cli.py ga big config/gfn1-base.toml --name ga_gap100 --output-dir results/ga_100

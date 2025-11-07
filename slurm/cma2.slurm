@@ -3,7 +3,7 @@
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
-#SBATCH --job-name=cma2
+#SBATCH --job-name=cma2_allgap
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
@@ -21,4 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 # python src/cli.py cma2 CdS config/gfn1-base.toml --output results/cma2 
-python src/cli.py cma2 big config/gfn1-base.toml --name cma2_150iter --output-dir results/cma2
+python src/cli.py cma2 big config/gfn1-base.toml --name cma2_150iter_allgap --output-dir results/cma2_100
