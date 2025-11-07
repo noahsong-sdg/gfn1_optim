@@ -69,7 +69,10 @@ class BaseOptimizer(ABC):
         if self.system_config.calculation_type == CalculationType.LATTICE_CONSTANTS:
             self._setup_lattice_reference()
         else:
-            self.full_reference_data = reference_data or self._load_reference_data()
+            if reference_data is not None:
+                self.full_reference_data = reference_data
+            else:
+                self.full_reference_data = self._load_reference_data()
         
         self._split_train_test_data()
     
@@ -327,8 +330,8 @@ class BaseOptimizer(ABC):
                     gap_rmse = float(np.sqrt(np.mean((ref_g - calc_g) ** 2)))
 
                 # Combine losses (normalize with simple scales; energy relative nature already reduces scale issues)
-                energy_weight = 0.0
-                gap_weight = 1.0 if gap_rmse is not None else 0.0
+                energy_weight = 0.2
+                gap_weight = 0.8 if gap_rmse is not None else 0.0
                 total_loss = energy_weight * energy_rmse + gap_weight * (gap_rmse or 0.0)
                 fitness = 1.0 / (1.0 + total_loss)
 
