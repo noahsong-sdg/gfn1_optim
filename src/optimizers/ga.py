@@ -4,6 +4,7 @@ import numpy as np
 import random
 import copy
 import multiprocessing
+import os
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 import pandas as pd
@@ -437,6 +438,20 @@ class GeneralParameterGA(BaseOptimizer):
     
     def optimize(self) -> Dict[str, float]:
         """Run the genetic algorithm optimization."""
+        # Log checkpoint progress if resuming
+        checkpoint_path = self.get_checkpoint_path()
+        if os.path.exists(checkpoint_path) and self.generation > 0:
+            completed = self.generation
+            remaining = max(0, self.config.generations - self.generation)
+            progress_pct = (completed / self.config.generations * 100) if self.config.generations > 0 else 0
+            logger.info(f"Resuming GA optimization from checkpoint")
+            logger.info(f"  Progress: {completed}/{self.config.generations} generations completed ({progress_pct:.1f}%)")
+            logger.info(f"  Remaining: {remaining} generations to complete")
+            if hasattr(self, 'best_fitness_value') and self.best_fitness_value != -float('inf'):
+                logger.info(f"  Current best fitness: {self.best_fitness_value:.6f}")
+        elif self.generation == 0:
+            logger.info("Starting fresh GA optimization")
+        
         # Ensure pool is set up (in case optimize is called directly without checkpoint)
         # Also set up pool if it wasn't created during checkpoint loading
         if not hasattr(self, 'pool') or (self.config.max_workers > 1 and self.pool is None):

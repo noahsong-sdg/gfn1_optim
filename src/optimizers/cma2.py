@@ -45,7 +45,7 @@ class CMA2Config:
     verb_disp: int = 1  # Verbosity level 0, 1, 2
     tolfun: float = 1e-6  # Function value tolerance
     tolx: float = 1e-6  # Solution tolerance
-    maxiter: int = 200  # Maximum iterations
+    maxiter: int = 150  # Maximum iterations
     bounds_handling: str = "penalty"  # "repair" or "penalty"
 
 class GeneralParameterCMA2(BaseOptimizer):
@@ -134,10 +134,19 @@ class GeneralParameterCMA2(BaseOptimizer):
         bounds = [lower_bounds, upper_bounds]
 
         # Initialize or resume CMA-ES
-        resumed = self.es is not None
+        # Check if we're resuming from a checkpoint (either es is restored or generation > 0)
+        resumed = (self.es is not None) or (self.generation > 0)
         if resumed:
-            logger.info(f"Resuming CMA-ES from generation {self.generation}")
+            completed = self.generation
+            remaining = max(0, self.config.max_generations - self.generation)
+            progress_pct = (completed / self.config.max_generations * 100) if self.config.max_generations > 0 else 0
+            logger.info(f"Resuming CMA-ES optimization from checkpoint")
+            logger.info(f"  Progress: {completed}/{self.config.max_generations} generations completed ({progress_pct:.1f}%)")
+            logger.info(f"  Remaining: {remaining} generations to complete")
+            if hasattr(self, 'best_fitness') and self.best_fitness != float('inf'):
+                logger.info(f"  Current best RMSE: {self.best_fitness:.6f}")
         else:
+            logger.info("Starting fresh CMA-ES optimization")
             self.es = cma.CMAEvolutionStrategy(
                 initial_mean,
                 self.config.sigma,

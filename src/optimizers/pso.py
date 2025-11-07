@@ -215,7 +215,14 @@ class GeneralParameterPSO(BaseOptimizer):
         if os.path.exists(checkpoint_path):
             logger.info(f"Loading checkpoint from {checkpoint_path}")
             self.load_checkpoint()
-            logger.info(f"Resuming from iteration {self.iteration}")
+            completed = self.iteration
+            remaining = max(0, self.config.max_iterations - self.iteration)
+            progress_pct = (completed / self.config.max_iterations * 100) if self.config.max_iterations > 0 else 0
+            logger.info(f"Resuming PSO optimization")
+            logger.info(f"  Progress: {completed}/{self.config.max_iterations} iterations completed ({progress_pct:.1f}%)")
+            logger.info(f"  Remaining: {remaining} iterations to complete")
+            if hasattr(self, 'global_best_fitness') and self.global_best_fitness != -float('inf'):
+                logger.info(f"  Current best fitness: {self.global_best_fitness:.6f}")
         else:
             logger.info("No checkpoint found, starting fresh optimization")
             # Initialize swarm
