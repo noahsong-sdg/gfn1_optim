@@ -41,7 +41,7 @@ class CMA2Config:
     seed: Optional[int] = None  
     convergence_threshold: float = 1e-6  
     patience: int = 20  
-    n_jobs: int = 8  # Number of parallel jobs (1 = sequential)
+    n_jobs: int = 12  # Number of parallel jobs (1 = sequential)
     verb_disp: int = 1  # Verbosity level 0, 1, 2
     tolfun: float = 1e-6  # Function value tolerance
     tolx: float = 1e-6  # Solution tolerance

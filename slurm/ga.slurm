@@ -3,10 +3,10 @@
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
-#SBATCH --job-name=ga_cds
+#SBATCH --job-name=ga_gap
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=14
+#SBATCH --cpus-per-task=12
 #SBATCH --output=ga_%j.out
 #SBATCH --error=ga_%j.err
 
@@ -21,4 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 ## python src/cli.py ga CdS config/gfn1-base.toml --output results/ga
-python src/cli.py ga big config/gfn1-base.toml --output-dir results/ga
+python src/cli.py ga big config/gfn1-base.toml --name ga_gap100 --output-dir results/ga

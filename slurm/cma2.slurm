@@ -6,7 +6,7 @@
 #SBATCH --job-name=cma2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
+#SBATCH --cpus-per-task=12
 #SBATCH --output=cma2_%j.out
 #SBATCH --error=cma2_%j.err
 
@@ -21,4 +21,4 @@ module load anaconda
 cd /projects/noso3320/work/gfn
 conda activate /projects/noso3320/software/gfn_env
 # python src/cli.py cma2 CdS config/gfn1-base.toml --output results/cma2 
-python src/cli.py cma2 big config/gfn1-base.toml --output-dir results/cma2
+python src/cli.py cma2 big config/gfn1-base.toml --name cma2_150iter --output-dir results/cma2
