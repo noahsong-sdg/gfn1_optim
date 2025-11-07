@@ -58,14 +58,15 @@ class GeneralParameterBayesian(BaseOptimizer):
                  reference_data: Optional[pd.DataFrame] = None,
                  config: BayesianConfig = BayesianConfig(),
                  train_fraction: float = 0.8,
-                 spin: int = 0):
+                 spin: int = 0,
+                 **kwargs):
         # Optuna-specific configuration/state first (avoid set_state issues)
         self.config = config
         self.optimization_result = None  # Will store convergence-friendly dict
         self.call_count = 0
         self._lock = threading.Lock()  # Ensure thread-safe updates in parallel runs
 
-        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
+        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin, **kwargs)
 
         # Prepare search space meta
         self.dimensions = self._create_search_space()

@@ -51,14 +51,15 @@ class GeneralParameterCMA(BaseOptimizer):
                  reference_data: Optional[pd.DataFrame] = None,
                  config: CMAConfig = CMAConfig(),
                  train_fraction: float = 0.8,
-                 spin: int = 0):
+                 spin: int = 0,
+                 **kwargs):
         self.config = config
         self.optimizer = None
         self.generation = 0
         self.failed_evaluations = 0
         
         # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
+        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin, **kwargs)
     
     def evaluate_cma_fitness(self, parameters: Dict[str, float]) -> float:
         """Evaluate fitness for CMA-ES (minimizes RMSE directly)"""

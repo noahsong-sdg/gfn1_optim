@@ -128,13 +128,14 @@ class GeneralParameterGA(BaseOptimizer):
     def __init__(self, system_name: str, base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
                  config: GAConfig = GAConfig(), train_fraction: float = 0.8,
-                 spin: int = 0):
+                 spin: int = 0,
+                 **kwargs):
         
         self.config = config
         self.generation = 0
         
         # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
+        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin, **kwargs)
         
         # Setup DEAP toolbox
         self._setup_toolbox()

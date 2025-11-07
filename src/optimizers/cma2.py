@@ -56,7 +56,8 @@ class GeneralParameterCMA2(BaseOptimizer):
                  reference_data: Optional[pd.DataFrame] = None,
                  config: CMA2Config = CMA2Config(),
                  train_fraction: float = 0.8,
-                 spin: int = 0):
+                 spin: int = 0,
+                 **kwargs):
         """Initialize pycma CMA-ES optimizer"""
         self.config = config
         
@@ -67,7 +68,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         self.best_fitness = float('inf')  # Initialize for minimization
         
         # Initialize base optimizer
-        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
+        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin, **kwargs)
     
     def evaluate_cma_fitness(self, x: np.ndarray) -> float:
         """Evaluate fitness for pycma CMA-ES (minimizes RMSE directly)"""

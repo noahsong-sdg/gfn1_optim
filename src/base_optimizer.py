@@ -33,7 +33,9 @@ class BaseOptimizer(ABC):
     def __init__(self, system_name: str, base_param_file: str, 
                  reference_data: Optional[pd.DataFrame] = None,
                  train_fraction: float = 0.8, spin: int = 0,
-                 method_name: Optional[str] = None):
+                 method_name: Optional[str] = None,
+                 run_name: Optional[str] = None,
+                 checkpoint_dir: Optional[str] = None):
         
         # Core setup
         self.system_name = system_name
@@ -41,6 +43,8 @@ class BaseOptimizer(ABC):
         self.base_param_file = Path(base_param_file)
         self.train_fraction = train_fraction
         self.spin = spin
+        self.run_name = run_name
+        self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
         
         # Load base parameters
         with open(base_param_file, 'r') as f:
@@ -485,15 +489,26 @@ class BaseOptimizer(ABC):
         logger.info(f"Fitness history saved to {filename}")
     
     def get_checkpoint_path(self) -> str:
-        return f"{self.system_name.lower()}_{self.method_name.lower()}_checkpt.pkl"
+        """Get checkpoint file path, optionally including run_name and checkpoint_dir"""
+        if self.run_name:
+            filename = f"{self.run_name}.pkl"
+        else:
+            filename = f"{self.system_name.lower()}_{self.method_name.lower()}_checkpt.pkl"
+        
+        if self.checkpoint_dir:
+            self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            return str(self.checkpoint_dir / filename)
+        return filename
 
     def save_checkpoint(self):
         try:
             state = self.get_state()
             state['random_state'] = random.getstate()
             state['np_random_state'] = np.random.get_state()
-            with open(self.get_checkpoint_path(), 'wb') as f:
+            checkpoint_path = self.get_checkpoint_path()
+            with open(checkpoint_path, 'wb') as f:
                 pickle.dump(state, f)
+            logger.debug(f"Checkpoint saved to {checkpoint_path}")
         except Exception as e:
             logger.warning(f"Failed to save checkpoint: {e}")
 

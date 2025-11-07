@@ -34,14 +34,15 @@ class PyGADOptimizer(BaseOptimizer):
     def __init__(self, system_name: str, base_param_file: str,
                  reference_data: Optional[pd.DataFrame] = None,
                  config: PyGADConfig = PyGADConfig(), train_fraction: float = 0.8,
-                 spin: int = 0):
+                 spin: int = 0,
+                 **kwargs):
         
         self.config = config
         self.parameter_names = []
         self.parameter_bounds_list = []
         self.ga_instance = None
         
-        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin)
+        super().__init__(system_name, base_param_file, reference_data, train_fraction, spin, **kwargs)
         
         # Prepare parameter bounds for PyGAD
         self._prepare_pygad_parameters()

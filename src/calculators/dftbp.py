@@ -155,7 +155,7 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
             f.write(f'    {kpts[0]} 0 0\n')
             f.write(f'    0 {kpts[1]} 0\n')
             f.write(f'    0 0 {kpts[2]}\n')
-            f.write('    0.5 0.5 0.5\n')
+            f.write('    0.0 0.0 0.0\n')
             f.write('  }\n')
             
         f.write('}\n\n')

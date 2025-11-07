@@ -70,10 +70,16 @@ def run_optimization(algorithm: str,
                     base_param_file: str,
                     reference_data: Optional[str] = None,
                     output_dir: Optional[str] = None,
+                    run_name: Optional[str] = None,
                     **kwargs) -> dict:
     """Run optimization with the specified algorithm"""
     
     logger.info(f"Starting {algorithm.upper()} optimization for {system_name}")
+    if run_name:
+        logger.info(f"Run name: {run_name}")
+    
+    # Determine checkpoint directory (use output_dir if provided)
+    checkpoint_dir = output_dir
     
     # Create optimizer
     optimizer = create_optimizer(
@@ -81,6 +87,8 @@ def run_optimization(algorithm: str,
         system_name=system_name,
         base_param_file=base_param_file,
         reference_data=reference_data,
+        run_name=run_name,
+        checkpoint_dir=checkpoint_dir,
         **kwargs
     )
     
@@ -114,12 +122,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/cli.py ga H2 config/gfn1-base.toml --output results/ga
-  python src/cli.py pso Si2 config/gfn1-base.toml --generations 100 --output results/pso
-  python src/cli.py --reference-data train_structs/results.csv
-  python src/cli.py bayes CdS config/gfn1-base.toml --n_calls 200 --output results/bayes
-  python src/cli.py pso BulkMaterials config/gfn1-base.toml --max-iterations 50 --output results/bulk
-  python src/cli.py ga CompareBulk config/gfn1-base.toml --generations 100 --output results/compare
+  python src/cli.py ga H2 config/gfn1-base.toml --output-dir results/ga
+  python src/cli.py pso Si2 config/gfn1-base.toml --generations 100 --output-dir results/pso
+  python src/cli.py bayes CdS config/gfn1-base.toml --n-calls 200 --output-dir results/bayes
+  python src/cli.py pso BulkMaterials config/gfn1-base.toml --max-iterations 50 --output-dir results/bulk --name run1
+  python src/cli.py ga CompareBulk config/gfn1-base.toml --generations 100 --output-dir results/compare --name experiment1
         """
     )
     
@@ -137,6 +144,8 @@ Examples:
                        help='Path to reference data CSV file')
     parser.add_argument('--output-dir', '-o',
                        help='Output directory for results')
+    parser.add_argument('--name', '-n',
+                       help='Name for this optimization run (used in checkpoint filename)')
     parser.add_argument('--train-fraction', type=float, default=0.8,
                        help='Fraction of data for training (default: 0.8)')
     parser.add_argument('--spin', type=int, default=0,
@@ -203,6 +212,7 @@ Examples:
             base_param_file=args.base_param_file,
             reference_data=args.reference_data,
             output_dir=args.output_dir,
+            run_name=args.name,
             **kwargs
         )
         
