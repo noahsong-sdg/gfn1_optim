@@ -86,14 +86,23 @@ class PyGADOptimizer(BaseOptimizer):
         """Callback function called after each generation"""
         best_solution = ga_instance.best_solution()
         best_fitness = best_solution[1]
+        best_params = self._parameters_to_dict(best_solution[0])
         
-        # Record fitness history
-        self.fitness_history.append({
+        # Calculate parameter deltas
+        param_deltas = self.calculate_parameter_deltas(best_params)
+        
+        # Record fitness history with parameter deltas
+        history_entry = {
             'generation': ga_instance.generations_completed,
             'best_fitness': best_fitness,
             'avg_fitness': np.mean(ga_instance.last_generation_fitness),
             'std_fitness': np.std(ga_instance.last_generation_fitness)
-        })
+        }
+        # Add parameter deltas with 'delta_' prefix
+        for param_name, delta in param_deltas.items():
+            history_entry[f'delta_{param_name}'] = delta
+        
+        self.fitness_history.append(history_entry)
         
         # Check convergence
         if len(self.fitness_history) >= 2:

@@ -270,13 +270,36 @@ class GeneralParameterPSO(BaseOptimizer):
             avg_fitness = np.mean([p.fitness.values[0] for p in self.swarm])
             logger.info(f"  Best fitness: {best_fitness:.6f}, Avg: {avg_fitness:.6f}")
             
-            # Record fitness history
-            self.fitness_history.append({
+            # Get best parameters for delta calculation
+            best_params_for_delta = None
+            if self.global_best is not None:
+                if self.global_best.param_dict is not None:
+                    best_params_for_delta = self.global_best.param_dict.copy()
+                else:
+                    best_params_for_delta = self._list_to_param_dict(list(self.global_best))
+            else:
+                # Fallback to best from current swarm
+                best_particle = max(self.swarm, key=lambda p: p.fitness.values[0])
+                if best_particle.param_dict is not None:
+                    best_params_for_delta = best_particle.param_dict.copy()
+                else:
+                    best_params_for_delta = self._list_to_param_dict(list(best_particle))
+            
+            # Calculate parameter deltas
+            param_deltas = self.calculate_parameter_deltas(best_params_for_delta) if best_params_for_delta else {}
+            
+            # Record fitness history with parameter deltas
+            history_entry = {
                 'generation': iteration,
                 'best_fitness': best_fitness,
                 'avg_fitness': avg_fitness,
                 'std_fitness': np.std([p.fitness.values[0] for p in self.swarm])
-            })
+            }
+            # Add parameter deltas with 'delta_' prefix
+            for param_name, delta in param_deltas.items():
+                history_entry[f'delta_{param_name}'] = delta
+            
+            self.fitness_history.append(history_entry)
             
             # Update best parameters for base class
             if self.global_best is not None:

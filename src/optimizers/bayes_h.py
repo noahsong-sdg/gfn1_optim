@@ -111,13 +111,21 @@ class GeneralParameterBayesian(BaseOptimizer):
             rmse = 1000.0  # Large penalty for failed evaluations
             logger.warning(f"Call {self.call_count}: Evaluation failed, using penalty value {rmse}")
         
-        # Record in fitness history
-        self.fitness_history.append({
+        # Calculate parameter deltas
+        param_deltas = self.calculate_parameter_deltas(parameters)
+        
+        # Record in fitness history with parameter deltas
+        history_entry = {
             'generation': self.call_count - 1,
             'best_fitness': rmse,
             'avg_fitness': rmse,  # Same as best for single point evaluation
             'std_fitness': 0.0
-        })
+        }
+        # Add parameter deltas with 'delta_' prefix
+        for param_name, delta in param_deltas.items():
+            history_entry[f'delta_{param_name}'] = delta
+        
+        self.fitness_history.append(history_entry)
         
         if self.call_count % 10 == 0 or rmse < self.best_fitness:
             logger.info(f"Call {self.call_count}/{self.config.n_calls}: RMSE = {rmse:.6f}")

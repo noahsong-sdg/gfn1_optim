@@ -175,14 +175,22 @@ class GeneralParameterCMA(BaseOptimizer):
             else:
                 self.convergence_counter += 1
             
-            # Record fitness history
+            # Calculate parameter deltas for best solution
+            param_deltas = self.calculate_parameter_deltas(best_params)
+            
+            # Record fitness history with parameter deltas
             avg_fitness = np.mean([sol[1] for sol in solutions])
-            self.fitness_history.append({
+            history_entry = {
                 'generation': generation,
                 'best_fitness': best_fitness,
                 'avg_fitness': avg_fitness,
                 'std_fitness': np.std([sol[1] for sol in solutions])
-            })
+            }
+            # Add parameter deltas with 'delta_' prefix
+            for param_name, delta in param_deltas.items():
+                history_entry[f'delta_{param_name}'] = delta
+            
+            self.fitness_history.append(history_entry)
             
             # Log progress (reduced frequency)
             if should_log:

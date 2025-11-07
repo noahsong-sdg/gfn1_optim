@@ -55,6 +55,9 @@ class BaseOptimizer(ABC):
         system_defaults = extract_system_parameters(self.system_config.elements)
         self.parameter_bounds = init_dynamic_bounds(system_defaults)
         
+        # Store original parameter values for delta calculation
+        self.original_parameters = {bound.name: bound.default_val for bound in self.parameter_bounds}
+        
         # Setup reference data and training split
         self._setup_reference_data(reference_data)
         
@@ -538,7 +541,8 @@ class BaseOptimizer(ABC):
             'best_parameters': self.best_parameters,
             'best_fitness': self.best_fitness,
             'fitness_history': self.fitness_history,
-            'convergence_counter': getattr(self, 'convergence_counter', 0)
+            'convergence_counter': getattr(self, 'convergence_counter', 0),
+            'original_parameters': getattr(self, 'original_parameters', {})
         }
 
     def set_state(self, state: dict):
@@ -546,6 +550,9 @@ class BaseOptimizer(ABC):
         self.best_fitness = state.get('best_fitness', float('inf'))
         self.fitness_history = state.get('fitness_history', [])
         self.convergence_counter = state.get('convergence_counter', 0)
+        # Restore original_parameters if available, otherwise keep current (from __init__)
+        if 'original_parameters' in state:
+            self.original_parameters = state['original_parameters']
     
     def get_parameter_names(self) -> List[str]:
         return [bound.name for bound in self.parameter_bounds]
@@ -555,6 +562,22 @@ class BaseOptimizer(ABC):
     
     def get_parameter_bounds_dict(self) -> Dict[str, Tuple[float, float]]:
         return {bound.name: (bound.min_val, bound.max_val) for bound in self.parameter_bounds}
+    
+    def calculate_parameter_deltas(self, parameters: Dict[str, float]) -> Dict[str, float]:
+        """Calculate delta (difference) between current parameters and original/default values.
+        
+        Args:
+            parameters: Dictionary of parameter names to current values
+            
+        Returns:
+            Dictionary of parameter names to deltas (current - original)
+        """
+        deltas = {}
+        for param_name in self.original_parameters:
+            original_val = self.original_parameters.get(param_name, 0.0)
+            current_val = parameters.get(param_name, original_val)
+            deltas[param_name] = current_val - original_val
+        return deltas
     
     # Bulk materials calculation methods
     def _get_bulk_xyz_file(self) -> str:

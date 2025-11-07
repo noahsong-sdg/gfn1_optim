@@ -340,12 +340,29 @@ class GeneralParameterGA(BaseOptimizer):
         
         # Record fitness history
         fitnesses_list = [ind.fitness.values[0] for ind in self.population]
-        self.fitness_history.append({
+        
+        # Get best individual parameters for delta calculation
+        best_ind = self.hof[0] if len(self.hof) > 0 else max(self.population, key=lambda x: x.fitness.values[0])
+        if best_ind.param_dict is not None:
+            best_params = best_ind.param_dict.copy()
+        else:
+            best_params = self._list_to_param_dict(list(best_ind))
+        
+        # Calculate parameter deltas
+        param_deltas = self.calculate_parameter_deltas(best_params)
+        
+        # Create history entry with fitness and parameter deltas
+        history_entry = {
             'generation': self.generation,
             'best_fitness': max(fitnesses_list),
             'avg_fitness': np.mean(fitnesses_list),
             'std_fitness': np.std(fitnesses_list)
-        })
+        }
+        # Add parameter deltas with 'delta_' prefix
+        for param_name, delta in param_deltas.items():
+            history_entry[f'delta_{param_name}'] = delta
+        
+        self.fitness_history.append(history_entry)
         
         # Elitism: keep best individuals
         elite_count = int(self.config.population_size * self.config.elitism_rate)

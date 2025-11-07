@@ -190,18 +190,30 @@ class GeneralParameterCMA2(BaseOptimizer):
                 avg_rmse_gen = np.mean(fitness_values)
                 std_rmse_gen = np.std(fitness_values)
                 
-                self.fitness_history.append({
+                # Get best solution parameters for delta calculation
+                best_idx = np.argmin(fitness_values)
+                best_solution = solutions[best_idx]
+                best_params_gen = {param_names[i]: float(best_solution[i]) for i in range(len(param_names))}
+                
+                # Calculate parameter deltas
+                param_deltas = self.calculate_parameter_deltas(best_params_gen)
+                
+                # Create history entry with fitness and parameter deltas
+                history_entry = {
                     'generation': self.generation,
                     'best_fitness': best_rmse_gen,  # Store RMSE (lower is better)
                     'avg_fitness': avg_rmse_gen,
                     'std_fitness': std_rmse_gen
-                })
+                }
+                # Add parameter deltas with 'delta_' prefix
+                for param_name, delta in param_deltas.items():
+                    history_entry[f'delta_{param_name}'] = delta
+                
+                self.fitness_history.append(history_entry)
                 
                 # Update best parameters if we have a better solution (lower RMSE is better)
                 if best_rmse_gen < self.best_fitness:
-                    best_idx = np.argmin(fitness_values)
-                    best_solution = solutions[best_idx]
-                    self.best_parameters = {param_names[i]: float(best_solution[i]) for i in range(len(param_names))}
+                    self.best_parameters = best_params_gen.copy()
                     self.best_fitness = best_rmse_gen
                     # Save checkpoint on improvement
                     self.save_checkpoint()
