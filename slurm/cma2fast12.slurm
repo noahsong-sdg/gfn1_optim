@@ -7,8 +7,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
-#SBATCH --output=cma2_%j.out
-#SBATCH --error=cma2_%j.err
+#SBATCH --output=cma2fast_%j.out
+#SBATCH --error=cma2fast_%j.err
 
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=noso3320@colorado.edu

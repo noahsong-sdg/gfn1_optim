@@ -60,13 +60,15 @@ class _FitnessEvaluator:
         
         # Manually initialize all required attributes (mimicking BaseOptimizer.__init__)
         import toml
-        from config import get_system_config
+        from config import get_system_config, CalculationType
         from utils.parameter_bounds import ParameterBoundsManager
         
         self._optimizer.system_name = system_name
         self._optimizer.base_param_file = Path(base_param_file)
         self._optimizer.train_fraction = train_fraction
         self._optimizer.spin = spin
+        self._optimizer.run_name = None
+        self._optimizer.checkpoint_dir = None
         
         # Load base parameters
         with open(base_param_file, 'r') as f:
@@ -77,10 +79,28 @@ class _FitnessEvaluator:
         self._optimizer.bounds_manager = ParameterBoundsManager()
         self._optimizer.parameter_bounds = parameter_bounds
         
+        # Store original parameter values for delta calculation
+        self._optimizer.original_parameters = {bound.name: bound.default_val for bound in parameter_bounds}
+        
+        # Cache structures for BULK calculations (always initialize, even if not BULK)
+        # Must match BaseOptimizer.__init__ order: set cached_structures before _setup_reference_data
+        self._optimizer.cached_structures = None
+        if self._optimizer.system_config.calculation_type == CalculationType.BULK:
+            try:
+                self._optimizer._load_and_cache_structures()
+            except Exception as e:
+                # If loading structures fails, log warning but continue with empty list
+                import logging
+                worker_logger = logging.getLogger(f"{__name__}.worker")
+                worker_logger.warning(f"Failed to load cached structures in worker: {e}")
+                self._optimizer.cached_structures = []
+        
         # Setup reference data (this calls _split_train_test_data internally)
+        # This must come after cached_structures is initialized
         self._optimizer._setup_reference_data(reference_data)
         
         # Initialize state (skip checkpoint loading)
+        # This sets best_parameters, best_fitness, convergence_counter, fitness_history, success_evaluations, etc.
         self._optimizer._init_optimization_state(None)
     
     def evaluate_cma_fitness(self, x: np.ndarray) -> float:
@@ -97,6 +117,10 @@ class _FitnessEvaluator:
             rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
             return rmse
         except Exception as e:
+            # Log error in worker process (errors in workers might not show in main process logs)
+            import logging
+            worker_logger = logging.getLogger(f"{__name__}.worker")
+            worker_logger.warning(f"Fitness evaluation failed in worker: {e}", exc_info=True)
             # Return very large value for failed evaluations
             return float('inf')
 
