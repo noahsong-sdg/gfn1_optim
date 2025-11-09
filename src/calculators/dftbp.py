@@ -17,6 +17,7 @@ import sys
 import os
 import subprocess
 import argparse
+import warnings
 from pathlib import Path
 from ase.io import read, write
 
@@ -78,7 +79,7 @@ def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=30
         bandgap, vbm, cbm = calculate_bandgap(eigenvalues, occupations)
         
         # Parse Fermi level
-        fermi = parse_fermi('detailed.out')
+        fermi = parse_fermi(str(workdir_path / 'detailed.out'))
         
         # Print results
         print("\n" + "="*70)
@@ -92,9 +93,16 @@ def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=30
             print(f"Fermi Level:                    {fermi:.4f} eV")
         print("="*70)
         
-        # Plot and save
-        plot_dos(eigenvalues, occupations, vbm, cbm, bandgap, fermi, workdir=workdir_path)
-        save_band_data(eigenvalues, occupations, vbm, cbm, bandgap, workdir=workdir_path)
+        # Plot and save (non-critical, so don't fail if plotting fails)
+        try:
+            plot_dos(eigenvalues, occupations, vbm, cbm, bandgap, fermi, workdir=workdir_path)
+        except Exception as e:
+            print(f"    WARNING: Failed to generate DOS plot: {e}")
+        
+        try:
+            save_band_data(eigenvalues, occupations, vbm, cbm, bandgap, workdir=workdir_path)
+        except Exception as e:
+            print(f"    WARNING: Failed to save band data: {e}")
         
         return bandgap, energy
     else:
@@ -162,7 +170,7 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         
         f.write('Options {\n')
         f.write('  WriteDetailedOut = Yes\n')
-        # f.write('  WriteBandOut = Yes\n')
+        f.write('  WriteBandOut = Yes\n')
         f.write('}\n\n')
 
         f.write('ParserOptions {\n')
@@ -295,46 +303,63 @@ def write_gen_format(atoms, filename="geometry.gen"):
 
 def plot_dos(eigenvalues, occupations, vbm, cbm, bandgap, fermi=None, workdir=None):
     """Plot density of states"""
-    plt.figure(figsize=(10, 6))
+    # Skip plotting if vbm or cbm are NaN
+    if np.isnan(vbm) or np.isnan(cbm):
+        return
     
-    occupied_mask = occupations > 0.1
-    unoccupied_mask = occupations < 0.1
-    
-    occupied_energies = eigenvalues[occupied_mask]
-    unoccupied_energies = eigenvalues[unoccupied_mask]
-    
-    e_min = np.min(eigenvalues) - 2.0
-    e_max = np.max(eigenvalues) + 2.0
-    bins = np.linspace(e_min, e_max, 100)
-    
-    plt.hist(occupied_energies, bins=bins, alpha=0.7, label='Occupied', 
-            color='blue', edgecolor='blue')
-    plt.hist(unoccupied_energies, bins=bins, alpha=0.7, label='Unoccupied', 
-            color='red', edgecolor='red')
-    
-    plt.axvline(vbm, color='blue', linestyle='--', linewidth=2, 
-               label=f'VBM = {vbm:.2f} eV')
-    plt.axvline(cbm, color='red', linestyle='--', linewidth=2, 
-               label=f'CBM = {cbm:.2f} eV')
-    
-    if fermi is not None:
-        plt.axvline(fermi, color='green', linestyle=':', linewidth=2, 
-                   label=f'E_F = {fermi:.2f} eV')
-    
-    plt.axvspan(vbm, cbm, alpha=0.2, color='yellow', 
-               label=f'Gap = {bandgap:.2f} eV')
-    
-    plt.xlabel('Energy (eV)', fontsize=12)
-    plt.ylabel('Density of States', fontsize=12)
-    plt.title('DFTB+ Electronic DOS', fontsize=14, fontweight='bold')
-    plt.legend(fontsize=10, loc='best')
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    
-    outdir = Path(workdir) if workdir is not None else Path('.')
-    plt.savefig(outdir / 'dos_dftbp.png', dpi=300, bbox_inches='tight')
-    print(f"\n    DOS plot saved: {outdir / 'dos_dftbp.png'}")
-    plt.close()
+    fig = None
+    try:
+        fig = plt.figure(figsize=(10, 6))
+        
+        occupied_mask = occupations > 0.1
+        unoccupied_mask = occupations < 0.1
+        
+        occupied_energies = eigenvalues[occupied_mask]
+        unoccupied_energies = eigenvalues[unoccupied_mask]
+        
+        if len(occupied_energies) == 0 or len(unoccupied_energies) == 0:
+            return
+        
+        e_min = np.min(eigenvalues) - 2.0
+        e_max = np.max(eigenvalues) + 2.0
+        bins = np.linspace(e_min, e_max, 100)
+        
+        plt.hist(occupied_energies, bins=bins, alpha=0.7, label='Occupied', 
+                color='blue', edgecolor='blue')
+        plt.hist(unoccupied_energies, bins=bins, alpha=0.7, label='Unoccupied', 
+                color='red', edgecolor='red')
+        
+        plt.axvline(vbm, color='blue', linestyle='--', linewidth=2, 
+                   label=f'VBM = {vbm:.2f} eV')
+        plt.axvline(cbm, color='red', linestyle='--', linewidth=2, 
+                   label=f'CBM = {cbm:.2f} eV')
+        
+        if fermi is not None and not np.isnan(fermi):
+            plt.axvline(fermi, color='green', linestyle=':', linewidth=2, 
+                       label=f'E_F = {fermi:.2f} eV')
+        
+        plt.axvspan(vbm, cbm, alpha=0.2, color='yellow', 
+                   label=f'Gap = {bandgap:.2f} eV')
+        
+        plt.xlabel('Energy (eV)', fontsize=12)
+        plt.ylabel('Density of States', fontsize=12)
+        plt.title('DFTB+ Electronic DOS', fontsize=14, fontweight='bold')
+        plt.legend(fontsize=10, loc='best')
+        plt.grid(True, alpha=0.3)
+        
+        # Suppress tight_layout warning by catching it, or just use bbox_inches in savefig
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            plt.tight_layout()
+        
+        outdir = Path(workdir) if workdir is not None else Path('.')
+        plt.savefig(outdir / 'dos_dftbp.png', dpi=300, bbox_inches='tight')
+        print(f"\n    DOS plot saved: {outdir / 'dos_dftbp.png'}")
+    finally:
+        if fig is not None:
+            plt.close(fig)
+        elif plt.get_fignums():
+            plt.close('all')
 
 
 def save_band_data(eigenvalues, occupations, vbm, cbm, bandgap, workdir=None):
