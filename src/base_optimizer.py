@@ -27,7 +27,6 @@ logger = setup_logging(module_name="base_optimizer")
 class BaseConfig:
     convergence_threshold: float = 1e-6
     patience: int = 20
-    max_workers: int = 4
 
 class BaseOptimizer(ABC):
     def __init__(self, system_name: str, base_param_file: str, 
@@ -57,6 +56,11 @@ class BaseOptimizer(ABC):
         
         # Store original parameter values for delta calculation
         self.original_parameters = {bound.name: bound.default_val for bound in self.parameter_bounds}
+        
+        # Cache structures for BULK calculations (loaded once during initialization)
+        self.cached_structures = None
+        if self.system_config.calculation_type == CalculationType.BULK:
+            self._load_and_cache_structures()
         
         # Setup reference data and training split
         self._setup_reference_data(reference_data)
@@ -300,11 +304,15 @@ class BaseOptimizer(ABC):
             elif self.system_config.calculation_type == CalculationType.BULK:
                 # For bulk/supercell workflows, compute energies and bandgaps for provided
                 # structures and compare to reference properties if available.
-                xyz_file = self._get_bulk_xyz_file()
-                if not Path(xyz_file).exists():
+                # Use cached structures (loaded during initialization) to avoid reloading
+                if self.cached_structures is None:
+                    self._load_and_cache_structures()
+                structures = self.cached_structures
+                
+                if not structures:
                     os.unlink(param_file)
-                    raise FileNotFoundError(f"Bulk materials XYZ file not found: {xyz_file}")
-                structures = self._load_structures_from_xyz(xyz_file, max_structures=self.system_config.num_points)
+                    raise ValueError("No structures available for bulk calculation")
+                
                 # Calculate energies and bandgaps with current parameters
                 energies, bandgaps = self._calculate_energies_and_bandgaps(structures, param_file)
                 os.unlink(param_file)
@@ -553,6 +561,9 @@ class BaseOptimizer(ABC):
         # Restore original_parameters if available, otherwise keep current (from __init__)
         if 'original_parameters' in state:
             self.original_parameters = state['original_parameters']
+        # Reload cached structures if needed (not stored in checkpoint to avoid large pickles)
+        if self.system_config.calculation_type == CalculationType.BULK and self.cached_structures is None:
+            self._load_and_cache_structures()
     
     def get_parameter_names(self) -> List[str]:
         return [bound.name for bound in self.parameter_bounds]
@@ -585,8 +596,40 @@ class BaseOptimizer(ABC):
         # Default dataset for bulk/supercell training
         return "trainall.xyz"
     
+    def _load_and_cache_structures(self):
+        """Load and cache structures for BULK calculations (called once during initialization)"""
+        if self.cached_structures is not None:
+            return
+        
+        xyz_file = self._get_bulk_xyz_file()
+        if not Path(xyz_file).exists():
+            logger.warning(f"Bulk materials XYZ file not found: {xyz_file}")
+            self.cached_structures = []
+            return
+        
+        logger.info(f"Loading and caching structures from {xyz_file}")
+        structures = list(ase.io.read(xyz_file, index=':'))
+        
+        max_structures = self.system_config.num_points
+        if max_structures:
+            structures = structures[:max_structures]
+        
+        logger.info(f"Loaded and cached {len(structures)} structures")
+        # Attach reference properties if available
+        try:
+            self._attach_bulk_references(structures)
+        except Exception as e:
+            logger.warning(f"Failed to attach bulk references: {e}")
+        
+        self.cached_structures = structures
+    
     def _load_structures_from_xyz(self, xyz_file: str, max_structures: Optional[int] = None) -> List[Atoms]:
-        """Load structures from XYZ file"""
+        """Load structures from XYZ file (use cached structures if available for BULK)"""
+        # For BULK calculations, use cached structures instead of reloading
+        if self.system_config.calculation_type == CalculationType.BULK and self.cached_structures is not None:
+            logger.debug(f"Using cached structures ({len(self.cached_structures)} structures)")
+            return self.cached_structures
+        
         logger.info(f"Loading structures from {xyz_file}")
         structures = list(ase.io.read(xyz_file, index=':'))
         
@@ -614,7 +657,7 @@ class BaseOptimizer(ABC):
                     except Exception:
                         energy = np.nan
             energies.append(energy)
-        logger.info(f"Collected reference energies for {len(energies)} structures")
+        logger.debug(f"Collected reference energies for {len(energies)} structures")
         return energies
     
     def _calculate_energies(self, structures: List[Atoms], param_file: str) -> List[float]:
@@ -654,6 +697,7 @@ class BaseOptimizer(ABC):
         energies = []
         bandgaps = []
         failed = 0
+        n_structures = len(structures)
         for i, atoms in enumerate(structures):
             try:
                 with tempfile.TemporaryDirectory() as tmpdir:
@@ -670,14 +714,14 @@ class BaseOptimizer(ABC):
                     )
                     energies.append(float(e) if e is not None else np.nan)
                     bandgaps.append(float(bg) if bg is not None else np.nan)
-                if i % 10 == 0:
-                    logger.info(f"Processed {i+1}/{len(structures)} structures")
+                if (i + 1) % 20 == 0:
+                    logger.info(f"Processed {i+1}/{n_structures} structures")
             except Exception as e:
                 logger.warning(f"Failed to calculate properties for structure {i}: {e}")
                 failed += 1
                 energies.append(np.nan)
                 bandgaps.append(np.nan)
-        logger.info(f"Calculated energies for {len(energies) - failed}/{len(structures)} structures")
+        logger.info(f"Calculated energies for {len(energies) - failed}/{n_structures} structures")
         return energies, bandgaps
 
     def _extract_reference_bandgaps(self, structures: List[Atoms]) -> List[float]:
