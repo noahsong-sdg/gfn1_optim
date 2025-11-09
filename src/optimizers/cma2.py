@@ -114,15 +114,25 @@ class _FitnessEvaluator:
             
             # Evaluate fitness using base class method and convert to RMSE
             fitness = self._optimizer.evaluate_fitness(parameters)
-            rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
+            
+            # Convert fitness to RMSE: fitness = 1/(1+rmse), so rmse = (1/fitness) - 1
+            # Use large finite value instead of inf to avoid CMA-ES convergence issues
+            if fitness > 0 and np.isfinite(fitness):
+                rmse = (1.0 / fitness) - 1.0
+                # Ensure RMSE is finite and reasonable
+                if not np.isfinite(rmse) or rmse < 0:
+                    rmse = 1000.0
+            else:
+                # Failed evaluation or invalid fitness
+                rmse = 1000.0  # Large finite penalty instead of inf
             return rmse
         except Exception as e:
             # Log error in worker process (errors in workers might not show in main process logs)
             import logging
             worker_logger = logging.getLogger(f"{__name__}.worker")
             worker_logger.warning(f"Fitness evaluation failed in worker: {e}", exc_info=True)
-            # Return very large value for failed evaluations
-            return float('inf')
+            # Return large finite value for failed evaluations (CMA-ES handles finite values better than inf)
+            return 1000.0
 
 def _init_worker(optimizer_data):
     """Initialize worker process with optimizer data."""
@@ -177,7 +187,7 @@ class GeneralParameterCMA2(BaseOptimizer):
         self.es = None  # CMAEvolutionStrategy instance
         self.generation = 0
         self.failed_evaluations = 0
-        self.best_fitness = float('inf')  # Initialize for minimization
+        self.best_fitness = 1000.0  # Initialize with large finite value (penalty value) for minimization
         
         # Use max_workers if n_jobs is set (backward compatibility)
         if self.config.n_jobs > 1 and self.config.max_workers == 12:
@@ -199,13 +209,25 @@ class GeneralParameterCMA2(BaseOptimizer):
             
             # Evaluate fitness using base class method and convert to RMSE
             fitness = self.evaluate_fitness(parameters)
-            rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
+            
+            # Convert fitness to RMSE: fitness = 1/(1+rmse), so rmse = (1/fitness) - 1
+            # Use large finite value instead of inf to avoid CMA-ES convergence issues
+            if fitness > 0 and np.isfinite(fitness):
+                rmse = (1.0 / fitness) - 1.0
+                # Ensure RMSE is finite and reasonable
+                if not np.isfinite(rmse) or rmse < 0:
+                    rmse = 1000.0
+            else:
+                # Failed evaluation or invalid fitness
+                rmse = 1000.0  # Large finite penalty instead of inf
+            
             return rmse  # pycma minimizes directly
             
         except Exception as e:
             logger.warning(f"Fitness evaluation failed: {e}")
             self.failed_evaluations += 1
-            return float('inf')  # Return very large value for failed evaluations
+            # Return large finite value for failed evaluations (CMA-ES handles finite values better than inf)
+            return 1000.0
     
     def _setup_pool(self):
         """Setup multiprocessing pool for parallel evaluation."""
@@ -304,8 +326,10 @@ class GeneralParameterCMA2(BaseOptimizer):
             logger.info(f"Resuming CMA-ES optimization from checkpoint")
             logger.info(f"  Progress: {completed}/{self.config.max_generations} generations completed ({progress_pct:.1f}%)")
             logger.info(f"  Remaining: {remaining} generations to complete")
-            if hasattr(self, 'best_fitness') and self.best_fitness != float('inf'):
+            if hasattr(self, 'best_fitness') and self.best_fitness < 1000.0:
                 logger.info(f"  Current best RMSE: {self.best_fitness:.6f}")
+            elif hasattr(self, 'best_fitness') and self.best_fitness >= 1000.0:
+                logger.info(f"  Current best RMSE: {self.best_fitness:.6f} (penalty - no valid evaluations yet)")
         else:
             logger.info("Starting fresh CMA-ES optimization")
             self.es = cma.CMAEvolutionStrategy(
@@ -338,16 +362,25 @@ class GeneralParameterCMA2(BaseOptimizer):
                 if self.pool is not None:
                     # Parallel evaluation using multiprocessing pool
                     fitness_values = self.pool.map(_evaluate_solution_wrapper, solutions)
-                    # Count failures (infinite values indicate failures)
-                    failed_count = sum(1 for f in fitness_values if not np.isfinite(f))
+                    # Count failures (values >= 1000.0 indicate failures, or non-finite values)
+                    failed_count = sum(1 for f in fitness_values if not np.isfinite(f) or f >= 1000.0)
                     if failed_count > 0:
                         self.failed_evaluations += failed_count
+                        if failed_count == len(fitness_values):
+                            logger.error(f"All {len(fitness_values)} evaluations failed in generation {self.generation + 1}")
                 else:
                     # Serial evaluation
                     fitness_values = []
                     for solution in solutions:
                         fitness = self.evaluate_cma_fitness(solution)
                         fitness_values.append(fitness)
+                    
+                    # Check for all failures in serial mode
+                    failed_count = sum(1 for f in fitness_values if not np.isfinite(f) or f >= 1000.0)
+                    if failed_count == len(fitness_values):
+                        logger.error(f"All {len(fitness_values)} evaluations failed in generation {self.generation + 1}")
+                        # Early stop if all evaluations fail
+                        break
                 
                 # Tell CMA-ES the results
                 self.es.tell(solutions, fitness_values)
@@ -356,9 +389,18 @@ class GeneralParameterCMA2(BaseOptimizer):
                 self.generation += 1
                 
                 # Record fitness statistics for this generation
-                best_rmse_gen = min(fitness_values)  # CMA-ES minimizes RMSE
-                avg_rmse_gen = np.mean(fitness_values)
-                std_rmse_gen = np.std(fitness_values)
+                # Filter out failed evaluations (>= 1000.0) for statistics if not all failed
+                valid_fitness = [f for f in fitness_values if np.isfinite(f) and f < 1000.0]
+                if valid_fitness:
+                    best_rmse_gen = min(valid_fitness)
+                    avg_rmse_gen = np.mean(valid_fitness)
+                    std_rmse_gen = np.std(valid_fitness)
+                else:
+                    # All evaluations failed
+                    best_rmse_gen = min(fitness_values)  # Use minimum even if all are penalties
+                    avg_rmse_gen = np.mean(fitness_values)
+                    std_rmse_gen = np.std(fitness_values)
+                    logger.warning(f"All evaluations returned penalty values in generation {self.generation}")
                 
                 # Get best solution parameters for delta calculation
                 best_idx = np.argmin(fitness_values)
@@ -382,6 +424,7 @@ class GeneralParameterCMA2(BaseOptimizer):
                 self.fitness_history.append(history_entry)
                 
                 # Update best parameters if we have a better solution (lower RMSE is better)
+                # This works correctly since penalty value (1000.0) is much larger than valid RMSE values
                 if best_rmse_gen < self.best_fitness:
                     self.best_parameters = best_params_gen.copy()
                     self.best_fitness = best_rmse_gen
@@ -472,7 +515,18 @@ class GeneralParameterCMA2(BaseOptimizer):
 
     def set_state(self, state: dict):
         """Set checkpoint state including pycma-specific state"""
-        super().set_state(state)
+        # Override base class set_state to use penalty value instead of inf for best_fitness
+        self.best_parameters = state.get('best_parameters')
+        # Use penalty value (1000.0) instead of inf as default
+        self.best_fitness = state.get('best_fitness', 1000.0)
+        # Convert inf to penalty value if present (for backward compatibility with old checkpoints)
+        if self.best_fitness == float('inf') or not np.isfinite(self.best_fitness):
+            self.best_fitness = 1000.0
+        self.fitness_history = state.get('fitness_history', [])
+        self.convergence_counter = state.get('convergence_counter', 0)
+        if 'original_parameters' in state:
+            self.original_parameters = state['original_parameters']
+        
         self.failed_evaluations = state.get('failed_evaluations', 0)
         self.generation = state.get('generation', 0)
         self.config = state.get('config', self.config)
