@@ -113,8 +113,8 @@ def _evaluate_wrapper(individual):
 
 @dataclass
 class GAConfig:
-    population_size: int = 10  
-    generations: int = 20     
+    population_size: int = 8  
+    generations: int = 15     
     mutation_rate: float = 0.01
     crossover_rate: float = 0.8
     tournament_size: int = 3
@@ -432,14 +432,19 @@ class GeneralParameterGA(BaseOptimizer):
         self.population = []
         for param_dict in population_dicts:
             individual = self._create_individual_deap(param_dict)
+            # Fitness is invalid by default for new individuals - will be recalculated during next evaluation
+            # Ensure fitness.values is not set (DEAP marks fitness as invalid when values don't exist)
+            if hasattr(individual.fitness, 'values') and individual.fitness.values is not None:
+                del individual.fitness.values
             self.population.append(individual)
         
         # Reconstruct hall of fame
         hof_dict = state.get('hof_dict')
         if hof_dict is not None:
             hof_ind = self._create_individual_deap(hof_dict)
-            # Evaluate to set fitness
-            hof_ind.fitness.values = self.toolbox.evaluate(hof_ind)
+            # Use instance method directly during checkpoint loading to avoid multiprocessing wrapper
+            # The multiprocessing wrapper requires _global_evaluator which isn't set in main process
+            hof_ind.fitness.values = self._evaluate_individual_deap(hof_ind)
             self.hof = tools.HallOfFame(1)
             self.hof.insert(hof_ind)
         
