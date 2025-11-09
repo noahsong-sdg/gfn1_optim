@@ -6,6 +6,7 @@ import pandas as pd
 import logging
 import os
 import pickle
+import multiprocessing
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
@@ -32,6 +33,92 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = PROJECT_ROOT / "data"
 BASE_PARAM_FILE = CONFIG_DIR / "gfn1-base.toml"
 
+# Global variable to hold evaluator instance for multiprocessing
+# This is set per worker process via pool initializer
+_global_evaluator = None
+
+class _FitnessEvaluator:
+    """Concrete evaluator class for worker processes (not abstract)."""
+    def __init__(self, system_name: str, base_param_file: str,
+                 reference_data, train_fraction: float, spin: int,
+                 param_names: List[str], parameter_bounds):
+        from base_optimizer import BaseOptimizer
+        
+        # Store evaluation data
+        self.param_names = param_names
+        self.parameter_bounds = parameter_bounds
+        
+        # Create a concrete optimizer class that implements optimize()
+        class _WorkerOptimizer(BaseOptimizer):
+            def optimize(self):
+                # No-op for worker processes
+                return {}
+        
+        # Create optimizer instance manually to skip checkpoint loading
+        # This avoids the recursion issue where checkpoint loading tries to set up pool
+        self._optimizer = _WorkerOptimizer.__new__(_WorkerOptimizer)
+        
+        # Manually initialize all required attributes (mimicking BaseOptimizer.__init__)
+        import toml
+        from config import get_system_config
+        from utils.parameter_bounds import ParameterBoundsManager
+        
+        self._optimizer.system_name = system_name
+        self._optimizer.base_param_file = Path(base_param_file)
+        self._optimizer.train_fraction = train_fraction
+        self._optimizer.spin = spin
+        
+        # Load base parameters
+        with open(base_param_file, 'r') as f:
+            self._optimizer.base_params = toml.load(f)
+        
+        # Setup system config and parameter bounds
+        self._optimizer.system_config = get_system_config(system_name)
+        self._optimizer.bounds_manager = ParameterBoundsManager()
+        self._optimizer.parameter_bounds = parameter_bounds
+        
+        # Setup reference data (this calls _split_train_test_data internally)
+        self._optimizer._setup_reference_data(reference_data)
+        
+        # Initialize state (skip checkpoint loading)
+        self._optimizer._init_optimization_state(None)
+    
+    def evaluate_cma_fitness(self, x: np.ndarray) -> float:
+        """Evaluate fitness for pycma CMA-ES (minimizes RMSE directly)"""
+        try:
+            # Convert numpy array to parameter dictionary
+            parameters = {self.param_names[i]: float(x[i]) for i in range(len(self.param_names))}
+            
+            # Apply bounds
+            parameters = self._optimizer.apply_bounds(parameters)
+            
+            # Evaluate fitness using base class method and convert to RMSE
+            fitness = self._optimizer.evaluate_fitness(parameters)
+            rmse = (1.0 / fitness) - 1.0 if fitness > 0 else float('inf')
+            return rmse
+        except Exception as e:
+            # Return very large value for failed evaluations
+            return float('inf')
+
+def _init_worker(optimizer_data):
+    """Initialize worker process with optimizer data."""
+    global _global_evaluator
+    # Create evaluator instance (concrete, not abstract)
+    _global_evaluator = _FitnessEvaluator(
+        optimizer_data['system_name'],
+        optimizer_data['base_param_file'],
+        optimizer_data['train_reference_data'],
+        optimizer_data['train_fraction'],
+        optimizer_data['spin'],
+        optimizer_data['param_names'],
+        optimizer_data['parameter_bounds']
+    )
+
+def _evaluate_solution_wrapper(solution):
+    """Picklable wrapper for solution evaluation function used with multiprocessing."""
+    assert _global_evaluator is not None, "Global evaluator not set in worker process"
+    return _global_evaluator.evaluate_cma_fitness(solution)
+
 @dataclass
 class CMA2Config:
     """Configuration for pycma CMA-ES optimization"""
@@ -42,6 +129,7 @@ class CMA2Config:
     convergence_threshold: float = 1e-6  
     patience: int = 20  
     n_jobs: int = 12  # Number of parallel jobs (1 = sequential)
+    max_workers: int = 12  # Number of parallel workers for multiprocessing (n_jobs is alias)
     verb_disp: int = 1  # Verbosity level 0, 1, 2
     tolfun: float = 1e-6  # Function value tolerance
     tolx: float = 1e-6  # Solution tolerance
@@ -67,8 +155,16 @@ class GeneralParameterCMA2(BaseOptimizer):
         self.failed_evaluations = 0
         self.best_fitness = float('inf')  # Initialize for minimization
         
+        # Use max_workers if n_jobs is set (backward compatibility)
+        if self.config.n_jobs > 1 and self.config.max_workers == 12:
+            self.config.max_workers = self.config.n_jobs
+        
         # Initialize base optimizer
         super().__init__(system_name, base_param_file, reference_data, train_fraction, spin, **kwargs)
+        
+        # Initialize multiprocessing pool for parallel evaluation
+        # Delay pool setup until optimize() is called to avoid issues during checkpoint loading
+        self.pool = None
     
     def evaluate_cma_fitness(self, x: np.ndarray) -> float:
         """Evaluate fitness for pycma CMA-ES (minimizes RMSE directly)"""
@@ -86,6 +182,42 @@ class GeneralParameterCMA2(BaseOptimizer):
             logger.warning(f"Fitness evaluation failed: {e}")
             self.failed_evaluations += 1
             return float('inf')  # Return very large value for failed evaluations
+    
+    def _setup_pool(self):
+        """Setup multiprocessing pool for parallel evaluation."""
+        # Cleanup existing pool if any
+        if hasattr(self, 'pool') and self.pool is not None:
+            self.pool.close()
+            self.pool.join()
+            self.pool = None
+        
+        # Create new pool if parallel execution is requested
+        if self.config.max_workers > 1:
+            try:
+                # Prepare optimizer data for worker initialization
+                optimizer_data = {
+                    'system_name': self.system_name,
+                    'base_param_file': str(self.base_param_file),
+                    'train_reference_data': getattr(self, 'reference_data', None),
+                    'train_fraction': self.train_fraction,
+                    'spin': self.spin,
+                    'param_names': [bound.name for bound in self.parameter_bounds],
+                    'parameter_bounds': self.parameter_bounds
+                }
+                # Create pool with initializer to set up optimizer in each worker
+                self.pool = multiprocessing.Pool(
+                    processes=self.config.max_workers,
+                    initializer=_init_worker,
+                    initargs=(optimizer_data,)
+                )
+                logger.info(f"Initialized multiprocessing pool with {self.config.max_workers} workers for parallel fitness evaluation")
+            except Exception as e:
+                # Fallback to serial execution if multiprocessing fails
+                logger.warning(f"Failed to create multiprocessing pool: {e}. Falling back to serial execution.")
+                self.pool = None
+        else:
+            self.pool = None
+            logger.info("Using serial execution (max_workers = 1)")
     
     def check_convergence(self) -> bool:
         """Check if the algorithm has converged"""
@@ -133,6 +265,11 @@ class GeneralParameterCMA2(BaseOptimizer):
         # Format bounds for pycma: [lower_bounds, upper_bounds]
         bounds = [lower_bounds, upper_bounds]
 
+        # Ensure pool is set up (in case optimize is called directly without checkpoint)
+        # Also set up pool if it wasn't created during checkpoint loading
+        if not hasattr(self, 'pool') or (self.config.max_workers > 1 and self.pool is None):
+            self._setup_pool()
+        
         # Initialize or resume CMA-ES
         # Check if we're resuming from a checkpoint (either es is restored or generation > 0)
         resumed = (self.es is not None) or (self.generation > 0)
@@ -162,7 +299,7 @@ class GeneralParameterCMA2(BaseOptimizer):
                 }
             )
         
-        # Run optimization with pycma's built-in parallelization
+        # Run optimization with parallel fitness evaluation
         try:
             # Track fitness during optimization
             if self.generation >= self.config.max_generations:
@@ -173,11 +310,20 @@ class GeneralParameterCMA2(BaseOptimizer):
                 # Get solutions for current generation
                 solutions = self.es.ask()
                 
-                # Evaluate fitness for all solutions
-                fitness_values = []
-                for solution in solutions:
-                    fitness = self.evaluate_cma_fitness(solution)
-                    fitness_values.append(fitness)
+                # Evaluate fitness for all solutions (parallel or serial)
+                if self.pool is not None:
+                    # Parallel evaluation using multiprocessing pool
+                    fitness_values = self.pool.map(_evaluate_solution_wrapper, solutions)
+                    # Count failures (infinite values indicate failures)
+                    failed_count = sum(1 for f in fitness_values if not np.isfinite(f))
+                    if failed_count > 0:
+                        self.failed_evaluations += failed_count
+                else:
+                    # Serial evaluation
+                    fitness_values = []
+                    for solution in solutions:
+                        fitness = self.evaluate_cma_fitness(solution)
+                        fitness_values.append(fitness)
                 
                 # Tell CMA-ES the results
                 self.es.tell(solutions, fitness_values)
@@ -243,20 +389,26 @@ class GeneralParameterCMA2(BaseOptimizer):
             # Final checkpoint at completion
             self.save_checkpoint()
             
+            total_time = time.time() - start_time
+            logger.info(f"Optimization completed in {total_time:.2f}s")
+            logger.info(f"Total failed evaluations: {self.failed_evaluations}")
+            logger.info(f"Best RMSE: {self.best_fitness:.6f}")
+            logger.info(f"Note: Fitness history stores RMSE values (lower is better)")
+            
+            # Save fitness history to CSV
+            self._save_fitness_history()
+            
+            return self.best_parameters
+            
         except Exception as e:
             logger.error(f"pycma CMA-ES optimization failed: {e}")
             raise RuntimeError(f"pycma CMA-ES optimization failed: {e}") from e
-        
-        total_time = time.time() - start_time
-        logger.info(f"Optimization completed in {total_time:.2f}s")
-        logger.info(f"Total failed evaluations: {self.failed_evaluations}")
-        logger.info(f"Best RMSE: {self.best_fitness:.6f}")
-        logger.info(f"Note: Fitness history stores RMSE values (lower is better)")
-        
-        # Save fitness history to CSV
-        self._save_fitness_history()
-        
-        return self.best_parameters
+        finally:
+            # Cleanup multiprocessing pool in finally block to ensure it's always closed
+            if hasattr(self, 'pool') and self.pool is not None:
+                self.pool.close()
+                self.pool.join()
+                self.pool = None
     
     def _save_fitness_history(self):
         """Save fitness history to CSV file"""
@@ -309,3 +461,19 @@ class GeneralParameterCMA2(BaseOptimizer):
             except Exception as e:
                 logger.warning(f"Failed to restore pycma state: {e}")
                 self.es = None
+        
+        # Recreate multiprocessing pool after checkpoint load (pool can't be pickled)
+        # Delay pool setup until optimize() is called to avoid issues during checkpoint loading
+        if hasattr(self, 'pool') and self.pool is not None:
+            self.pool.close()
+            self.pool.join()
+            self.pool = None
+    
+    def __del__(self):
+        """Cleanup pool on object deletion."""
+        if hasattr(self, 'pool') and self.pool is not None:
+            try:
+                self.pool.terminate()
+                self.pool.join()
+            except Exception:
+                pass  # Ignore errors during cleanup
