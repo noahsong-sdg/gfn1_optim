@@ -170,6 +170,9 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         
         f.write('Options {\n')
         f.write('  WriteDetailedOut = Yes\n')
+        f.write('}\n\n')
+        
+        f.write('Analysis {\n')
         f.write('  WriteBandOut = Yes\n')
         f.write('}\n\n')
         

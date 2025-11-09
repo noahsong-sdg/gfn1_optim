@@ -109,7 +109,6 @@ Hamiltonian = xTB {
 ```hsd
 Options {
   WriteDetailedOut = Yes    # Main output file
-  WriteBandOut = Yes        # Eigenvalues and occupations
   WriteResultsTag = Yes     # Machine-readable results
 }
 ```
@@ -118,6 +117,7 @@ Options {
 
 ```hsd
 Analysis {
+  WriteBandOut = Yes        # Eigenvalues and occupations (band.out file)
   CalculateForces = Yes     # Compute atomic forces
 }
 ```
@@ -205,6 +205,10 @@ Hamiltonian = xTB {
 
 # Must have these options
 Options {
+  WriteDetailedOut = Yes
+}
+
+Analysis {
   WriteBandOut = Yes
 }
 
