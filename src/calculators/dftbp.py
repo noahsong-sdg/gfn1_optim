@@ -172,7 +172,7 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         f.write('  WriteDetailedOut = Yes\n')
         f.write('  WriteBandOut = Yes\n')
         f.write('}\n\n')
-
+        
         f.write('ParserOptions {\n')
         f.write('  ParserVersion = 13\n')
         f.write('}\n\n')
