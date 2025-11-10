@@ -16,4 +16,5 @@ archive/
 **/eval_bulk/
 *.hsd
 *.bin
-
+results/eval_bulk/
+**eval_bulk/*
