@@ -13,6 +13,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+# Suppress warning about too many open figures (we handle cleanup explicitly)
+plt.rcParams['figure.max_open_warning'] = 0
 import sys
 import os
 import subprocess
@@ -21,7 +23,7 @@ import warnings
 from pathlib import Path
 from ase.io import read, write
 
-def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=300.0, parameter_file=None, workdir=None):
+def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=300.0, parameter_file=None, workdir=None, plot=False):
     """
     Compute band gap using DFTB+ with xTB Hamiltonian
     
@@ -30,6 +32,9 @@ def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=30
         kpts: K-point grid tuple (nx, ny, nz)
         method: xTB method ("GFN1-xTB" or "GFN2-xTB")
         temp: Electronic temperature in Kelvin
+        parameter_file: Path to parameter file (optional)
+        workdir: Working directory for DFTB+ files (optional)
+        plot: Whether to generate DOS plots (default: False, only True when run as script)
     """
     
     print("="*70)
@@ -93,16 +98,17 @@ def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=30
             print(f"Fermi Level:                    {fermi:.4f} eV")
         print("="*70)
         
-        # Plot and save (non-critical, so don't fail if plotting fails)
-        try:
-            plot_dos(eigenvalues, occupations, vbm, cbm, bandgap, fermi, workdir=workdir_path)
-        except Exception as e:
-            print(f"    WARNING: Failed to generate DOS plot: {e}")
-        
-        try:
-            save_band_data(eigenvalues, occupations, vbm, cbm, bandgap, workdir=workdir_path)
-        except Exception as e:
-            print(f"    WARNING: Failed to save band data: {e}")
+        # Plot and save only if explicitly requested (e.g., when run as script)
+        if plot:
+            try:
+                plot_dos(eigenvalues, occupations, vbm, cbm, bandgap, fermi, workdir=workdir_path)
+            except Exception as e:
+                print(f"    WARNING: Failed to generate DOS plot: {e}")
+            
+            try:
+                save_band_data(eigenvalues, occupations, vbm, cbm, bandgap, workdir=workdir_path)
+            except Exception as e:
+                print(f"    WARNING: Failed to save band data: {e}")
         
         return bandgap, energy
     else:
@@ -154,6 +160,7 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         # f.write(f'  Method = "{method}"\n')
         if parameter_file is not None:
             f.write(f'  ParameterFile = "{parameter_file}"\n')
+        f.write('  MaxSccIterations = 200\n')
         f.write('  Filling = Fermi {\n')
         f.write(f'    Temperature [Kelvin] = {float(temp)}\n')
         f.write('  }\n')
@@ -310,59 +317,71 @@ def plot_dos(eigenvalues, occupations, vbm, cbm, bandgap, fermi=None, workdir=No
     if np.isnan(vbm) or np.isnan(cbm):
         return
     
-    fig = None
-    try:
-        fig = plt.figure(figsize=(10, 6))
-        
-        occupied_mask = occupations > 0.1
-        unoccupied_mask = occupations < 0.1
-        
-        occupied_energies = eigenvalues[occupied_mask]
-        unoccupied_energies = eigenvalues[unoccupied_mask]
-        
-        if len(occupied_energies) == 0 or len(unoccupied_energies) == 0:
-            return
-        
-        e_min = np.min(eigenvalues) - 2.0
-        e_max = np.max(eigenvalues) + 2.0
-        bins = np.linspace(e_min, e_max, 100)
-        
-        plt.hist(occupied_energies, bins=bins, alpha=0.7, label='Occupied', 
-                color='blue', edgecolor='blue')
-        plt.hist(unoccupied_energies, bins=bins, alpha=0.7, label='Unoccupied', 
-                color='red', edgecolor='red')
-        
-        plt.axvline(vbm, color='blue', linestyle='--', linewidth=2, 
-                   label=f'VBM = {vbm:.2f} eV')
-        plt.axvline(cbm, color='red', linestyle='--', linewidth=2, 
-                   label=f'CBM = {cbm:.2f} eV')
-        
-        if fermi is not None and not np.isnan(fermi):
-            plt.axvline(fermi, color='green', linestyle=':', linewidth=2, 
-                       label=f'E_F = {fermi:.2f} eV')
-        
-        plt.axvspan(vbm, cbm, alpha=0.2, color='yellow', 
-                   label=f'Gap = {bandgap:.2f} eV')
-        
-        plt.xlabel('Energy (eV)', fontsize=12)
-        plt.ylabel('Density of States', fontsize=12)
-        plt.title('DFTB+ Electronic DOS', fontsize=14, fontweight='bold')
-        plt.legend(fontsize=10, loc='best')
-        plt.grid(True, alpha=0.3)
-        
-        # Suppress tight_layout warning by catching it, or just use bbox_inches in savefig
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
-            plt.tight_layout()
-        
-        outdir = Path(workdir) if workdir is not None else Path('.')
-        plt.savefig(outdir / 'dos_dftbp.png', dpi=300, bbox_inches='tight')
-        print(f"\n    DOS plot saved: {outdir / 'dos_dftbp.png'}")
-    finally:
-        if fig is not None:
+    # Suppress matplotlib warnings about too many open figures
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        fig = None
+        try:
+            fig = plt.figure(figsize=(10, 6))
+            
+            occupied_mask = occupations > 0.1
+            unoccupied_mask = occupations < 0.1
+            
+            occupied_energies = eigenvalues[occupied_mask]
+            unoccupied_energies = eigenvalues[unoccupied_mask]
+            
+            if len(occupied_energies) == 0 or len(unoccupied_energies) == 0:
+                plt.close(fig)
+                return
+            
+            e_min = np.min(eigenvalues) - 2.0
+            e_max = np.max(eigenvalues) + 2.0
+            bins = np.linspace(e_min, e_max, 100)
+            
+            plt.hist(occupied_energies, bins=bins, alpha=0.7, label='Occupied', 
+                    color='blue', edgecolor='blue')
+            plt.hist(unoccupied_energies, bins=bins, alpha=0.7, label='Unoccupied', 
+                    color='red', edgecolor='red')
+            
+            plt.axvline(vbm, color='blue', linestyle='--', linewidth=2, 
+                       label=f'VBM = {vbm:.2f} eV')
+            plt.axvline(cbm, color='red', linestyle='--', linewidth=2, 
+                       label=f'CBM = {cbm:.2f} eV')
+            
+            if fermi is not None and not np.isnan(fermi):
+                plt.axvline(fermi, color='green', linestyle=':', linewidth=2, 
+                           label=f'E_F = {fermi:.2f} eV')
+            
+            plt.axvspan(vbm, cbm, alpha=0.2, color='yellow', 
+                       label=f'Gap = {bandgap:.2f} eV')
+            
+            plt.xlabel('Energy (eV)', fontsize=12)
+            plt.ylabel('Density of States', fontsize=12)
+            plt.title('DFTB+ Electronic DOS', fontsize=14, fontweight='bold')
+            plt.legend(fontsize=10, loc='best')
+            plt.grid(True, alpha=0.3)
+            
+            # Suppress tight_layout warning
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                plt.tight_layout()
+            
+            outdir = Path(workdir) if workdir is not None else Path('.')
+            plt.savefig(outdir / 'dos_dftbp.png', dpi=300, bbox_inches='tight')
+            print(f"\n    DOS plot saved: {outdir / 'dos_dftbp.png'}")
+            
+            # Close figure immediately after saving to prevent accumulation
             plt.close(fig)
-        elif plt.get_fignums():
-            plt.close('all')
+            fig = None
+        except Exception:
+            # Ensure figure is closed even on error
+            if fig is not None:
+                plt.close(fig)
+            raise
+        finally:
+            # Final cleanup - ensure figure is closed
+            if fig is not None:
+                plt.close(fig)
 
 
 def save_band_data(eigenvalues, occupations, vbm, cbm, bandgap, workdir=None):
@@ -413,9 +432,9 @@ Examples:
         print(f"ERROR: Structure file not found: {args.structure}")
         sys.exit(1)
     
-    # Run calculation
+    # Run calculation with plotting enabled (since running as script)
     kpts = tuple(args.kpts)
-    bandgap, _energy = run_dftbp_bandgap(args.structure, kpts, args.method, args.temp, parameter_file=None, workdir=None)
+    bandgap, _energy = run_dftbp_bandgap(args.structure, kpts, args.method, args.temp, parameter_file=None, workdir=None, plot=True)
     
     if bandgap is not None:
         print(f"\nSUCCESS: Band gap = {bandgap:.4f} eV")
