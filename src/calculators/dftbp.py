@@ -160,7 +160,7 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         # f.write(f'  Method = "{method}"\n')
         if parameter_file is not None:
             f.write(f'  ParameterFile = "{parameter_file}"\n')
-        f.write('  MaxSccIterations = 200\n')
+        f.write('  MaxSccIterations = 250\n')
         f.write('  Filling = Fermi {\n')
         f.write(f'    Temperature [Kelvin] = {float(temp)}\n')
         f.write('  }\n')

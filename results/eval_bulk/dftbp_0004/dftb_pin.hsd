@@ -89,7 +89,8 @@ Geometry = {
 }
 Driver = {}
 Hamiltonian = xTB {
-  ParameterFile = "/home/noahsong/work/gfn/gfn1_optim/config/gfn1-base.toml"
+  ParameterFile = "/home/noahsong/work/gfn/gfn1_optim/results/bayes_50/big_bayes.toml"
+  MaxSccIterations = 200
   Filling = Fermi {
     Temperature [Kelvin] = 100.0
     IndependentKFilling = No
@@ -112,7 +113,6 @@ Hamiltonian = xTB {
   ElectricField = {}
   Solver = RelativelyRobust {}
   Charge = 0.0000000000000000
-  MaxSCCIterations = 100
   Dispersion = {}
   Solvation = {}
   Electrostatics = GammaFunctional {}
@@ -146,6 +146,15 @@ Options = {
  "stream"
   }
 }
+Analysis = {
+  WriteBandOut = Yes
+  ProjectStates = {}
+  WriteEigenvectors = No
+  MullikenAnalysis = Yes
+  WriteNetCharges = No
+  AtomResolvedEnergies = No
+  CalculateForces = No
+}
 ParserOptions = {
   ParserVersion = 13
   WriteHSDInput = Yes
@@ -157,13 +166,4 @@ Parallel = {
   Groups = 1
 }
 Reks = None {}
-Analysis = {
-  ProjectStates = {}
-  WriteEigenvectors = No
-  WriteBandOut = Yes
-  MullikenAnalysis = Yes
-  WriteNetCharges = No
-  AtomResolvedEnergies = No
-  CalculateForces = No
-}
 ExcitedState = {}
