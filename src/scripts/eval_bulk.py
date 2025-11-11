@@ -188,7 +188,7 @@ def main():
         plt.xlabel('Reference Bandgap (eV)')
         plt.ylabel('Calculated Bandgap (eV)')
         title_rmse = f" (RMSE={g_rmse:.3f} eV)" if np.isfinite(g_rmse) else ""
-        plt.title(f'Bandgap: Predicted w/ Bayes (50it) vs Actual{title_rmse}')
+        plt.title(f'Bandgap: Predicted w/ Bayes (100it) vs Actual{title_rmse}')
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
         plot_path = out_path.with_suffix('.bandgap.png')
@@ -232,7 +232,7 @@ def main():
                 plt.xlabel('Reference Relative Free Energy (eV)')
                 plt.ylabel('Calculated Relative Free Energy (eV)')
                 title_rmse_e = f" (RMSE={e_rmse:.3f} eV)" if np.isfinite(e_rmse) else ""
-                plt.title(f'Free Energy: Predicted w/ Bayes (50it) vs Actual (relative){title_rmse_e}')
+                plt.title(f'Free Energy: Predicted w/ Bayes (100it) vs Actual (relative){title_rmse_e}')
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
                 plt.savefig(energy_plot_path, dpi=300, bbox_inches='tight')
