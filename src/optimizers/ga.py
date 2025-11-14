@@ -51,7 +51,7 @@ class _FitnessEvaluator:
         
         # Manually initialize all required attributes (mimicking BaseOptimizer.__init__)
         import toml
-        from config import get_system_config, CalculationType
+        from config import get_system_config
         from utils.parameter_bounds import ParameterBoundsManager
         
         self._optimizer.system_name = system_name
@@ -67,14 +67,6 @@ class _FitnessEvaluator:
         self._optimizer.system_config = get_system_config(system_name)
         self._optimizer.bounds_manager = ParameterBoundsManager()
         self._optimizer.parameter_bounds = parameter_bounds
-        
-        # Store original parameter values for delta calculation
-        self._optimizer.original_parameters = {bound.name: bound.default_val for bound in parameter_bounds}
-        
-        # Cache structures for BULK calculations (loaded once during initialization)
-        self._optimizer.cached_structures = None
-        if self._optimizer.system_config.calculation_type == CalculationType.BULK:
-            self._optimizer._load_and_cache_structures()
         
         # Setup reference data (this calls _split_train_test_data internally)
         self._optimizer._setup_reference_data(reference_data)

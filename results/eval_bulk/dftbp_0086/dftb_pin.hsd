@@ -89,7 +89,7 @@ Geometry = {
 }
 Driver = {}
 Hamiltonian = xTB {
-  ParameterFile = "/home/noahsong/work/gfn/gfn1_optim/results/bayes_100/big_bayes.toml"
+  ParameterFile = "/home/noahsong/work/gfn/gfn1_optim/config/gfn1-base.toml"
   MaxSccIterations = 250
   Filling = Fermi {
     Temperature [Kelvin] = 100.0
