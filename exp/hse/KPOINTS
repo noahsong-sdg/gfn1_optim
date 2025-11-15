@@ -1,5 +1,24 @@
-Automatic mesh
-0
-Gamma
-1 1 1 
-0 0 0
+Bandstructure along high-symmetry path
+100              ! Number of k-points along each segment
+Line-mode       ! Use line mode for band structure
+Cartesian       ! Use Cartesian (fractional) coordinates
+0.000000  0.000000  0.000000  ! Gamma (G)
+0.333333  0.666667  0.000000  ! K
+
+0.333333  0.666667  0.000000  ! K
+0.500000  0.500000  0.000000  ! M
+
+0.500000  0.500000  0.000000  ! M
+0.000000  0.000000  0.000000  ! Gamma (G)
+
+0.000000  0.000000  0.000000  ! Gamma (G)
+0.000000  0.000000  0.500000  ! A
+
+0.000000  0.000000  0.500000  ! A
+0.333333  0.666667  0.500000  ! H
+
+0.333333  0.666667  0.500000  ! H
+0.500000  0.500000  0.500000  ! L
+
+0.500000  0.500000  0.500000  ! L
+0.000000  0.000000  0.500000  ! A
