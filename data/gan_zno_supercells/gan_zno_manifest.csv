@@ -1,0 +1,8 @@
+fraction_zno,ga,zn,n,o,supercell,target_a_ang,target_c_ang,poscar
+0.000,36,0,36,0,3x3x2,3.1890,5.1850,gan_zno_x0.00_sc3x3x2.vasp
+0.200,29,7,29,7,3x3x2,3.2010,5.1892,gan_zno_x0.20_sc3x3x2.vasp
+0.400,22,14,22,14,3x3x2,3.2130,5.1934,gan_zno_x0.40_sc3x3x2.vasp
+0.500,18,18,18,18,3x3x2,3.2190,5.1955,gan_zno_x0.50_sc3x3x2.vasp
+0.600,14,22,14,22,3x3x2,3.2250,5.1976,gan_zno_x0.60_sc3x3x2.vasp
+0.800,7,29,7,29,3x3x2,3.2370,5.2018,gan_zno_x0.80_sc3x3x2.vasp
+1.000,0,36,0,36,3x3x2,3.2490,5.2060,gan_zno_x1.00_sc3x3x2.vasp

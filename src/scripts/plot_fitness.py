@@ -21,20 +21,20 @@ def plot_generation_vs_best_fitness(csv_path, save_path=None):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
     
     # Plot 1: Best fitness over generations
-    ax1.plot(df['generation'], df['best_fitness'], marker='o', linestyle='-', color='b', label='Best Fitness', markersize=3)
+    ax1.plot(df['generation'], df['best_fitness'], marker='o', linestyle='-', color='b', label='Best Loss', markersize=3)
     ax1.set_xlabel('Generation')
-    ax1.set_ylabel('Best Fitness')
-    ax1.set_title('Generation vs Best Fitness')
+    ax1.set_ylabel('Loss')
+    ax1.set_title('Bayesian Iteration vs Loss')
     ax1.grid(True, linestyle='--', alpha=0.6)
     ax1.legend()
     
     # Plot 2: Average fitness over generations
     if 'avg_fitness' in df.columns:
-        ax2.plot(df['generation'], df['avg_fitness'], marker='s', linestyle='-', color='r', label='Average Fitness', markersize=3)
-        ax2.plot(df['generation'], df['best_fitness'], marker='o', linestyle='-', color='b', label='Best Fitness', markersize=3, alpha=0.7)
+        ax2.plot(df['generation'], df['avg_fitness'], marker='s', linestyle='-', color='r', label='Average Loss', markersize=3)
+        ax2.plot(df['generation'], df['best_fitness'], marker='o', linestyle='-', color='b', label='Best Loss', markersize=3, alpha=0.7)
         ax2.set_xlabel('Generation')
-        ax2.set_ylabel('Fitness')
-        ax2.set_title('Generation vs Fitness (Best vs Average)')
+        ax2.set_ylabel('Loss')
+        ax2.set_title('CMA-ES Generation vs Loss (Best vs Average)')
         ax2.grid(True, linestyle='--', alpha=0.6)
         ax2.legend()
     
@@ -98,7 +98,8 @@ def analyze_fitness_data(csv_path):
 if __name__ == "__main__":
 
     # df = analyze_fitness_data('results/bayes/CdS_bayes_history.csv')
-    plot_generation_vs_best_fitness('results/bayes_200/big_bayes_history.csv')
+    #plot_generation_vs_best_fitness('results/cma2_fast12/big_cma2_history.csv')
+    plot_generation_vs_best_fitness('results/bayes_100/big_bayes_history.csv')
 
     #df = analyze_fitness_data('results/cma1/CdS_cma1_history.csv')
     #plot_generation_vs_best_fitness('results/cma1/CdS_cma1_history.csv')

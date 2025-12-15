@@ -23,18 +23,19 @@ import warnings
 from pathlib import Path
 from ase.io import read, write
 
-def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=300.0, parameter_file=None, workdir=None, plot=False):
+def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=300.0, parameter_file=None, workdir=None, plot=False, explicit_kpts=None):
     """
     Compute band gap using DFTB+ with xTB Hamiltonian
     
     Args:
         structure_file: Path to structure file (cif, xyz, etc.)
-        kpts: K-point grid tuple (nx, ny, nz)
+        kpts: K-point grid tuple (nx, ny, nz) - used only if explicit_kpts is None
         method: xTB method ("GFN1-xTB" or "GFN2-xTB")
         temp: Electronic temperature in Kelvin
         parameter_file: Path to parameter file (optional)
         workdir: Working directory for DFTB+ files (optional)
         plot: Whether to generate DOS plots (default: False, only True when run as script)
+        explicit_kpts: List of explicit k-point coordinates [[kx, ky, kz], ...] (optional)
     """
     
     print("="*70)
@@ -57,11 +58,16 @@ def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=30
     
     # Create HSD input file
     print(f"\n[3] Creating DFTB+ input file (dftb_in.hsd)")
-    print(f"    K-points: {kpts[0]}x{kpts[1]}x{kpts[2]}")
+    if explicit_kpts is not None:
+        print(f"    K-points: {len(explicit_kpts)} explicit k-points")
+        for i, kpt in enumerate(explicit_kpts):
+            print(f"      [{i+1}] ({kpt[0]:.3f}, {kpt[1]:.3f}, {kpt[2]:.3f})")
+    else:
+        print(f"    K-points: {kpts[0]}x{kpts[1]}x{kpts[2]} grid")
     print(f"    Method: {method}")
     print(f"    Temperature: {temp} K")
     
-    create_hsd_input(atoms, kpts, method, temp, parameter_file=parameter_file, workdir=workdir_path)
+    create_hsd_input(atoms, kpts, method, temp, parameter_file=parameter_file, workdir=workdir_path, explicit_kpts=explicit_kpts)
     
     # Run DFTB+
     print(f"\n[4] Running DFTB+...")
@@ -115,7 +121,7 @@ def run_dftbp_bandgap(structure_file, kpts=(3, 3, 3), method="GFN1-xTB", temp=30
         print("    ERROR: Could not parse band structure from band.out")
         return None, energy
 
-def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=None):
+def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=None, explicit_kpts=None):
     """Create DFTB+ HSD input file using the explicit geometry specification."""
     
     workdir_path = Path(workdir) if workdir is not None else Path('.')
@@ -157,8 +163,9 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         f.write('Driver = {}\n\n')
         
         f.write('Hamiltonian = xTB {\n')
-        # f.write(f'  Method = "{method}"\n')
-        if parameter_file is not None:
+        if parameter_file is None:
+            f.write(f'  Method = "{method}"\n')
+        else:
             f.write(f'  ParameterFile = "{parameter_file}"\n')
         f.write('  MaxSccIterations = 250\n')
         f.write('  Filling = Fermi {\n')
@@ -166,12 +173,23 @@ def create_hsd_input(atoms, kpts, method, temp, parameter_file=None, workdir=Non
         f.write('  }\n')
         
         if any(atoms.get_pbc()):
-            f.write('  KPointsAndWeights = SupercellFolding {\n')
-            f.write(f'    {kpts[0]} 0 0\n')
-            f.write(f'    0 {kpts[1]} 0\n')
-            f.write(f'    0 0 {kpts[2]}\n')
-            f.write('    0.0 0.0 0.0\n')
-            f.write('  }\n')
+            if explicit_kpts is not None:
+                # Use explicit k-points
+                f.write('  KPointsAndWeights = {\n')
+                nkpts = len(explicit_kpts)
+                # Equal weights (1/nkpts for each k-point)
+                weight = 1.0 / nkpts
+                for kpt in explicit_kpts:
+                    f.write(f'    {kpt[0]:16.10f}  {kpt[1]:16.10f}  {kpt[2]:16.10f}  {weight:16.10f}\n')
+                f.write('  }\n')
+            else:
+                # Use grid-based k-points
+                f.write('  KPointsAndWeights = SupercellFolding {\n')
+                f.write(f'    {kpts[0]} 0 0\n')
+                f.write(f'    0 {kpts[1]} 0\n')
+                f.write(f'    0 0 {kpts[2]}\n')
+                f.write('    0.0 0.0 0.0\n')
+                f.write('  }\n')
             
         f.write('}\n\n')
         
@@ -408,15 +426,19 @@ def main():
 Examples:
   python dftbp.py cspbi3.cif
   pixi run python dftbp.py cspbi3.cif --kpts 3 3 3
+  pixi run python src/calculators/dftbp.py CdS.poscar --kpts 1 1 1
   python dftbp.py cspbi3.cif --kpts 6 6 6 --temp 500
   python dftbp.py relaxed_structure.xyz --method GFN2-xTB
+  python dftbp.py CdS.poscar --kpts-explicit 0 0 0 0.5 0 0 0 0.5 0 0 0 0.5
         """
     )
     
     parser.add_argument('structure', 
                        help='Structure file (cif, xyz, POSCAR, etc.)')
     parser.add_argument('--kpts', nargs=3, type=int, default=[3, 3, 3],
-                       help='K-point grid (default: 3 3 3)')
+                       help='K-point grid (default: 3 3 3) - ignored if --kpts-explicit is used')
+    parser.add_argument('--kpts-explicit', nargs='+', type=float, metavar='KX KY KZ',
+                       help='Explicit k-points as flat list: k1x k1y k1z k2x k2y k2z ... (e.g., 0 0 0 0.5 0 0 0 0.5 0 0 0 0.5)')
     parser.add_argument('--method', default='GFN1-xTB',
                        choices=['GFN1-xTB', 'GFN2-xTB'],
                        help='xTB method (default: GFN1-xTB for band gaps)')
@@ -432,9 +454,24 @@ Examples:
         print(f"ERROR: Structure file not found: {args.structure}")
         sys.exit(1)
     
+    # Parse explicit k-points if provided
+    explicit_kpts = None
+    if args.kpts_explicit is not None:
+        if len(args.kpts_explicit) % 3 != 0:
+            print(f"ERROR: --kpts-explicit must have a multiple of 3 values (got {len(args.kpts_explicit)})")
+            print("       Format: k1x k1y k1z k2x k2y k2z ...")
+            sys.exit(1)
+        explicit_kpts = []
+        for i in range(0, len(args.kpts_explicit), 3):
+            explicit_kpts.append([
+                args.kpts_explicit[i],
+                args.kpts_explicit[i+1],
+                args.kpts_explicit[i+2]
+            ])
+    
     # Run calculation with plotting enabled (since running as script)
     kpts = tuple(args.kpts)
-    bandgap, _energy = run_dftbp_bandgap(args.structure, kpts, args.method, args.temp, parameter_file=None, workdir=None, plot=True)
+    bandgap, _energy = run_dftbp_bandgap(args.structure, kpts, args.method, args.temp, parameter_file=None, workdir=None, plot=True, explicit_kpts=explicit_kpts)
     
     if bandgap is not None:
         print(f"\nSUCCESS: Band gap = {bandgap:.4f} eV")
@@ -445,4 +482,4 @@ Examples:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

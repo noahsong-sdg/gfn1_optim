@@ -2,7 +2,7 @@
 # pixi environments
 **pixi**
 *.egg-info
-data/
+
 archive/
 *.png
 *.txt
@@ -16,5 +16,5 @@ archive/
 **/eval_bulk/
 *.hsd
 *.bin
-results/eval_bulk/
+results/eval_bulk/*
 **eval_bulk/*
