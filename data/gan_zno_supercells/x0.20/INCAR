@@ -1,0 +1,47 @@
+# System identification
+SYSTEM = GaN-ZnO x=0.20 - HSE06 SCF
+
+# Electronic minimization
+ENCUT = 520
+PREC = Accurate
+EDIFF = 1E-6
+ALGO = All
+NELM = 200
+TIME = 0.4
+
+# No ionic relaxation
+IBRION = -1
+NSW = 0
+
+# HSE06 hybrid functional
+LHFCALC = .TRUE.
+HFSCREEN = 0.2
+PRECFOCK = Fast
+NKRED = 2
+
+# Output control
+LWAVE = .TRUE.
+LCHARG = .TRUE.
+LORBIT = 11
+
+# Parallelization
+NCORE = 4
+KPAR = 2
+LPLANE = .TRUE.
+NSIM = 4
+
+# Spin polarization
+ISPIN = 2
+MAGMOM = 29*0.0 7*0.0 29*0.0 7*0.0
+
+# Mixing
+AMIX = 0.2
+BMIX = 0.0001
+AMIX_MAG = 0.8
+BMIX_MAG = 0.0001
+
+# DOS parameters
+NEDOS = 3000
+EMIN = -25
+EMAX = 15
+

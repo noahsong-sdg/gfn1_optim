@@ -1,0 +1,37 @@
+# System identification
+SYSTEM = GaN-ZnO x=0.50 - PBE Relaxation
+
+# Electronic minimization
+ENCUT = 520
+PREC = Accurate
+EDIFF = 1E-6
+ALGO = Normal
+NELM = 100
+
+# Ionic relaxation
+IBRION = 2
+NSW = 200
+ISIF = 2
+EDIFFG = -0.01
+
+# Exchange-correlation
+GGA = PE
+
+# Output control
+LWAVE = .FALSE.
+LCHARG = .FALSE.
+LORBIT = 11
+
+# Parallelization
+NCORE = 4
+
+# Spin polarization
+ISPIN = 2
+MAGMOM = 18*0.0 18*0.0 18*0.0 18*0.0
+
+# Mixing
+AMIX = 0.2
+BMIX = 0.0001
+AMIX_MAG = 0.8
+BMIX_MAG = 0.0001
+

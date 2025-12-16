@@ -2,7 +2,32 @@
 Quantum Dot Dataset Generator for GaN, ZnO, and GaN/ZnO alloys.
 
 This script generates spherical wurtzite quantum dots with pseudo-hydrogen
-passivation for use in VASP band gap calculations.
+passivation for use in VASP band gap calculations. Alloy disorder is modeled
+using Special Quasirandom Structures (SQS) via the icet library.
+
+================================================================================
+SQS METHODOLOGY
+================================================================================
+
+This script uses Special Quasirandom Structures (SQS) to model GaN/ZnO alloy
+disorder. SQS optimizes the atomic arrangement to match the pair and multi-body
+correlation functions of an ideal random alloy, providing a more rigorous
+representation than simple random substitution.
+
+Key advantages of SQS over random substitution:
+    - Correlation functions match those of a truly random alloy
+    - Minimizes artificial clustering and short-range order
+    - More reproducible: optimal structure is unique for given cell/composition
+    - Better small-cell behavior critical for quantum dots
+
+The SQS is generated using icet (https://icet.materialsmodeling.org/) with:
+    - Cutoffs for pairs (7.0 A), triplets (5.0 A), quadruplets (4.0 A)
+    - Separate optimization on cation (Ga/Zn) and anion (N/O) sublattices
+    - Monte Carlo optimization to minimize correlation function deviation
+
+References:
+    - Zunger et al., Phys. Rev. Lett. 65, 353 (1990) - SQS methodology
+    - icet: M. Angqvist et al., Adv. Theory Simul. 2, 1900015 (2019)
 
 ================================================================================
 VASP POTCAR SETUP FOR PSEUDO-HYDROGENS
@@ -58,16 +83,18 @@ ALTERNATIVE APPROACH (simpler but less rigorous):
 Scientific basis:
 - Wurtzite structure with literature lattice parameters
 - Vegard's law interpolation for alloy lattice constants
+- SQS methodology for alloy disorder (Zunger et al., 1990)
 - Pseudo-hydrogen passivation using fractional charges based on valence electron
   counting (dangling bond saturation model)
 
 References:
 - GaN lattice: Y. T. Tsang et al., J. Appl. Phys. 79 (1996)
 - ZnO lattice: U. Ozgur et al., J. Appl. Phys. 98, 041301 (2005)
+- SQS: A. Zunger et al., Phys. Rev. Lett. 65, 353 (1990)
 - Passivation model: X. Huang et al., Phys. Rev. B 71, 165328 (2005)
 
 Usage:
-    python gen_qdot.py --radii 8 10 12 --fractions 0.0 0.5 1.0 --seeds 42 43
+    python gen_qdot.py --radii 8 10 12 --fractions 0.0 0.5 1.0
     python gen_qdot.py --validate  # Validate generated structures
 """
 
@@ -83,7 +110,8 @@ from ase import Atoms
 from ase.build import bulk, make_supercell
 from ase.io import read, write
 from ase.neighborlist import NeighborList
-
+from icet import ClusterSpace
+from icet.tools.structure_generation import generate_sqs_from_supercell
 
 # =============================================================================
 # PHYSICAL CONSTANTS AND LITERATURE VALUES
@@ -92,13 +120,11 @@ from ase.neighborlist import NeighborList
 GAN_LATTICE = {
     "a": 3.189,
     "c": 5.185,
-    "source": "Y. T. Tsang et al., J. Appl. Phys. 79 (1996)",
 }
 
 ZNO_LATTICE = {
     "a": 3.249,
     "c": 5.206,
-    "source": "U. Ozgur et al., J. Appl. Phys. 98, 041301 (2005)",
 }
 
 PASSIVANT_CHARGES = {
@@ -110,6 +136,12 @@ PASSIVANT_CHARGES = {
 
 BOND_CUTOFF = 2.4
 BOND_LENGTH_SCALING = 0.75
+
+# SQS generation parameters
+# Cutoffs for pair, triplet, and quadruplet clusters in Angstroms
+SQS_CUTOFFS = [7.0, 5.0, 4.0]
+# Number of Monte Carlo steps for SQS optimization (scales with supercell size)
+SQS_N_STEPS_BASE = 5000
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "quantum_dots"
@@ -145,28 +177,131 @@ def build_bulk_supercell(a: float, c: float, radius: float) -> Atoms:
     primitive = bulk("GaN", "wurtzite", a=a, c=c)
     rep_a = int(np.ceil(2 * radius / a)) + 2
     rep_c = int(np.ceil(2 * radius / c)) + 2
-supercell = make_supercell(primitive, [[rep_a, 0, 0], [0, rep_a, 0], [0, 0, rep_c]])
-supercell.center()
+    supercell = make_supercell(primitive, [[rep_a, 0, 0], [0, rep_a, 0], [0, 0, rep_c]])
+    supercell.center()
     return supercell
 
 
-def substitute_for_alloy(atoms: Atoms, fraction_zno: float, rng: np.random.Generator) -> None:
-    """Substitute Ga->Zn and N->O to achieve target ZnO fraction (in-place)."""
+def _build_primitive_for_sqs(a: float, c: float) -> Atoms:
+    """
+    Build a primitive wurtzite cell with chemical symbols suitable for icet SQS.
+    
+    The primitive cell has 4 atoms: 2 cations and 2 anions.
+    We use 'Ga' and 'N' as placeholders; icet will handle substitutions.
+    """
+    primitive = bulk("GaN", "wurtzite", a=a, c=c)
+    return primitive
+
+
+def generate_sqs_supercell(a: float, c: float, radius: float, fraction_zno: float) -> Atoms:
+    """
+    Generate an SQS supercell for the GaN(1-x)ZnO(x) alloy.
+    
+    Uses icet to generate Special Quasirandom Structures that optimally
+    represent a random alloy by minimizing correlation function deviations.
+    
+    Args:
+        a: Lattice parameter a in Angstroms (from Vegard's law)
+        c: Lattice parameter c in Angstroms (from Vegard's law)
+        radius: Target QD radius (used to determine supercell size)
+        fraction_zno: Target ZnO fraction (x in GaN(1-x)ZnO(x))
+    
+    Returns:
+        ASE Atoms object with SQS-optimized alloy configuration
+    """
+    # Build primitive cell
+    primitive = _build_primitive_for_sqs(a, c)
+    
+    # Calculate supercell size needed for the quantum dot
+    rep_a = int(np.ceil(2 * radius / a)) + 2
+    rep_c = int(np.ceil(2 * radius / c)) + 2
+    
+    # Build the supercell matrix
+    supercell_matrix = [[rep_a, 0, 0], [0, rep_a, 0], [0, 0, rep_c]]
+    supercell = make_supercell(primitive, supercell_matrix)
+    supercell.center()
+    
+    # Define chemical species for each sublattice
+    # icet needs to know which sites can have which species
+    # For wurtzite: cation sites can be Ga or Zn, anion sites can be N or O
+    chemical_symbols = []
+    for symbol in supercell.get_chemical_symbols():
+        if symbol == "Ga":
+            chemical_symbols.append(["Ga", "Zn"])  # Cation sublattice
+        else:  # symbol == "N"
+            chemical_symbols.append(["N", "O"])  # Anion sublattice
+    
+    # Create ClusterSpace for SQS generation
+    # The primitive structure defines the lattice, chemical_symbols defines allowed substitutions
+    cs = ClusterSpace(primitive, cutoffs=SQS_CUTOFFS, chemical_symbols=[["Ga", "Zn"], ["N", "O"]])
+    
+    # Define target concentrations
+    # For GaN(1-x)ZnO(x): 
+    #   - Cation sublattice: (1-x) Ga + x Zn
+    #   - Anion sublattice: (1-x) N + x O
+    target_concentrations = {
+        "Ga": 1.0 - fraction_zno,
+        "Zn": fraction_zno,
+        "N": 1.0 - fraction_zno,
+        "O": fraction_zno,
+    }
+    
+    # Scale Monte Carlo steps with supercell size for better convergence
+    n_atoms = len(supercell)
+    n_steps = max(SQS_N_STEPS_BASE, int(SQS_N_STEPS_BASE * n_atoms / 100))
+    
+    # Generate SQS structure
+    sqs_structure = generate_sqs_from_supercell(
+        cluster_space=cs,
+        supercell=supercell,
+        target_concentrations=target_concentrations,
+        n_steps=n_steps,
+    )
+    
+    return sqs_structure
+
+
+def substitute_for_alloy_sqs(supercell: Atoms, a: float, c: float, radius: float, 
+                             fraction_zno: float) -> Atoms:
+    """
+    Generate SQS-based alloy substitution for the supercell.
+    
+    This is the main interface function that replaces the old random substitution.
+    For pure GaN (fraction_zno=0) or pure ZnO (fraction_zno=1), returns the
+    appropriate pure compound without SQS optimization.
+    
+    Args:
+        supercell: Input supercell (ignored, rebuilt internally for SQS)
+        a: Lattice parameter a
+        c: Lattice parameter c  
+        radius: Target QD radius
+        fraction_zno: Target ZnO fraction
+    
+    Returns:
+        Supercell with SQS-optimized or pure composition
+    """
+    # For pure compounds, no SQS needed
     if fraction_zno == 0.0:
-        return
-    symbols = atoms.get_chemical_symbols()
-    ga_indices = [i for i, s in enumerate(symbols) if s == "Ga"]
-    n_indices = [i for i, s in enumerate(symbols) if s == "N"]
-    assert len(ga_indices) == len(n_indices), "Wurtzite must have equal cations/anions"
-    n_substitute = int(round(len(ga_indices) * fraction_zno))
-    if n_substitute == 0:
-        return
-    ga_to_zn = rng.choice(ga_indices, size=n_substitute, replace=False)
-    n_to_o = rng.choice(n_indices, size=n_substitute, replace=False)
-    for idx in ga_to_zn:
-        atoms[idx].symbol = "Zn"
-    for idx in n_to_o:
-        atoms[idx].symbol = "O"
+        # Pure GaN - supercell already has correct composition
+        return supercell
+    
+    if fraction_zno == 1.0:
+        # Pure ZnO - substitute all Ga->Zn and N->O
+        result = supercell.copy()
+        symbols = result.get_chemical_symbols()
+        new_symbols = []
+        for s in symbols:
+            if s == "Ga":
+                new_symbols.append("Zn")
+            elif s == "N":
+                new_symbols.append("O")
+            else:
+                new_symbols.append(s)
+        result.set_chemical_symbols(new_symbols)
+        return result
+    
+    # For alloys, generate SQS
+    return generate_sqs_supercell(a, c, radius, fraction_zno)
 
 
 # =============================================================================
@@ -205,16 +340,31 @@ def find_dangling_bonds(supercell: Atoms, valid_indices: np.ndarray) -> List[dic
 # =============================================================================
 
 def generate_quantum_dot(radius: float, fraction_zno: float, seed: int) -> Tuple[Atoms, dict]:
-    """Generate a single passivated quantum dot structure."""
-    rng = np.random.default_rng(seed)
+    """
+    Generate a single passivated quantum dot structure.
+    
+    For alloy compositions (0 < fraction_zno < 1), uses Special Quasirandom
+    Structures (SQS) to model disorder. The seed parameter is kept for API
+    compatibility but is not used for SQS generation (SQS is deterministic
+    given the composition and cell size).
+    
+    Args:
+        radius: QD radius in Angstroms
+        fraction_zno: ZnO fraction (x in GaN(1-x)ZnO(x))
+        seed: Random seed (unused for SQS, kept for API compatibility)
+    
+    Returns:
+        Tuple of (passivated QD Atoms, metadata dict)
+    """
+    _ = seed  # Unused for SQS - structure is deterministic
     a, c = vegards_law(fraction_zno)
     supercell = build_bulk_supercell(a, c, radius)
-    substitute_for_alloy(supercell, fraction_zno, rng)
+    supercell = substitute_for_alloy_sqs(supercell, a, c, radius, fraction_zno)
 
     supercell_center = supercell.get_cell() @ np.array([0.5, 0.5, 0.5])
-positions = supercell.get_positions()
+    positions = supercell.get_positions()
     distances = np.linalg.norm(positions - supercell_center, axis=1)
-mask = distances <= radius
+    mask = distances <= radius
     valid_indices = np.where(mask)[0]
 
     passivants = find_dangling_bonds(supercell, valid_indices)
@@ -252,34 +402,45 @@ mask = distances <= radius
     return passivated_qd, metadata
 
 
-def generate_dataset(radii: Sequence[float], fractions: Sequence[float], seeds: Sequence[int], output_dir: Path) -> None:
-    """Generate a dataset of quantum dot structures with varying parameters."""
+def generate_dataset(radii: Sequence[float], fractions: Sequence[float], output_dir: Path) -> None:
+    """
+    Generate a dataset of quantum dot structures with varying parameters.
+    
+    For alloy compositions, uses SQS (Special Quasirandom Structures) which
+    generates a single optimal structure per composition. Unlike random
+    substitution, SQS is deterministic for a given composition and cell size.
+    
+    Args:
+        radii: List of QD radii in Angstroms
+        fractions: List of ZnO fractions
+        output_dir: Output directory for structure files
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_rows = []
     structure_count = 0
 
     for radius in radii:
         for fraction in fractions:
-            seeds_to_use = seeds if 0.0 < fraction < 1.0 else [seeds[0]]
-            for seed in seeds_to_use:
-                print(f"Generating: r={radius} A, x_ZnO={fraction:.2f}, seed={seed}")
-                qd, metadata = generate_quantum_dot(radius, fraction, seed)
+            print(f"Generating: r={radius} A, x_ZnO={fraction:.2f}")
+            if 0.0 < fraction < 1.0:
+                print("  -> Using SQS for alloy disorder")
+            qd, metadata = generate_quantum_dot(radius, fraction, seed=0)
 
-                if fraction == 0.0:
-                    comp_str = "GaN"
-                elif fraction == 1.0:
-                    comp_str = "ZnO"
-                else:
-                    comp_str = f"GaN{1-fraction:.2f}_ZnO{fraction:.2f}"
+            if fraction == 0.0:
+                comp_str = "GaN"
+            elif fraction == 1.0:
+                comp_str = "ZnO"
+            else:
+                comp_str = f"GaN{1-fraction:.2f}_ZnO{fraction:.2f}"
 
-                filename = f"QD_{comp_str}_r{radius:.0f}A_s{seed}.vasp"
-                filepath = output_dir / filename
-                write(filepath, qd, format="vasp", vasp5=True, direct=True, sort=True)
+            filename = f"QD_{comp_str}_r{radius:.0f}A_SQS.vasp"
+            filepath = output_dir / filename
+            write(filepath, qd, format="vasp", vasp5=True, direct=True, sort=True)
 
-                metadata["filename"] = filename
-                manifest_rows.append(metadata)
-                structure_count += 1
-                print(f"  -> {metadata['n_core_atoms']} core + {metadata['n_passivants']} H")
+            metadata["filename"] = filename
+            manifest_rows.append(metadata)
+            structure_count += 1
+            print(f"  -> {metadata['n_core_atoms']} core + {metadata['n_passivants']} H")
 
     manifest_path = output_dir / "qd_manifest.csv"
     assert len(manifest_rows) > 0, "No structures generated"
@@ -519,7 +680,7 @@ def validate_dataset(output_dir: Path, verbose: bool = True) -> None:
 
     if all_valid:
         print("\n[OK] All structures passed validation.")
-            else:
+    else:
         print("\n[FAIL] Some structures have errors. Review above.")
 
 
@@ -530,7 +691,7 @@ def validate_dataset(output_dir: Path, verbose: bool = True) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Generate passivated wurtzite quantum dot dataset for VASP.",
+        description="Generate passivated wurtzite quantum dot dataset for VASP using SQS.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -538,8 +699,6 @@ def parse_args() -> argparse.Namespace:
                         help="QD radii in Angstroms (default: 8 10 12)")
     parser.add_argument("--fractions", type=float, nargs="+", default=[0.0, 0.5, 1.0],
                         help="ZnO fractions for alloy (default: 0.0 0.5 1.0)")
-    parser.add_argument("--seeds", type=int, nargs="+", default=[42, 43],
-                        help="Random seeds for alloy sampling (default: 42 43)")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,
                         help=f"Output directory (default: {DEFAULT_OUTPUT_DIR})")
     parser.add_argument("--validate", action="store_true",
@@ -569,7 +728,6 @@ def main() -> None:
     generate_dataset(
         radii=args.radii,
         fractions=args.fractions,
-        seeds=args.seeds,
         output_dir=args.output_dir.resolve(),
     )
 
