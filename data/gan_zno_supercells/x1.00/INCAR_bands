@@ -27,8 +27,9 @@ LWAVE = .FALSE.
 LCHARG = .FALSE.
 LORBIT = 11
 
-# Parallelization
+# Parallelization (optimized for 32 cores)
 NCORE = 4
+KPAR = 1        # Band structure k-path is serial
 LPLANE = .TRUE.
 NSIM = 4
 

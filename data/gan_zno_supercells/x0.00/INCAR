@@ -10,7 +10,7 @@ NELM = 200
 TIME = 0.4
 
 # No ionic relaxation
-IBRION = -1
+IBRION = -1 # determines how the crystal structure changes during the calculation: -1 means no update
 NSW = 0
 
 # HSE06 hybrid functional
@@ -24,9 +24,9 @@ LWAVE = .TRUE.
 LCHARG = .TRUE.
 LORBIT = 11
 
-# Parallelization
+# Parallelization (optimized for 32 cores)
 NCORE = 4
-KPAR = 2
+KPAR = 4
 LPLANE = .TRUE.
 NSIM = 4
 

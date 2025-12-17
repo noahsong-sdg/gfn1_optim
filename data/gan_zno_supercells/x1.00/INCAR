@@ -24,9 +24,9 @@ LWAVE = .TRUE.
 LCHARG = .TRUE.
 LORBIT = 11
 
-# Parallelization
+# Parallelization (optimized for 32 cores)
 NCORE = 4
-KPAR = 2
+KPAR = 4
 LPLANE = .TRUE.
 NSIM = 4
 
